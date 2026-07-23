@@ -1,9 +1,8 @@
-hrsys
-hrsys.db
-frontend/dist/
-frontend/node_modules/
-*.exe
-*.dll
-*.so
-*.dylib
-.DS_Store
+probig
+probig.db
+uploads/*
+!uploads/.gitkeep
+web/dist/
+web/node_modules/
+*.log
+.env

@@ -1,0 +1,9 @@
+hrsys
+hrsys.db
+frontend/dist/
+frontend/node_modules/
+*.exe
+*.dll
+*.so
+*.dylib
+.DS_Store

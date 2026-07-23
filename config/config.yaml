@@ -1,0 +1,68 @@
+server:
+  port: 8080
+  host: 0.0.0.0
+
+database:
+  path: hrsys.db
+  wal: true
+  synchronous: normal
+
+jwt:
+  secret: change-me-in-production-please
+  expire_hours: 24
+
+admin:
+  username: admin
+  password: admin123
+
+roles:
+  - name: admin
+    description: 系统管理员
+    permissions:
+      - person:read
+      - person:write
+      - person:delete
+      - policy:read
+      - policy:write
+      - policy:delete
+      - attendance:read
+      - attendance:write
+      - attendance:delete
+      - attendance:import
+      - attendance:close_month
+      - salary:read
+      - salary:write
+      - salary:delete
+      - salary:calculate
+      - salary:export
+      - asset:read
+      - asset:write
+      - asset:delete
+      - event:read
+      - event:write
+      - event:delete
+      - dashboard:read
+      - export:read
+  - name: finance
+    description: 财务人员
+    permissions:
+      - person:read
+      - salary:read
+      - salary:calculate
+      - salary:export
+      - policy:read
+      - attendance:read
+      - dashboard:read
+      - export:read
+  - name: boss
+    description: 老板
+    permissions:
+      - person:read
+      - policy:read
+      - attendance:read
+      - salary:read
+      - salary:export
+      - asset:read
+      - event:read
+      - dashboard:read
+      - export:read

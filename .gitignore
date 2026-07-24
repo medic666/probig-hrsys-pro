@@ -1,8 +1,0 @@
-probig
-probig.db
-uploads/*
-!uploads/.gitkeep
-web/dist/
-web/node_modules/
-*.log
-.env

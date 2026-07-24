@@ -1,32 +1,38 @@
-.PHONY: build dev clean frontend backend install
+.PHONY: build build-frontend build-backend dev dev-backend dev-frontend clean run
 
-GOPATH ?= $(shell go env GOPATH)
-GOBIN  ?= $(shell go env GOBIN)
+BINARY_NAME=probig
+FRONTEND_DIR=frontend
+EMBED_DIR=internal/frontend/dist
 
-install:
-	cd frontend && bun install
+build: build-frontend build-backend
+	@echo "Build complete: $(BINARY_NAME)"
 
-frontend:
-	cd frontend && bun run build
+build-frontend:
+	@echo "Building frontend..."
+	cd $(FRONTEND_DIR) && bun install && bun run build
+	rm -rf $(EMBED_DIR)
+	cp -r $(FRONTEND_DIR)/dist $(EMBED_DIR)
 
-backend:
-	go build -o probig-server .
-
-build: frontend backend
-
-dev-frontend:
-	cd frontend && bun run dev
+build-backend:
+	@echo "Building backend..."
+	go mod tidy
+	go build -o $(BINARY_NAME) ./cmd/server/
 
 dev-backend:
-	DEV_MODE=true go run .
+	@echo "Starting backend dev server..."
+	go run ./cmd/server/
+
+dev-frontend:
+	@echo "Starting frontend dev server..."
+	cd $(FRONTEND_DIR) && bun run dev
 
 dev:
-	$(MAKE) -j2 dev-backend dev-frontend
+	@echo "Starting all dev servers..."
 
 clean:
-	rm -f probig-server
-	rm -rf frontend/dist
-	rm -rf data/
+	rm -f $(BINARY_NAME)
+	rm -rf $(EMBED_DIR)
+	rm -f hr.db
 
-tidy:
-	go mod tidy
+run:
+	./$(BINARY_NAME)

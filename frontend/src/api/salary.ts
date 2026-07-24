@@ -1,26 +1,29 @@
-import { get, post, put, del } from './client'
-import type { PageData, SalaryEvent, SalarySummary } from '../types'
+import http from './request'
 
-export function listSalaryEvents(params?: { entity_id?: number; page?: number; page_size?: number }) {
-  return get<PageData<SalaryEvent>>('/salary/events', params)
+export function getSalaryEventList(params: any) {
+  return http.get('/salary-events', { params })
 }
 
 export function createSalaryEvent(data: any) {
-  return post<SalaryEvent>('/salary/events', data)
+  return http.post('/salary-events', data)
 }
 
 export function updateSalaryEvent(id: number, data: any) {
-  return put<SalaryEvent>(`/salary/events/${id}`, data)
+  return http.put(`/salary-events/${id}`, data)
 }
 
 export function deleteSalaryEvent(id: number) {
-  return del(`/salary/events/${id}`)
+  return http.delete(`/salary-events/${id}`)
 }
 
-export function listSalarySummaries(params?: { entity_id?: number; start_date?: string; end_date?: string; page?: number; page_size?: number }) {
-  return get<PageData<SalarySummary>>('/salary/summaries', params)
+export function getSalarySummaryList(params: any) {
+  return http.get('/salary-summaries', { params })
 }
 
-export function calculateSalary(data: { period_start: string; period_end: string }) {
-  return post<SalarySummary[]>('/salary/calculate', data)
+export function calculateSalary(data: any) {
+  return http.post('/salary-summaries/calculate', data)
+}
+
+export function lockSalarySummary(data: any) {
+  return http.post('/salary-summaries/lock', data)
 }

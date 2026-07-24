@@ -1,6 +1,5 @@
-import { get } from './client'
-import type { PageData, AuditLog } from '../types'
+import http from './request'
 
-export function listAuditLogs(params?: { page?: number; page_size?: number; target_type?: string; user_id?: number }) {
-  return get<PageData<AuditLog>>('/audit-logs', params)
+export function getAuditLogList(params: any) {
+  return http.get('/audit-logs', { params })
 }

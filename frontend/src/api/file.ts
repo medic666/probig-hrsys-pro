@@ -1,18 +1,35 @@
-import { get, del, upload as uploadFile } from './client'
-import type { PageData, FileItem } from '../types'
+import http from './request'
 
-export function listFiles(params?: { page?: number; page_size?: number }) {
-  return get<PageData<FileItem>>('/files', params)
+export function getFileList(params: any) {
+  return http.get('/files', { params })
 }
 
-export function upload(formData: FormData) {
-  return uploadFile<FileItem>('/files/upload', formData)
+export function getFileDownloadUrl(id: number) {
+  return `/api/files/${id}`
+}
+
+export function uploadFile(formData: FormData) {
+  return http.post('/files/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
 }
 
 export function deleteFile(id: number) {
-  return del(`/files/${id}`)
+  return http.delete(`/files/${id}`)
 }
 
-export function associateFile(fileId: number, data: { target_type: string; target_id: number }) {
-  return uploadFile(`/files/${fileId}/associate`, data as any) // sic: using POST
+export function restoreFile(id: number) {
+  return http.post(`/files/${id}/restore`)
+}
+
+export function getFileRelations(params: any) {
+  return http.get('/files/relations', { params })
+}
+
+export function createFileRelation(data: any) {
+  return http.post('/files/relations', data)
+}
+
+export function deleteFileRelation(id: number) {
+  return http.delete(`/files/relations/${id}`)
 }

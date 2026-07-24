@@ -1,14 +1,17 @@
-import { post, get } from './client'
-import type { User, Permission } from '../types'
+import http from './request'
 
-export function login(username: string, password: string) {
-  return post<{ token: string; user: User }>('/auth/login', { username, password })
+export function login(data: { username: string; password: string }) {
+  return http.post('/login', data)
 }
 
-export function getMe() {
-  return get<User>('/auth/me')
+export function getUserInfo() {
+  return http.get('/user/info')
 }
 
-export function getPermissions() {
-  return get<Permission[]>('/auth/permissions')
+export function changePassword(data: { old_password: string; new_password: string }) {
+  return http.post('/user/change-password', data)
+}
+
+export function resetUserPassword(data: { user_id: number; new_password: string }) {
+  return http.post('/user/reset-password', data)
 }

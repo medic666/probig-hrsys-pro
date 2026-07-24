@@ -1,60 +1,53 @@
 <template>
-  <div class="login-container">
-    <el-card class="login-card">
-      <h2 style="text-align: center; margin-bottom: 24px">企业人事与行政资产管理系统</h2>
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="0" @submit.prevent="handleLogin">
-        <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" prefix-icon="User" />
+  <div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f2f5;">
+    <el-card style="width: 400px;">
+      <template #header>
+        <div style="text-align: center; font-size: 20px;">企业管理系统</div>
+      </template>
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input v-model="form.username" placeholder="请输入用户名" />
         </el-form-item>
-        <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" prefix-icon="Lock" show-password />
+        <el-form-item label="密码">
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password @keyup.enter="handleLogin" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="loading" style="width: 100%" @click="handleLogin">登录</el-button>
+          <el-button type="primary" style="width: 100%" :loading="loading" @click="handleLogin">登 录</el-button>
         </el-form-item>
       </el-form>
-      <p style="text-align: center; color: #999; font-size: 12px">默认账号: admin / admin123</p>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useUserStore } from '../stores/user'
+import * as authApi from '../api/auth'
 
 const router = useRouter()
-const auth = useAuthStore()
+const userStore = useUserStore()
 const loading = ref(false)
 const form = reactive({ username: '', password: '' })
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-}
 
 async function handleLogin() {
+  if (!form.username || !form.password) {
+    ElMessage.warning('请输入用户名和密码')
+    return
+  }
   loading.value = true
   try {
-    await auth.login(form.username, form.password)
+    const res = await authApi.login(form)
+    userStore.setToken(res.data.token)
+    if (res.data.is_first_login) {
+      ElMessage.warning('首次登录，请修改密码')
+    }
     router.push('/dashboard')
   } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '登录失败')
+    ElMessage.error(e.message || '登录失败')
   } finally {
     loading.value = false
   }
 }
 </script>
-
-<style scoped>
-.login-container {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f2f5;
-}
-.login-card {
-  width: 400px;
-}
-</style>

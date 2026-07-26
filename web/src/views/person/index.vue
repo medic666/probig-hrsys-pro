@@ -40,6 +40,9 @@
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
+        <el-form-item label="入职日期">
+          <el-date-picker v-model="form.effective_date" type="date" value-format="YYYY-MM-DD" />
+        </el-form-item>
         <el-form-item label="身份证号" prop="id_card">
           <el-input v-model="form.id_card" />
         </el-form-item>

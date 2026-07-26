@@ -10,17 +10,17 @@ import (
 )
 
 type AuditLog struct {
-	ID             uint      `gorm:"primaryKey"`
-	OperatorID     uint      `gorm:"index"`
-	OperatorName   string    `gorm:"size:64"`
-	TargetType     string    `gorm:"size:64;index"`
-	TargetID       uint      `gorm:"index"`
-	TargetName     string    `gorm:"size:128"`
-	Action         string    `gorm:"size:32;index"`
-	BeforeSnapshot string    `gorm:"type:text"`
-	AfterSnapshot  string    `gorm:"type:text"`
-	IP             string    `gorm:"size:64"`
-	CreatedAt      time.Time `gorm:"index"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	OperatorID     uint      `gorm:"index" json:"operator_id"`
+	OperatorName   string    `gorm:"size:64" json:"operator_name"`
+	TargetType     string    `gorm:"size:64;index" json:"target_type"`
+	TargetID       uint      `gorm:"index" json:"target_id"`
+	TargetName     string    `gorm:"size:128" json:"target_name"`
+	Action         string    `gorm:"size:32;index" json:"action"`
+	BeforeSnapshot string    `gorm:"type:text" json:"before_snapshot"`
+	AfterSnapshot  string    `gorm:"type:text" json:"after_snapshot"`
+	IP             string    `gorm:"size:64" json:"ip"`
+	CreatedAt      time.Time `gorm:"index" json:"created_at"`
 }
 
 func Write(c *gin.Context, operatorID uint, operatorName, targetType string, targetID uint, targetName, action string, before, after interface{}) {

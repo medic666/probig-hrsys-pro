@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="search-bar">
-      <el-input v-model="search.person_id" placeholder="人员ID" clearable style="width:120px;" />
+      <NameSelect v-model="searchPersonId" style="width:180px;" />
       <el-date-picker v-model="searchDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" />
       <el-select v-model="search.event_type" placeholder="事件类型" clearable style="width:120px;">
         <el-option label="出勤" value="出勤" />
@@ -51,8 +51,8 @@
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑考勤事件' : '新增考勤事件'" width="500px">
       <el-form ref="formRef" :model="form" label-width="100px">
-        <el-form-item label="人员ID" required>
-          <el-input-number v-model="form.person_id" :min="1" />
+        <el-form-item label="人员" required>
+          <NameSelect v-model="form.person_id" style="width:100%;" />
         </el-form-item>
         <el-form-item label="日期" required>
           <el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" />
@@ -88,8 +88,8 @@
 
     <el-dialog v-model="crossDayVisible" title="跨天录入" width="500px">
       <el-form ref="crossFormRef" :model="crossForm" label-width="100px">
-        <el-form-item label="人员ID" required>
-          <el-input-number v-model="crossForm.person_id" :min="1" />
+        <el-form-item label="人员" required>
+          <NameSelect v-model="crossForm.person_id" style="width:100%;" />
         </el-form-item>
         <el-form-item label="日期范围" required>
           <el-date-picker v-model="crossForm.dateRange" type="daterange" value-format="YYYY-MM-DD" />
@@ -123,6 +123,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, createCrossDayEvent } from '@/api/attendance'
 import { daysToHours, hoursToDays } from '@/utils/unit'
+import NameSelect from '@/components/NameSelect.vue'
 
 const subTypesMap: Record<string, string[]> = {
   '出勤': ['普通出勤', '补班出勤', '外勤出勤'],
@@ -138,8 +139,9 @@ const list = ref([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(20)
-const search = reactive({ person_id: '', event_type: '', sub_type: '' })
+const search = reactive({ event_type: '', sub_type: '' })
 const searchDateRange = ref<string[]>([])
+const searchPersonId = ref<number | undefined>()
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -162,7 +164,7 @@ async function fetchData() {
   try {
     const data = await getAttendanceEvents({
       pageNum: pageNum.value, pageSize: pageSize.value,
-      person_id: search.person_id, event_type: search.event_type, sub_type: search.sub_type,
+      person_id: searchPersonId.value || '', event_type: search.event_type, sub_type: search.sub_type,
       start_date: searchDateRange.value?.[0] || '',
       end_date: searchDateRange.value?.[1] || '',
     })
@@ -171,7 +173,7 @@ async function fetchData() {
 }
 
 function resetSearch() {
-  search.person_id = ''; search.event_type = ''; search.sub_type = ''
+  searchPersonId.value = undefined; search.event_type = ''; search.sub_type = ''
   searchDateRange.value = []; pageNum.value = 1; fetchData()
 }
 

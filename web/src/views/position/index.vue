@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="search-bar">
-      <el-input v-model="search.person_id" placeholder="人员ID" clearable style="width:120px;" />
+      <NameSelect v-model="searchPersonId" style="width:180px;" />
       <el-date-picker v-model="searchDateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" value-format="YYYY-MM-DD" />
       <el-input v-model="search.event_name" placeholder="事件名称" clearable style="width:140px;" />
       <el-button type="primary" @click="fetchData">搜索</el-button>
@@ -33,8 +33,8 @@
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑职务事件' : '新增职务事件'" width="700px" @close="resetForm">
       <el-form ref="formRef" :model="form" label-width="140px">
-        <el-form-item label="人员ID" required>
-          <el-input-number v-model="form.person_id" :min="1" />
+        <el-form-item label="人员" required>
+          <NameSelect v-model="form.person_id" style="width:100%;" />
         </el-form-item>
         <el-form-item label="事件名称" required>
           <el-select v-model="form.event_name">
@@ -69,9 +69,10 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getPositionEvents, createPositionEvent, updatePositionEvent, deletePositionEvent } from '@/api/position'
+import NameSelect from '@/components/NameSelect.vue'
 
 const eventNames = ['入职', '转正', '调岗', '调薪', '离职']
-const fields = [
+const fieldDefs = [
   { key: 'attendance_group', label: '考勤组', type: 'string' },
   { key: 'has_annual_leave', label: '享有年假', type: 'bool' },
   { key: 'has_attendance_bonus', label: '享有全勤奖', type: 'bool' },
@@ -88,6 +89,7 @@ const fields = [
   { key: 'social_security_deduct', label: '社保代扣', type: 'number' },
   { key: 'housing_fund_deduct', label: '公积金代扣', type: 'number' },
 ]
+const fields = reactive(fieldDefs.map(f => ({ ...f, checked: false })))
 
 const loading = ref(false)
 const list = ref([])
@@ -96,6 +98,7 @@ const pageNum = ref(1)
 const pageSize = ref(20)
 const search = reactive({ person_id: '', event_name: '' })
 const searchDateRange = ref<string[]>([])
+const searchPersonId = ref<number | undefined>()
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -110,7 +113,7 @@ async function fetchData() {
   try {
     const data = await getPositionEvents({
       pageNum: pageNum.value, pageSize: pageSize.value,
-      person_id: search.person_id, event_name: search.event_name,
+      person_id: searchPersonId.value || '', event_name: search.event_name,
       start_date: searchDateRange.value?.[0] || '',
       end_date: searchDateRange.value?.[1] || '',
     })
@@ -119,7 +122,7 @@ async function fetchData() {
 }
 
 function resetSearch() {
-  search.person_id = ''; search.event_name = ''; searchDateRange.value = []; pageNum.value = 1; fetchData()
+  searchPersonId.value = undefined; search.event_name = ''; searchDateRange.value = []; pageNum.value = 1; fetchData()
 }
 
 function resetForm() {

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="search-bar">
-      <el-input v-model="search.person_id" placeholder="人员ID" clearable style="width:120px;" />
+      <NameSelect v-model="searchPersonId" style="width:180px;" />
       <el-input v-model="search.belong_month" placeholder="归属月份(YYYY-MM)" clearable style="width:180px;" />
       <el-select v-model="search.event_type" placeholder="事件类型" clearable style="width:140px;">
         <el-option label="绩效系数" value="绩效系数" />
@@ -39,8 +39,8 @@
 
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑工资事件' : '新增工资事件'" width="500px">
       <el-form ref="formRef" :model="form" label-width="100px">
-        <el-form-item label="人员ID" required>
-          <el-input-number v-model="form.person_id" :min="1" />
+        <el-form-item label="人员" required>
+          <NameSelect v-model="form.person_id" style="width:100%;" />
         </el-form-item>
         <el-form-item label="归属月份" required>
           <el-date-picker v-model="form.belong_month" type="month" value-format="YYYY-MM" />
@@ -77,13 +77,15 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent } from '@/api/salary'
+import NameSelect from '@/components/NameSelect.vue'
 
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(20)
-const search = reactive({ person_id: '', belong_month: '', event_type: '' })
+const search = reactive({ belong_month: '', event_type: '' })
+const searchPersonId = ref<number | undefined>()
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -94,12 +96,15 @@ const form = reactive({ person_id: undefined as number | undefined, belong_month
 async function fetchData() {
   loading.value = true
   try {
-    const data = await getSalaryEvents({ pageNum: pageNum.value, pageSize: pageSize.value, ...search })
+    const data = await getSalaryEvents({
+      pageNum: pageNum.value, pageSize: pageSize.value,
+      person_id: searchPersonId.value || '', ...search
+    })
     list.value = data.list; total.value = data.total
   } catch (e) {} finally { loading.value = false }
 }
 
-function resetSearch() { search.person_id = ''; search.belong_month = ''; search.event_type = ''; pageNum.value = 1; fetchData() }
+function resetSearch() { searchPersonId.value = undefined; search.belong_month = ''; search.event_type = ''; pageNum.value = 1; fetchData() }
 
 function openDialog(edit: boolean, row?: any) {
   isEdit.value = edit

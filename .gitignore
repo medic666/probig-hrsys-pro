@@ -9,7 +9,9 @@ cmd/dist/
 *.test
 
 # Database
-*.db
+.db
+hr.db-shm
+hr.db-wal
 *.sqlite
 *.sqlite3
 
@@ -37,3 +39,4 @@ Thumbs.db
 # Temp
 tmp/
 temp/
+

@@ -131,4 +131,41 @@ const router = createRouter({
   routes,
 })
 
+router.beforeEach(async (to, _from, next) => {
+  if (to.path === '/login') {
+    next()
+    return
+  }
+
+  const userStore = useUserStore()
+  const permStore = usePermissionStore()
+
+  const token = localStorage.getItem('token')
+  if (!token) {
+    next('/login')
+    return
+  }
+
+  if (!userStore.userInfo) {
+    try {
+      const userInfo = await userStore.fetchUserInfo()
+      if (userInfo && userInfo.permissions) {
+        permStore.setPermissions(userInfo.permissions)
+      }
+    } catch {
+      next('/login')
+      return
+    }
+  }
+
+  const permKey = to.meta?.permissionKey as string | undefined
+  if (permKey && !permStore.hasPermission(permKey)) {
+    next('/403')
+    return
+  }
+
+  document.title = (to.meta?.title as string) || 'HR管理系统'
+  next()
+})
+
 export default router

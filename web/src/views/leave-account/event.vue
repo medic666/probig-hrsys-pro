@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="search-bar">
-      <el-input v-model="search.person_id" placeholder="人员ID" clearable style="width:120px;" />
+      <NameSelect v-model="searchPersonId" style="width:180px;" />
       <el-select v-model="search.leave_type" placeholder="假期类型" clearable style="width:140px;">
         <el-option label="年假" value="annual_leave" />
         <el-option label="调休" value="time_off" />
@@ -47,8 +47,8 @@
 
     <el-dialog v-model="dialogVisible" title="人工调整额度" width="400px">
       <el-form ref="formRef" :model="form" label-width="100px">
-        <el-form-item label="人员ID" required>
-          <el-input-number v-model="form.person_id" :min="1" />
+        <el-form-item label="人员" required>
+          <NameSelect v-model="form.person_id" style="width:100%;" />
         </el-form-item>
         <el-form-item label="假期类型" required>
           <el-select v-model="form.leave_type">
@@ -79,6 +79,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getLeaveEvents, createLeaveEvent, deleteLeaveEvent } from '@/api/leaveAccount'
 import { daysToHours, hoursToDays } from '@/utils/unit'
+import NameSelect from '@/components/NameSelect.vue'
 
 const eventTypeMap: Record<string, string> = {
   grant: '配发', adjust: '调整', carryover_deduct: '结转扣减', time_off_accrue: '补班累计',
@@ -89,7 +90,8 @@ const list = ref([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(20)
-const search = reactive({ person_id: '', leave_type: '', source_type: '' })
+const search = reactive({ leave_type: '', source_type: '' })
+const searchPersonId = ref<number | undefined>()
 
 const dialogVisible = ref(false)
 const formRef = ref()
@@ -100,13 +102,13 @@ async function fetchData() {
   try {
     const data = await getLeaveEvents({
       pageNum: pageNum.value, pageSize: pageSize.value,
-      person_id: search.person_id, leave_type: search.leave_type, source_type: search.source_type,
+      person_id: searchPersonId.value || '', leave_type: search.leave_type, source_type: search.source_type,
     })
     list.value = data.list; total.value = data.total
   } catch (e) {} finally { loading.value = false }
 }
 
-function resetSearch() { search.person_id = ''; search.leave_type = ''; search.source_type = ''; pageNum.value = 1; fetchData() }
+function resetSearch() { searchPersonId.value = undefined; search.leave_type = ''; search.source_type = ''; pageNum.value = 1; fetchData() }
 
 function openDialog() { dialogVisible.value = true }
 

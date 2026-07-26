@@ -11,6 +11,7 @@ import (
 	"probig/internal/pkg/middleware"
 	"probig/internal/pkg/response"
 	"probig/internal/pkg/utils"
+	"probig/internal/position"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -85,6 +86,19 @@ func Create(c *gin.Context) {
 		response.Error(c, err.Error())
 		return
 	}
+
+	entryDate := getString(req, "effective_date")
+	if entryDate == "" {
+		entryDate = time.Now().Format("2006-01-02")
+	}
+	posReq := map[string]interface{}{
+		"person_id":      float64(id),
+		"event_name":     "入职",
+		"effective_date": entryDate,
+	}
+	posSvc := position.NewService()
+	posSvc.CreateEvent(posReq)
+
 	userID, _ := c.Get("user_id")
 	uname, _ := c.Get("username")
 	audit.Write(c, userID.(uint), uname.(string), "人员", id, getString(req, "name"), "新增", nil, req)

@@ -1,26 +1,32 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
-import { getConfigs } from '@/api/audit'
+import { reactive } from 'vue'
+import request from '@/utils/request'
 
 export const useConfigStore = defineStore('config', () => {
-  const configs = ref<Record<string, string>>({})
+  const configMap = reactive<Record<string, string>>({})
 
-  async function fetchConfigs() {
-    try {
-      const data = await getConfigs()
-      if (Array.isArray(data)) {
-        for (const c of data) {
-          configs.value[c.config_key] = c.config_value
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
+  function setConfig(key: string, value: string) {
+    configMap[key] = value
+  }
+
+  function setConfigs(configs: Record<string, string>) {
+    Object.assign(configMap, configs)
   }
 
   function getConfig(key: string, defaultValue = ''): string {
-    return configs.value[key] || defaultValue
+    return configMap[key] ?? defaultValue
   }
 
-  return { configs, fetchConfigs, getConfig }
+  async function fetchConfigs() {
+    const data = (await request.get('/system/configs')) as Record<string, string>
+    setConfigs(data || {})
+  }
+
+  return {
+    configMap,
+    setConfig,
+    setConfigs,
+    getConfig,
+    fetchConfigs,
+  }
 })

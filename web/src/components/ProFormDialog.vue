@@ -1,80 +1,163 @@
 <template>
   <el-dialog
-    v-model="visible"
-    :title="isEdit ? '编辑' : '新增'"
-    width="600px"
+    :model-value="visible"
+    :title="title"
     :close-on-click-modal="false"
+    width="600px"
     @close="handleClose"
   >
-    <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
-      <slot :form="form" />
+    <el-form
+      ref="formRef"
+      :model="formData"
+      :rules="rules"
+      label-width="100px"
+      :disabled="formLoading"
+    >
+      <el-row :gutter="20">
+        <el-col v-for="field in formFields" :key="field.prop" :span="field.span || 24">
+          <el-form-item :label="field.label" :prop="field.prop">
+            <el-input
+              v-if="field.type === 'input'"
+              v-model="formData[field.prop]"
+              :placeholder="field.placeholder || '请输入'"
+            />
+            <el-input-number
+              v-else-if="field.type === 'number'"
+              v-model="formData[field.prop]"
+              :placeholder="field.placeholder || '请输入'"
+              :precision="field.precision || 2"
+              style="width: 100%"
+            />
+            <el-select
+              v-else-if="field.type === 'select'"
+              v-model="formData[field.prop]"
+              :placeholder="field.placeholder || '请选择'"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="opt in field.options"
+                :key="opt.value"
+                :label="opt.label"
+                :value="opt.value"
+              />
+            </el-select>
+            <el-date-picker
+              v-else-if="field.type === 'date'"
+              v-model="formData[field.prop]"
+              type="date"
+              :placeholder="field.placeholder || '选择日期'"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
+            <el-input
+              v-else-if="field.type === 'textarea'"
+              v-model="formData[field.prop]"
+              type="textarea"
+              :rows="3"
+              :placeholder="field.placeholder || '请输入'"
+            />
+            <el-switch
+              v-else-if="field.type === 'switch'"
+              v-model="formData[field.prop]"
+            />
+          </el-form-item>
+        </el-col>
+      </el-row>
     </el-form>
+
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+      <el-button type="primary" :loading="formLoading" @click="handleSubmit">确定</el-button>
     </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
-import type { FormInstance } from 'element-plus'
+import { ref, reactive, watch } from 'vue'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+
+export interface FormField {
+  prop: string
+  label: string
+  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch'
+  options?: { label: string; value: any }[]
+  placeholder?: string
+  span?: number
+  precision?: number
+  defaultValue?: any
+}
 
 const props = defineProps<{
-  modelValue: boolean
-  isEdit?: boolean
-  rules?: Record<string, any>
-  submit: (form: any) => Promise<any>
+  visible: boolean
+  title: string
+  mode: 'add' | 'edit'
+  formFields: FormField[]
+  rules?: FormRules
+  submitApi: (data: any) => Promise<any>
+  editData?: Record<string, any>
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [value: boolean]
-  success: []
+  (e: 'update:visible', val: boolean): void
+  (e: 'success'): void
 }>()
 
-const visible = ref(props.modelValue)
-const form = ref<Record<string, any>>({})
 const formRef = ref<FormInstance>()
-const submitting = ref(false)
+const formLoading = ref(false)
+const formData = reactive<Record<string, any>>({})
 
-watch(() => props.modelValue, (val) => {
-  visible.value = val
-  if (val) {
-    nextTick(() => {
-      form.value = {}
-      formRef.value?.resetFields()
-    })
+function initForm() {
+  for (const key of Object.keys(formData)) {
+    delete formData[key]
   }
-})
+  for (const field of props.formFields) {
+    formData[field.prop] = field.defaultValue ?? ''
+  }
+}
 
-watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
+function fillEditData() {
+  if (!props.editData) return
+  for (const field of props.formFields) {
+    if (props.editData[field.prop] !== undefined) {
+      formData[field.prop] = props.editData[field.prop]
+    }
+  }
+}
+
+watch(
+  () => props.visible,
+  (val) => {
+    if (val) {
+      initForm()
+      if (props.mode === 'edit') {
+        fillEditData()
+      }
+      setTimeout(() => {
+        formRef.value?.clearValidate()
+      }, 0)
+    }
+  },
+)
 
 function handleClose() {
-  visible.value = false
-  form.value = {}
-  formRef.value?.resetFields()
+  emit('update:visible', false)
 }
 
 async function handleSubmit() {
-  if (!formRef.value) return
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  formLoading.value = true
   try {
-    await formRef.value.validate()
-    submitting.value = true
-    await props.submit(form.value)
-    visible.value = false
+    const data = { ...formData }
+    await props.submitApi(data)
+    ElMessage.success(props.mode === 'add' ? '添加成功' : '修改成功')
+    emit('update:visible', false)
     emit('success')
-  } catch (e) {
-    // validation failed or submit error
+  } catch {
+    // error handled by request interceptor
   } finally {
-    submitting.value = false
+    formLoading.value = false
   }
 }
-
-function setForm(data: Record<string, any>) {
-  form.value = { ...data }
-}
-
-defineExpose({ setForm, form })
 </script>

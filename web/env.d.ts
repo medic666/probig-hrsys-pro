@@ -1,12 +1,7 @@
 /// <reference types="vite/client" />
 
-declare module 'element-plus/dist/locale/zh-cn.mjs' {
-  const zhCn: any
-  export default zhCn
-}
-
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
-  const component: DefineComponent<{}, {}, any>
+  const component: DefineComponent<object, object, unknown>
   export default component
 }

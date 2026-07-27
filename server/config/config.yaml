@@ -1,0 +1,14 @@
+server:
+  port: 8080
+  mode: debug
+
+database:
+  type: sqlite
+  path: ./data/probig.db
+
+jwt:
+  secret: probig-jwt-secret-change-in-production
+
+log:
+  level: info
+  file: ./data/probig.log

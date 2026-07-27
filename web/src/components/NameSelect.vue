@@ -1,17 +1,19 @@
 <template>
   <el-select
-    v-model="selected"
-    filterable
-    remote
-    :remote-method="searchPersons"
-    :loading="loading"
+    :model-value="modelValue"
+    :placeholder="placeholder || '请选择'"
+    :disabled="disabled"
+    :clearable="clearable"
     :multiple="multiple"
-    :placeholder="multiple ? '请选择人员(可多选)' : '请选择人员'"
-    clearable
-    @focus="searchPersons('')"
+    :filterable="!isRemoteMode"
+    :remote="isRemoteMode"
+    :remote-method="handleRemoteSearch"
+    :loading="loading"
+    @update:model-value="handleChange"
+    @visible-change="handleVisibleChange"
   >
     <el-option
-      v-for="item in options"
+      v-for="item in displayOptions"
       :key="item.id"
       :label="item.name"
       :value="item.id"
@@ -20,38 +22,82 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { getPersonList } from '@/api/person'
+import { ref, computed, watch, onMounted } from 'vue'
 
-const props = withDefaults(defineProps<{
-  modelValue?: number | number[] | undefined
-  multiple?: boolean
-}>(), {
-  modelValue: undefined,
-  multiple: false,
-})
+const props = withDefaults(
+  defineProps<{
+    modelValue: number | number[] | null
+    fetchApi: (keyword?: string) => Promise<{ id: number; name: string }[]>
+    placeholder?: string
+    disabled?: boolean
+    clearable?: boolean
+    multiple?: boolean
+    remoteThreshold?: number
+  }>(),
+  {
+    placeholder: '请选择',
+    disabled: false,
+    clearable: true,
+    multiple: false,
+    remoteThreshold: 500,
+  },
+)
 
 const emit = defineEmits<{
-  'update:modelValue': [value: number | number[] | undefined]
+  (e: 'update:modelValue', val: number | number[] | null): void
 }>()
 
-const selected = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val),
+const loading = ref(false)
+const allOptions = ref<{ id: number; name: string }[]>([])
+const searchKeyword = ref('')
+const isRemoteMode = ref(false)
+
+const displayOptions = computed(() => {
+  if (isRemoteMode.value || allOptions.value.length > props.remoteThreshold) {
+    return allOptions.value
+  }
+  if (!searchKeyword.value) return allOptions.value
+  const kw = searchKeyword.value.toLowerCase()
+  return allOptions.value.filter((item) => item.name.toLowerCase().includes(kw))
 })
 
-const loading = ref(false)
-const options = ref<{ id: number; name: string }[]>([])
-
-async function searchPersons(query: string) {
+async function loadOptions(keyword?: string) {
   loading.value = true
   try {
-    const data = await getPersonList({ pageNum: 1, pageSize: 500, name: query })
-    options.value = data.list || []
-  } catch (e) {
-    options.value = []
+    const data = await props.fetchApi(keyword)
+    allOptions.value = data || []
+    if (data && data.length >= props.remoteThreshold) {
+      isRemoteMode.value = true
+    }
+  } catch {
+    allOptions.value = []
   } finally {
     loading.value = false
   }
 }
+
+function handleChange(val: number | number[] | null) {
+  emit('update:modelValue', val)
+}
+
+function handleRemoteSearch(keyword: string) {
+  searchKeyword.value = keyword
+  loadOptions(keyword)
+}
+
+function handleVisibleChange(visible: boolean) {
+  if (visible && !isRemoteMode.value) {
+    loadOptions()
+  }
+}
+
+watch(
+  () => props.modelValue,
+  () => {},
+  { immediate: true },
+)
+
+onMounted(() => {
+  loadOptions()
+})
 </script>

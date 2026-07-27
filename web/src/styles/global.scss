@@ -1,0 +1,30 @@
+.page-container {
+  padding: 20px;
+  height: 100%;
+}
+
+.page-header {
+  margin-bottom: 16px;
+
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #303133;
+  }
+}
+
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.table-container {
+  background: #fff;
+  padding: 16px;
+  border-radius: 4px;
+}

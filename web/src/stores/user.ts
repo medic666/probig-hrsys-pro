@@ -1,46 +1,60 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getCurrentUser, changePassword as apiChangePassword } from '@/api/rbac'
-import router from '@/router'
+import request from '@/utils/request'
+
+interface UserInfo {
+  id: number
+  username: string
+  name: string
+}
+
+const TOKEN_KEY = 'probig-token'
+
+function loadToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+function saveToken(t: string) {
+  if (t) {
+    localStorage.setItem(TOKEN_KEY, t)
+  } else {
+    localStorage.removeItem(TOKEN_KEY)
+  }
+}
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const userInfo = ref<any>(null)
+  const token = ref<string>(loadToken())
+  const userInfo = ref<UserInfo | null>(null)
   const isFirstLogin = ref(false)
 
-  function setToken(val: string) {
-    token.value = val
-    localStorage.setItem('token', val)
+  function setToken(t: string) {
+    token.value = t
+    saveToken(t)
   }
 
-  function clearToken() {
+  function setUserInfo(info: UserInfo) {
+    userInfo.value = info
+  }
+
+  function clearUser() {
     token.value = ''
-    localStorage.removeItem('token')
+    userInfo.value = null
+    isFirstLogin.value = false
+    saveToken('')
   }
 
   async function fetchUserInfo() {
-    try {
-      const data: any = await getCurrentUser()
-      userInfo.value = data
-      isFirstLogin.value = data.is_first_login
-      return data
-    } catch (e) {
-      clearToken()
-      router.push('/login')
-      return null
-    }
+    const data = (await request.get('/user/info')) as UserInfo
+    userInfo.value = data
   }
 
-  async function changePassword(oldPW: string, newPW: string) {
-    await apiChangePassword({ old_password: oldPW, new_password: newPW })
-    isFirstLogin.value = false
+  return {
+    token,
+    userInfo,
+    isFirstLogin,
+    setToken,
+    setUserInfo,
+    clearUser,
+    fetchUserInfo,
   }
-
-  function logout() {
-    clearToken()
-    userInfo.value = null
-    router.push('/login')
-  }
-
-  return { token, userInfo, isFirstLogin, setToken, clearToken, fetchUserInfo, changePassword, logout }
 })

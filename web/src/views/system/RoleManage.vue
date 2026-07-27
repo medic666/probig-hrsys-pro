@@ -36,7 +36,6 @@
         show-checkbox
         node-key="id"
         default-expand-all
-        :default-checked-keys="checkedPerms"
       />
       <template #footer>
         <el-button @click="permDialogVisible = false">取消</el-button>
@@ -55,7 +54,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
@@ -81,7 +80,6 @@ const trashVisible = ref(false)
 const permDialogVisible = ref(false)
 const permSaving = ref(false)
 const permTree = ref<any[]>([])
-const checkedPerms = ref<number[]>([])
 const currentRoleID = ref(0)
 
 const columns = [
@@ -149,33 +147,25 @@ function handleEdit(row: any) {
 
 async function handleAssignPerms(row: any) {
   currentRoleID.value = row.id
-  const perms = (await getPermissions()) as any
-  const ids = (await getRolePermissions(row.id)) as any
-
-  const tree: any[] = []
-  const moduleMap: Record<string, { name: string; children: any[] }> = {}
-
-  for (const [module, actions] of Object.entries(perms)) {
-    if (!moduleMap[module]) {
-      moduleMap[module] = { name: module, children: [] }
-    }
-    const permsAny = actions as any[]
-    for (const p of permsAny) {
-      moduleMap[module].children.push({ id: p.id, label: p.name })
-    }
-  }
-
-  for (const key of Object.keys(moduleMap)) {
-    tree.push({ id: key, label: moduleMap[key].name, children: moduleMap[key].children })
-  }
-
-  permTree.value = tree
-  checkedPerms.value = ids as number[]
   permDialogVisible.value = true
+  try {
+    const perms = (await getPermissions()) as any
+    const ids = (await getRolePermissions(row.id)) as number[]
+
+    const tree: any[] = []
+    for (const [module, actions] of Object.entries(perms)) {
+      const children = (actions as any[]).map((p: any) => ({ id: p.id, label: p.name }))
+      tree.push({ id: 'm_' + module, label: module, children })
+    }
+
+    permTree.value = tree
+    await nextTick()
+    treeRef.value?.setCheckedKeys(ids)
+  } catch { permDialogVisible.value = false }
 }
 
 async function savePerms() {
-  const checked = (treeRef.value?.getCheckedKeys() || []) as number[]
+    const checked = (treeRef.value?.getCheckedKeys(true) || []) as number[]
   permSaving.value = true
   try {
     await assignRolePermissions(currentRoleID.value, checked)

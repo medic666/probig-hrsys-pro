@@ -72,8 +72,9 @@ func AuthMe(c *gin.Context) {
 	perms, menus, _ := service.GetUserPermissions(userID)
 
 	utils.Success(c, gin.H{
-		"user":        gin.H{"id": user.ID, "username": user.Username, "name": user.Username},
-		"permissions": perms,
-		"menus":       menus,
+		"user":           gin.H{"id": user.ID, "username": user.Username, "name": user.Username},
+		"is_first_login": user.IsFirstLogin,
+		"permissions":    perms,
+		"menus":          menus,
 	})
 }

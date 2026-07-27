@@ -54,6 +54,12 @@ func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[
 		}
 		item["roles"] = roleNames
 
+		roleIDs := make([]uint, 0, len(user.Roles))
+		for _, r := range user.Roles {
+			roleIDs = append(roleIDs, r.ID)
+		}
+		item["role_ids"] = roleIDs
+
 		if user.PersonID != nil {
 			var personName string
 			dao.DB.Table("persons").Select("name").Where("id = ?", *user.PersonID).Scan(&personName)
@@ -200,9 +206,9 @@ func GetDeletedUserList(pageNum, pageSize int) ([]model.User, int64, error) {
 func GetUserRoleIDs(userID uint) []uint {
 	var urs []model.UserRole
 	dao.DB.Where("user_id = ?", userID).Find(&urs)
-	ids := make([]uint, len(urs))
-	for i, ur := range urs {
-		ids[i] = ur.RoleID
+	var ids []uint
+	for _, ur := range urs {
+		ids = append(ids, ur.RoleID)
 	}
 	return ids
 }

@@ -169,8 +169,7 @@ function handleEdit(row: any) {
 async function handleAssignRoles(row: any) {
   currentUserID.value = row.id
   allRoles.value = (await getAllRoles()) as any
-  const ids = row.roles ? [] : []
-  selectedRoles.value = ids
+  selectedRoles.value.splice(0, selectedRoles.value.length, ...(row.role_ids || []))
   roleDialogVisible.value = true
 }
 

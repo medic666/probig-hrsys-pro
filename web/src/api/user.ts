@@ -31,3 +31,5 @@ export function assignUserRoles(id: number, role_ids: number[]) {
 export function getDeletedUsers(params: any) {
   return request.get('/users/trash', { params })
 }
+
+

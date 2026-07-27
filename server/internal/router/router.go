@@ -61,5 +61,66 @@ func SetupRouter() *gin.Engine {
 
 	r.GET("/api/permissions", middleware.AuthRequired(), handler.GetPermissions)
 
+	persons := r.Group("/api/persons")
+	persons.Use(middleware.AuthRequired())
+	{
+		persons.GET("", middleware.RequirePermission("person.read"), handler.GetPersons)
+		persons.GET("/all", middleware.RequirePermission("person.read"), handler.GetAllPersonsList)
+		persons.GET("/export", middleware.RequirePermission("person.export"), handler.ExportPersons)
+		persons.GET("/trash", middleware.RequirePermission("person.read"), handler.GetDeletedPersons)
+		persons.GET("/:id", middleware.RequirePermission("person.read"), handler.GetPersonByID)
+		persons.POST("", middleware.RequirePermission("person.write"), handler.CreatePerson)
+		persons.PUT("/:id", middleware.RequirePermission("person.write"), handler.UpdatePerson)
+		persons.DELETE("/:id", middleware.RequirePermission("person.delete"), handler.DeletePerson)
+		persons.POST("/:id/restore", middleware.RequirePermission("person.write"), handler.RestorePerson)
+		persons.POST("/:id/phones", middleware.RequirePermission("person.write"), handler.AddPersonPhone)
+		persons.PUT("/:id/phones/:pid", middleware.RequirePermission("person.write"), handler.UpdatePersonPhone)
+		persons.DELETE("/:id/phones/:pid", middleware.RequirePermission("person.write"), handler.DeletePersonPhone)
+		persons.POST("/:id/emails", middleware.RequirePermission("person.write"), handler.AddPersonEmail)
+		persons.PUT("/:id/emails/:pid", middleware.RequirePermission("person.write"), handler.UpdatePersonEmail)
+		persons.DELETE("/:id/emails/:pid", middleware.RequirePermission("person.write"), handler.DeletePersonEmail)
+		persons.POST("/:id/bank-cards", middleware.RequirePermission("person.write"), handler.AddPersonBankCard)
+		persons.PUT("/:id/bank-cards/:pid", middleware.RequirePermission("person.write"), handler.UpdatePersonBankCard)
+		persons.DELETE("/:id/bank-cards/:pid", middleware.RequirePermission("person.write"), handler.DeletePersonBankCard)
+		persons.GET("/:id/current-position", middleware.RequirePermission("person.read"), handler.GetPersonCurrentPosition)
+		persons.GET("/:id/position-history", middleware.RequirePermission("person.read"), handler.GetPersonPositionHistory)
+	}
+
+	companies := r.Group("/api/companies")
+	companies.Use(middleware.AuthRequired())
+	{
+		companies.GET("", middleware.RequirePermission("company.read"), handler.GetCompanies)
+		companies.GET("/all", middleware.RequirePermission("company.read"), handler.GetAllCompaniesList)
+		companies.GET("/export", middleware.RequirePermission("company.export"), handler.ExportCompanies)
+		companies.GET("/trash", middleware.RequirePermission("company.read"), handler.GetDeletedCompanies)
+		companies.GET("/:id", middleware.RequirePermission("company.read"), handler.GetCompanyByID)
+		companies.POST("", middleware.RequirePermission("company.write"), handler.CreateCompany)
+		companies.PUT("/:id", middleware.RequirePermission("company.write"), handler.UpdateCompany)
+		companies.DELETE("/:id", middleware.RequirePermission("company.delete"), handler.DeleteCompany)
+		companies.POST("/:id/restore", middleware.RequirePermission("company.write"), handler.RestoreCompany)
+	}
+
+	files := r.Group("/api/files")
+	files.Use(middleware.AuthRequired())
+	{
+		files.POST("/upload", middleware.RequirePermission("file.write"), handler.UploadFile)
+		files.GET("/:id/download", middleware.RequirePermission("file.read"), handler.DownloadFile)
+		files.POST("/associate", middleware.RequirePermission("file.write"), handler.AssociateFile)
+		files.POST("/disassociate", middleware.RequirePermission("file.write"), handler.DisassociateFile)
+		files.GET("/by-target", middleware.RequirePermission("file.read"), handler.GetFilesByTarget)
+	}
+
+	positionEvents := r.Group("/api/position-events")
+	positionEvents.Use(middleware.AuthRequired())
+	{
+		positionEvents.GET("", middleware.RequirePermission("position_event.read"), handler.GetPositionEvents)
+		positionEvents.GET("/trash", middleware.RequirePermission("position_event.read"), handler.GetDeletedPositionEvents)
+		positionEvents.GET("/:id", middleware.RequirePermission("position_event.read"), handler.GetPositionEventByID)
+		positionEvents.POST("", middleware.RequirePermission("position_event.write"), handler.CreatePositionEvent)
+		positionEvents.PUT("/:id", middleware.RequirePermission("position_event.write"), handler.UpdatePositionEvent)
+		positionEvents.DELETE("/:id", middleware.RequirePermission("position_event.delete"), handler.DeletePositionEvent)
+		positionEvents.POST("/:id/restore", middleware.RequirePermission("position_event.write"), handler.RestorePositionEvent)
+	}
+
 	return r
 }

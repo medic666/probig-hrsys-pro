@@ -34,6 +34,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/system/RoleManage.vue'),
         meta: { title: '角色管理', permissionKey: 'role.read' },
       },
+      {
+        path: 'person',
+        name: 'PersonManage',
+        component: () => import('@/views/person/PersonManage.vue'),
+        meta: { title: '人员管理', permissionKey: 'person.read' },
+      },
+      {
+        path: 'company',
+        name: 'CompanyManage',
+        component: () => import('@/views/company/CompanyManage.vue'),
+        meta: { title: '公司管理', permissionKey: 'company.read' },
+      },
+      {
+        path: 'position-event',
+        name: 'PositionEventManage',
+        component: () => import('@/views/position/PositionEventManage.vue'),
+        meta: { title: '职务事件', permissionKey: 'position_event.read' },
+      },
     ],
   },
   {
@@ -84,6 +102,12 @@ router.beforeEach(async (to, _from, next) => {
       const data = await getMe()
       permissionStore.setPermissions(data.permissions || [])
       permissionStore.setMenus(data.menus || [])
+      if ((data as any).is_first_login) {
+        userStore.clearUser()
+        permissionStore.clearPermissions()
+        next('/login')
+        return
+      }
     } catch {
       userStore.clearUser()
       permissionStore.clearPermissions()

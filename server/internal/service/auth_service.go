@@ -41,8 +41,10 @@ func ChangePassword(userID uint, oldPassword, newPassword string) error {
 		return errors.New("用户不存在")
 	}
 
-	if !utils.CheckPassword(oldPassword, user.Password) {
-		return errors.New("原密码错误")
+	if !user.IsFirstLogin {
+		if !utils.CheckPassword(oldPassword, user.Password) {
+			return errors.New("原密码错误")
+		}
 	}
 
 	return setUserPassword(&user, newPassword)

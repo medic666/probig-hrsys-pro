@@ -12,3 +12,5 @@ web/node_modules/
 *.swo
 *~
 
+* DATA
+server/data

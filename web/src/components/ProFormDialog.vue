@@ -149,7 +149,12 @@ async function handleSubmit() {
 
   formLoading.value = true
   try {
-    const data = { ...formData }
+    const data: Record<string, any> = {}
+    for (const key of Object.keys(formData)) {
+      if (formData[key] !== '' && formData[key] !== null && formData[key] !== undefined) {
+        data[key] = formData[key]
+      }
+    }
     await props.submitApi(data)
     ElMessage.success(props.mode === 'add' ? '添加成功' : '修改成功')
     emit('update:visible', false)

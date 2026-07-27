@@ -122,5 +122,32 @@ func SetupRouter() *gin.Engine {
 		positionEvents.POST("/:id/restore", middleware.RequirePermission("position_event.write"), handler.RestorePositionEvent)
 	}
 
+	attendanceEvents := r.Group("/api/attendance-events")
+	attendanceEvents.Use(middleware.AuthRequired())
+	{
+		attendanceEvents.GET("", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEvents)
+		attendanceEvents.GET("/trash", middleware.RequirePermission("attendance.read"), handler.GetDeletedAttendanceEvents)
+		attendanceEvents.GET("/:id", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEventByID)
+		attendanceEvents.POST("", middleware.RequirePermission("attendance.write"), handler.CreateAttendanceEvent)
+		attendanceEvents.POST("/batch", middleware.RequirePermission("attendance.write"), handler.CreateBatchAttendanceEvents)
+		attendanceEvents.PUT("/:id", middleware.RequirePermission("attendance.write"), handler.UpdateAttendanceEvent)
+		attendanceEvents.DELETE("/:id", middleware.RequirePermission("attendance.delete"), handler.DeleteAttendanceEvent)
+		attendanceEvents.POST("/:id/restore", middleware.RequirePermission("attendance.write"), handler.RestoreAttendanceEvent)
+	}
+
+	attendanceDaily := r.Group("/api/attendance-daily")
+	attendanceDaily.Use(middleware.AuthRequired())
+	{
+		attendanceDaily.GET("", middleware.RequirePermission("attendance.read"), handler.GetDailyProjections)
+		attendanceDaily.GET("/:personId/:date/events", middleware.RequirePermission("attendance.read"), handler.GetEventsByPersonDate)
+	}
+
+	attendanceMonthly := r.Group("/api/attendance-monthly")
+	attendanceMonthly.Use(middleware.AuthRequired())
+	{
+		attendanceMonthly.GET("", middleware.RequirePermission("attendance.read"), handler.GetMonthlyList)
+		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.write"), handler.CalculateMonthly)
+	}
+
 	return r
 }

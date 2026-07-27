@@ -129,6 +129,8 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		children := []map[string]interface{}{}
 		if has("attendance.read") {
 			children = append(children, map[string]interface{}{"path": "/attendance", "title": "考勤事件", "icon": "Clock"})
+			children = append(children, map[string]interface{}{"path": "/attendance-daily", "title": "日记工时", "icon": "Clock"})
+			children = append(children, map[string]interface{}{"path": "/attendance-monthly", "title": "月度考勤核算", "icon": "Clock"})
 		}
 		menus = append(menus, map[string]interface{}{
 			"path": "/attendance-group", "title": "考勤管理", "icon": "Clock", "children": children,

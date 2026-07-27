@@ -17,6 +17,12 @@
           <template v-else-if="field.type === 'month-range'">
             <el-date-picker v-model="searchForm[field.prop]" type="monthrange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width: 260px" value-format="YYYY-MM" />
           </template>
+          <template v-else-if="field.type === 'person-select'">
+            <NameSelect v-model="searchForm[field.prop]" :fetch-api="field.fetchApi" :placeholder="field.placeholder || '选择人员'" style="width:200px" />
+          </template>
+          <template v-else-if="field.type === 'month'">
+            <el-date-picker v-model="searchForm[field.prop]" type="month" value-format="YYYY-MM" :placeholder="field.placeholder || '选择月份'" style="width:200px" />
+          </template>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -92,6 +98,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import type { Component } from 'vue'
+import NameSelect from '@/components/NameSelect.vue'
 
 export interface TableColumn {
   prop: string
@@ -106,9 +113,10 @@ export interface TableColumn {
 export interface SearchField {
   prop: string
   label: string
-  type: 'input' | 'select' | 'date-range' | 'month-range'
+  type: 'input' | 'select' | 'date-range' | 'month-range' | 'person-select' | 'month'
   options?: { label: string; value: any }[]
   placeholder?: string
+  fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
 }
 
 export interface ActionButton {

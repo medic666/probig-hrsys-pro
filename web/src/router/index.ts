@@ -52,6 +52,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/position/PositionEventManage.vue'),
         meta: { title: '职务事件', permissionKey: 'position_event.read' },
       },
+      {
+        path: 'attendance',
+        name: 'AttendanceEventManage',
+        component: () => import('@/views/attendance/AttendanceEventManage.vue'),
+        meta: { title: '考勤事件', permissionKey: 'attendance.read' },
+      },
+      {
+        path: 'attendance-daily',
+        name: 'AttendanceDailyQuery',
+        component: () => import('@/views/attendance/AttendanceDailyQuery.vue'),
+        meta: { title: '日记工时', permissionKey: 'attendance.read' },
+      },
+      {
+        path: 'attendance-monthly',
+        name: 'AttendanceMonthlyCalc',
+        component: () => import('@/views/attendance/AttendanceMonthlyCalc.vue'),
+        meta: { title: '月度考勤核算', permissionKey: 'attendance.read' },
+      },
     ],
   },
   {

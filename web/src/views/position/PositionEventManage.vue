@@ -32,15 +32,6 @@
         </el-form-item>
 
         <el-collapse>
-          <el-collapse-item v-if="eventForm.event_type === '入职'" title="入职/离职字段">
-            <el-checkbox v-model="fieldFlags.leave_date">离职日期</el-checkbox>
-            <el-date-picker v-if="fieldFlags.leave_date" v-model="eventForm.leave_date" type="date" value-format="YYYY-MM-DD" size="small" style="width:100%;margin:4px 0" />
-          </el-collapse-item>
-          <el-collapse-item v-else-if="eventForm.event_type === '离职'" title="入职/离职字段">
-            <el-checkbox v-model="fieldFlags.entry_date">入职日期</el-checkbox>
-            <el-date-picker v-if="fieldFlags.entry_date" v-model="eventForm.entry_date" type="date" value-format="YYYY-MM-DD" size="small" style="width:100%;margin:4px 0" />
-          </el-collapse-item>
-
           <el-collapse-item title="考勤/福利">
             <el-checkbox v-model="fieldFlags.attendance_group">考勤组</el-checkbox>
             <el-input v-if="fieldFlags.attendance_group" v-model="eventForm.attendance_group" size="small" placeholder="考勤组名称" style="margin:4px 0" />

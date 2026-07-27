@@ -13,9 +13,9 @@
     >
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="warning" link size="small" @click="handleAssignRoles(row)">分配角色</el-button>
+        <el-button v-if="row.username !== 'admin'" type="warning" link size="small" @click="handleAssignRoles(row)">分配角色</el-button>
         <el-button type="info" link size="small" @click="handleResetPwd(row)">重置密码</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button v-if="row.username !== 'admin'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
       </template>
     </ProTable>
 

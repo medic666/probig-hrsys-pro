@@ -115,6 +115,9 @@ func UpdateUser(id uint, req UpdateUserReq) error {
 		updates["person_id"] = req.PersonID
 	}
 	if req.IsActive != nil {
+		if id == 1 && !*req.IsActive {
+			return errors.New("不能禁用超级管理员账号")
+		}
 		updates["is_active"] = *req.IsActive
 	}
 
@@ -122,6 +125,9 @@ func UpdateUser(id uint, req UpdateUserReq) error {
 }
 
 func DeleteUser(id, operatorID uint) error {
+	if id == 1 {
+		return errors.New("不能删除超级管理员账号")
+	}
 	if id == operatorID {
 		return errors.New("不能删除自己的账号")
 	}
@@ -137,6 +143,23 @@ func RestoreUser(id uint) error {
 }
 
 func AssignUserRoles(userID uint, roleIDs []uint) error {
+	if userID == 1 {
+		var defaultRole model.Role
+		if err := dao.DB.Where("is_default = ?", true).First(&defaultRole).Error; err != nil {
+			return errors.New("默认角色不存在")
+		}
+		hasDefault := false
+		for _, rid := range roleIDs {
+			if rid == defaultRole.ID {
+				hasDefault = true
+				break
+			}
+		}
+		if !hasDefault {
+			roleIDs = append(roleIDs, defaultRole.ID)
+		}
+	}
+
 	dao.DB.Where("user_id = ?", userID).Delete(&model.UserRole{})
 
 	for _, roleID := range roleIDs {

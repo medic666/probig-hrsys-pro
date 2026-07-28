@@ -23,3 +23,8 @@ export function disassociateFile(id: number) {
 export function downloadFile(fileId: number) {
   return request.get(`/files/${fileId}/download`, { responseType: 'blob' })
 }
+
+export function getFiles(params: any) { return request.get('/files', { params }) }
+export function deleteFile(id: number) { return request.delete(`/files/${id}`) }
+export function restoreFile(id: number) { return request.post(`/files/${id}/restore`) }
+export function getDeletedFiles(params: any) { return request.get('/files/trash', { params }) }

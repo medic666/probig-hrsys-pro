@@ -108,6 +108,10 @@ func SetupRouter() *gin.Engine {
 		files.POST("/associate", middleware.RequirePermission("file.write"), handler.AssociateFile)
 		files.POST("/disassociate", middleware.RequirePermission("file.write"), handler.DisassociateFile)
 		files.GET("/by-target", middleware.RequirePermission("file.read"), handler.GetFilesByTarget)
+		files.GET("", middleware.RequirePermission("file.read"), handler.GetFiles)
+		files.GET("/trash", middleware.RequirePermission("file.read"), handler.GetDeletedFiles)
+		files.DELETE("/:id", middleware.RequirePermission("file.delete"), handler.DeleteFile)
+		files.POST("/:id/restore", middleware.RequirePermission("file.write"), handler.RestoreFile)
 	}
 
 	positionEvents := r.Group("/api/position-events")
@@ -200,6 +204,20 @@ func SetupRouter() *gin.Engine {
 		salarySummaries.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalarySummaries)
 		salarySummaries.GET("/:personId/:month/versions", middleware.RequirePermission("salary.read"), handler.GetSalaryVersions)
 		salarySummaries.GET("/versions/:vid", middleware.RequirePermission("salary.read"), handler.GetSalaryVersionDetail)
+	}
+
+	audit := r.Group("/api/audit-logs")
+	audit.Use(middleware.AuthRequired())
+	{
+		audit.GET("", middleware.RequirePermission("audit.read"), handler.GetAuditLogs)
+		audit.GET("/:id", middleware.RequirePermission("audit.read"), handler.GetAuditLogDetail)
+	}
+
+	sysCfg := r.Group("/api/system-configs")
+	sysCfg.Use(middleware.AuthRequired())
+	{
+		sysCfg.GET("", middleware.RequirePermission("system_config.read"), handler.GetSystemConfigs)
+		sysCfg.PUT("/:key", middleware.RequirePermission("system_config.write"), handler.UpdateSystemConfig)
 	}
 
 	return r

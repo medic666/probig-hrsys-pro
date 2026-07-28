@@ -53,6 +53,8 @@ func initSystem(db *gorm.DB) error {
 		return fmt.Errorf("初始化系统配置失败: %w", err)
 	}
 
+	dao.RegisterAuditHooks(db)
+
 	if err := service.SeedDefaultAdmin(db); err != nil {
 		return fmt.Errorf("初始化默认管理员失败: %w", err)
 	}

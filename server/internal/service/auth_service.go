@@ -162,7 +162,7 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		})
 	}
 
-	if has("user.read") || has("role.read") {
+	if has("user.read") || has("role.read") || has("system_config.read") {
 		children := []map[string]interface{}{}
 		if has("user.read") {
 			children = append(children, map[string]interface{}{"path": "/system/users", "title": "用户管理", "icon": "Setting"})
@@ -170,9 +170,20 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		if has("role.read") {
 			children = append(children, map[string]interface{}{"path": "/system/roles", "title": "角色管理", "icon": "Setting"})
 		}
+		if has("system_config.read") {
+			children = append(children, map[string]interface{}{"path": "/system/config", "title": "系统配置", "icon": "Setting"})
+		}
 		menus = append(menus, map[string]interface{}{
 			"path": "/system", "title": "系统管理", "icon": "Setting", "children": children,
 		})
+	}
+
+	if has("file.read") {
+		menus = append(menus, map[string]interface{}{"path": "/files", "title": "文件管理", "icon": "Document"})
+	}
+
+	if has("audit.read") {
+		menus = append(menus, map[string]interface{}{"path": "/audit-logs", "title": "审计日志", "icon": "Document"})
 	}
 
 	return menus

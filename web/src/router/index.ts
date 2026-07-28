@@ -112,6 +112,24 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/salary/SalarySummary.vue'),
         meta: { title: '月度工资汇总', permissionKey: 'salary.read' },
       },
+      {
+        path: 'files',
+        name: 'FileManage',
+        component: () => import('@/views/file/FileManage.vue'),
+        meta: { title: '文件管理', permissionKey: 'file.read' },
+      },
+      {
+        path: 'audit-logs',
+        name: 'AuditLogList',
+        component: () => import('@/views/audit/AuditLogList.vue'),
+        meta: { title: '审计日志', permissionKey: 'audit.read' },
+      },
+      {
+        path: 'system/config',
+        name: 'SystemConfig',
+        component: () => import('@/views/system/SystemConfig.vue'),
+        meta: { title: '系统配置', permissionKey: 'system_config.read' },
+      },
     ],
   },
   {

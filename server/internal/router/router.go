@@ -179,5 +179,26 @@ func SetupRouter() *gin.Engine {
 		carryover.GET("/batches/:batchId/events", middleware.RequirePermission("annual_leave.read"), handler.GetBatchEvents)
 	}
 
+	salaryEvents := r.Group("/api/salary-events")
+	salaryEvents.Use(middleware.AuthRequired())
+	{
+		salaryEvents.GET("", middleware.RequirePermission("salary.read"), handler.GetSalaryEvents)
+		salaryEvents.GET("/trash", middleware.RequirePermission("salary.read"), handler.GetDeletedSalaryEvents)
+		salaryEvents.POST("", middleware.RequirePermission("salary.write"), handler.CreateSalaryEvent)
+		salaryEvents.PUT("/:id", middleware.RequirePermission("salary.write"), handler.UpdateSalaryEvent)
+		salaryEvents.DELETE("/:id", middleware.RequirePermission("salary.delete"), handler.DeleteSalaryEvent)
+		salaryEvents.POST("/:id/restore", middleware.RequirePermission("salary.write"), handler.RestoreSalaryEvent)
+	}
+
+	salarySummaries := r.Group("/api/salary-summaries")
+	salarySummaries.Use(middleware.AuthRequired())
+	{
+		salarySummaries.GET("", middleware.RequirePermission("salary.read"), handler.GetSalarySummaries)
+		salarySummaries.POST("/calculate", middleware.RequirePermission("salary.write"), handler.CalculateSalarySummaries)
+		salarySummaries.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalarySummaries)
+		salarySummaries.GET("/:personId/:month/versions", middleware.RequirePermission("salary.read"), handler.GetSalaryVersions)
+		salarySummaries.GET("/versions/:vid", middleware.RequirePermission("salary.read"), handler.GetSalaryVersionDetail)
+	}
+
 	return r
 }

@@ -154,7 +154,8 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 	if has("salary.read") {
 		children := []map[string]interface{}{}
 		if has("salary.read") {
-			children = append(children, map[string]interface{}{"path": "/salary", "title": "工资管理", "icon": "Money"})
+			children = append(children, map[string]interface{}{"path": "/salary-events", "title": "工资事件", "icon": "Money"})
+			children = append(children, map[string]interface{}{"path": "/salary-summaries", "title": "月度工资汇总", "icon": "Money"})
 		}
 		menus = append(menus, map[string]interface{}{
 			"path": "/salary-group", "title": "薪资管理", "icon": "Money", "children": children,

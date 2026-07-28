@@ -100,6 +100,18 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/annual-leave/LILBalance.vue'),
         meta: { title: '调休余额', permissionKey: 'annual_leave.read' },
       },
+      {
+        path: 'salary-events',
+        name: 'SalaryEventManage',
+        component: () => import('@/views/salary/SalaryEventManage.vue'),
+        meta: { title: '工资事件', permissionKey: 'salary.read' },
+      },
+      {
+        path: 'salary-summaries',
+        name: 'SalarySummary',
+        component: () => import('@/views/salary/SalarySummary.vue'),
+        meta: { title: '月度工资汇总', permissionKey: 'salary.read' },
+      },
     ],
   },
   {

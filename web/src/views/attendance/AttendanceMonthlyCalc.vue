@@ -49,66 +49,37 @@ import ProTable from '@/components/ProTable.vue'
 import { getMonthlyList, calculateMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
-const tableRef = ref()
-const calcVisible = ref(false)
-const saving = ref(false)
-const calcMonth = ref('')
-const calcPersonIds = ref<number[]>([])
-const personList = ref<{id:number;name:string}[]>([])
-const detailVisible = ref(false)
-const detailRow = ref<any>(null)
+const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
+const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
 
-const columns = [
-  { prop:'id', label:'ID', width:'60' },
-  { prop:'person_name', label:'人员', width:'80' },
-  { prop:'belong_month', label:'月份', width:'90' },
-  { prop:'attendance_salary', label:'出勤工资', width:'100' },
-  { prop:'overtime_workday_salary', label:'工作日加班工资', width:'120' },
-  { prop:'overtime_holiday_salary', label:'节假日加班工资', width:'120' },
-  { prop:'attendance_bonus', label:'全勤奖', width:'80' },
-  { prop:'last_calc_at', label:'核算时间', width:'110' },
+const columns=[
+  {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
+  {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'overtime_workday_salary',label:'工作日加班工资',width:'120'},
+  {prop:'overtime_holiday_salary',label:'节假日加班工资',width:'120'},{prop:'attendance_bonus',label:'全勤奖',width:'80'},
+  {prop:'last_calc_at',label:'核算时间',width:'110'},
 ]
-const searchFields = [
-  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOpts },
-  { prop:'month', label:'月份', type:'month' as const },
+const searchFields=[
+  {prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchPersonOpts},
+  {prop:'month',label:'月份',type:'month' as const},
 ]
-const actions = [
-  { key:'calc', label:'批量核算', type:'primary' as const },
-]
+const actions=[{key:'calc',label:'批量核算',type:'primary' as const}]
 
-onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [] })
-
-async function fetchPersonOpts(k?: string) {
-  const list = (await getAllPersons()) as any[] || []
-  return k ? list.filter((p:any)=> p.name.includes(k)) : list
+onMounted(async()=>{personList.value=(await getAllPersons()) as any[]||[]})
+async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
+async function fetchMonthly(p:any){
+  const d=(await getMonthlyList(p)) as any
+  const persons=(await getAllPersons()) as any[]||[];const nm:Record<number,string>={};persons.forEach((x:any)=>nm[x.id]=x.name)
+  return {list:(d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})),total:d.total||0}
 }
 
-async function fetchMonthly(p: any) {
-  const d = (await getMonthlyList(p)) as any
-  const list = Array.isArray(d) ? d : (d.list||[])
-  const persons = (await getAllPersons()) as any[] || []
-  const nameMap: Record<number,string> = {}
-  persons.forEach((x:any)=> nameMap[x.id]=x.name)
-  return { list: list.map((r:any)=>({...r,person_name:nameMap[r.person_id]||'-'})), total: list.length }
-}
-
-function handleAction(k: string) {
-  if (k==='calc') { calcMonth.value=''; calcPersonIds.value=[]; calcVisible.value=true }
-}
-
-async function doCalc() {
-  if (!calcMonth.value) { ElMessage.warning('请选择月份'); return }
+function handleAction(k:string){if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}}
+async function doCalc(){
+  if(!calcMonth.value){ElMessage.warning('请选择月份');return}
   saving.value=true
-  try {
-    const d = await calculateMonthly({ month:calcMonth.value, person_ids:calcPersonIds.value }) as any
-    ElMessage.success(`核算完成: 成功${d.success}条, 失败${d.fail}条`)
-    calcVisible.value=false; tableRef.value?.refresh()
-  } catch { /* */ } finally { saving.value=false }
+  try{const d=await calculateMonthly({month:calcMonth.value,person_ids:calcPersonIds.value}) as any
+    ElMessage.success(`核算完成: 成功${d.success}条, 失败${d.fail}条`);calcVisible.value=false;tableRef.value?.refresh()
+  }catch{/* */}finally{saving.value=false}
 }
-
-function showDetail(row: any) { detailRow.value=row; detailVisible.value=true }
+function showDetail(row:any){detailRow.value=row;detailVisible.value=true}
 </script>
-<style lang="scss" scoped>
-.page-container { padding:0; background:transparent; }
-.page-header { margin-bottom:16px; h2 { font-size:18px; font-weight:600; color:#303133; } }
-</style>
+<style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

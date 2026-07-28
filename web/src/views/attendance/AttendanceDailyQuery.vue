@@ -30,7 +30,6 @@ const eventsVisible = ref(false)
 const dailyEvents = ref<any[]>([])
 
 const columns = [
-  { prop:'id', label:'ID', width:'60' },
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'work_date', label:'日期', width:'110' },
   { prop:'work_hours', label:'记出勤(小时)', width:'110' },
@@ -44,26 +43,15 @@ const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
 ]
 
-async function fetchPersonOptions(k?: string) {
-  const list = (await getAllPersons()) as any[] || []
-  return k ? list.filter((p:any)=> p.name.includes(k)) : list
-}
+async function fetchPersonOptions(k?: string) { const l=(await getAllPersons()) as any[]||[]; return k?l.filter((p:any)=>p.name.includes(k)):l }
 async function fetchDaily(p: any) {
-  const d = await getDailyProjections(p) as any
-  const list = Array.isArray(d) ? d : (d.list||[])
-  const persons = (await getAllPersons()) as any[] || []
-  const nameMap: Record<number,string> = {}
-  persons.forEach((p:any)=> nameMap[p.id]=p.name)
-  return { list: list.map((r:any)=>({...r,person_name:nameMap[r.person_id]||'-'})), total: list.length }
+  const d = (await getDailyProjections(p)) as any
+  const persons=(await getAllPersons()) as any[]||[]
+  const nm: Record<number,string>={}; persons.forEach((x:any)=>nm[x.id]=x.name)
+  return { list: (d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})), total: d.total||0 }
 }
 
-async function showEvents(row: any) {
-  dailyEvents.value = (await getEventsByDate(row.person_id, row.work_date)) as any[] || []
-  eventsVisible.value = true
-}
+async function showEvents(row: any) { dailyEvents.value = (await getEventsByDate(row.person_id, row.work_date)) as any[]||[]; eventsVisible.value=true }
 function noop() {}
 </script>
-<style lang="scss" scoped>
-.page-container { padding:0; background:transparent; }
-.page-header { margin-bottom:16px; h2 { font-size:18px; font-weight:600; color:#303133; } }
-</style>
+<style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

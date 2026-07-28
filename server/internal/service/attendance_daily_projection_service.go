@@ -75,7 +75,7 @@ func getSickLeaveRatio() float64 {
 	return f
 }
 
-func GetDailyProjections(personID uint, dateStart, dateEnd string) ([]model.AttendanceDailyProjection, error) {
+func GetDailyProjections(personID uint, dateStart, dateEnd string, pageNum, pageSize int) ([]model.AttendanceDailyProjection, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceDailyProjection{})
 	if personID > 0 {
 		tx = tx.Where("person_id = ?", personID)
@@ -86,9 +86,12 @@ func GetDailyProjections(personID uint, dateStart, dateEnd string) ([]model.Atte
 	if dateEnd != "" {
 		tx = tx.Where("work_date <= ?", dateEnd)
 	}
+	var total int64
+	tx.Count(&total)
 	var list []model.AttendanceDailyProjection
-	err := tx.Order("work_date ASC").Find(&list).Error
-	return list, err
+	offset := (pageNum - 1) * pageSize
+	err := tx.Order("work_date ASC").Offset(offset).Limit(pageSize).Find(&list).Error
+	return list, total, err
 }
 
 func getOvertimeWorkdayRatio() float64 {

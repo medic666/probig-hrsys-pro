@@ -13,13 +13,14 @@ import (
 )
 
 func GetMonthlyList(c *gin.Context) {
+	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, err := service.GetMonthlyList(c.Query("month"), uint(personID))
+	list, total, err := service.GetMonthlyList(c.Query("month"), uint(personID), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, list)
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
 type calculateReq struct {

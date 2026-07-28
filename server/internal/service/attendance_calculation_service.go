@@ -137,7 +137,7 @@ func CalculateMonthlyAttendance(personID uint, month string) (*model.AttendanceC
 	return &result, nil
 }
 
-func GetMonthlyList(month string, personID uint) ([]model.AttendanceCalculationMonthly, error) {
+func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]model.AttendanceCalculationMonthly, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceCalculationMonthly{})
 	if month != "" {
 		tx = tx.Where("belong_month = ?", month)
@@ -145,9 +145,12 @@ func GetMonthlyList(month string, personID uint) ([]model.AttendanceCalculationM
 	if personID > 0 {
 		tx = tx.Where("person_id = ?", personID)
 	}
+	var total int64
+	tx.Count(&total)
 	var list []model.AttendanceCalculationMonthly
-	err := tx.Order("person_id ASC").Find(&list).Error
-	return list, err
+	offset := (pageNum - 1) * pageSize
+	err := tx.Order("person_id ASC").Offset(offset).Limit(pageSize).Find(&list).Error
+	return list, total, err
 }
 
 func CalculateMonthlyBatch(month string, personIDs []uint) (int, int, error) {

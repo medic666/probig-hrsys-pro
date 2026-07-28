@@ -44,13 +44,9 @@
 
     <el-dialog v-model="versionVisible" title="版本历史" width="750px">
       <el-table :data="versions" border size="small">
-        <el-table-column prop="version" label="版本" width="60"/>
-        <el-table-column prop="final_salary" label="实发工资" width="100"/>
-        <el-table-column prop="operator_name" label="操作人" width="100"/>
-        <el-table-column prop="created_at" label="核算时间" width="160"/>
-        <el-table-column label="操作" width="80">
-          <template #default="{row}"><el-button type="primary" link size="small" @click="showVersionDetail(row)">详情</el-button></template>
-        </el-table-column>
+        <el-table-column prop="version" label="版本" width="60"/><el-table-column prop="final_salary" label="实发工资" width="100"/>
+        <el-table-column prop="operator_name" label="操作人" width="100"/><el-table-column prop="created_at" label="核算时间" width="160"/>
+        <el-table-column label="操作" width="80"><template #default="{row}"><el-button type="primary" link size="small" @click="showVersionDetail(row)">详情</el-button></template></el-table-column>
       </el-table>
     </el-dialog>
 
@@ -91,9 +87,9 @@ const actions=[{key:'calc',label:'批量核算',type:'primary' as const}]
 onMounted(async()=>{personList.value=(await getAllPersons()) as any[]||[]})
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchSummaries(p:any){
-  const d=(await getSalarySummaries(p)) as any; const list=Array.isArray(d)?d:(d.list||[])
-  const persons=(await getAllPersons()) as any[]||[]; const nm:Record<number,string>={}; persons.forEach((x:any)=>nm[x.id]=x.name)
-  return {list:list.map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})),total:list.length}
+  const d=(await getSalarySummaries(p)) as any
+  const persons=(await getAllPersons()) as any[]||[];const nm:Record<number,string>={};persons.forEach((x:any)=>nm[x.id]=x.name)
+  return {list:(d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})),total:d.total||0}
 }
 
 function handleAction(k:string){if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}}
@@ -105,14 +101,8 @@ async function doCalc(){
     calcVisible.value=false;tableRef.value?.refresh()
   }catch{/* */}finally{saving.value=false}
 }
-
 function showDetail(r:any){detailRow.value=r;detailVisible.value=true}
-async function showVersions(r:any){
-  versions.value=(await getSalaryVersions(r.person_id,r.belong_month)) as any[]||[]
-  versionVisible.value=true
-}
-async function showVersionDetail(r:any){
-  verDetail.value=(await getSalaryVersionDetail(r.id)) as any;verDetailVisible.value=true
-}
+async function showVersions(r:any){versions.value=(await getSalaryVersions(r.person_id,r.belong_month)) as any[]||[];versionVisible.value=true}
+async function showVersionDetail(r:any){verDetail.value=(await getSalaryVersionDetail(r.id)) as any;verDetailVisible.value=true}
 </script>
 <style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

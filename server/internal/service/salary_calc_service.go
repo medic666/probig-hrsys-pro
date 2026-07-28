@@ -240,7 +240,7 @@ func CalculateSalaryBatch(month string, personIDs []uint, operatorID uint, opera
 	return success, fail, skip, nil
 }
 
-func GetSalarySummaries(month string, personID uint) ([]model.SalarySummary, error) {
+func GetSalarySummaries(month string, personID uint, pageNum, pageSize int) ([]model.SalarySummary, int64, error) {
 	tx := dao.DB.Model(&model.SalarySummary{})
 	if month != "" {
 		tx = tx.Where("belong_month = ?", month)
@@ -248,9 +248,12 @@ func GetSalarySummaries(month string, personID uint) ([]model.SalarySummary, err
 	if personID > 0 {
 		tx = tx.Where("person_id = ?", personID)
 	}
+	var total int64
+	tx.Count(&total)
 	var list []model.SalarySummary
-	err := tx.Order("belong_month DESC, person_id ASC").Find(&list).Error
-	return list, err
+	offset := (pageNum - 1) * pageSize
+	err := tx.Order("belong_month DESC, person_id ASC").Offset(offset).Limit(pageSize).Find(&list).Error
+	return list, total, err
 }
 
 func GetSalaryVersions(personID uint, month string) ([]model.SalarySummaryVersion, error) {

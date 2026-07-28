@@ -10,13 +10,14 @@ import (
 )
 
 func GetDailyProjections(c *gin.Context) {
+	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, err := service.GetDailyProjections(uint(personID), c.Query("date_start"), c.Query("date_end"))
+	list, total, err := service.GetDailyProjections(uint(personID), c.Query("date_start"), c.Query("date_end"), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, list)
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
 func GetEventsByPersonDate(c *gin.Context) {

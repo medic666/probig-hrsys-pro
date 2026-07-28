@@ -168,6 +168,8 @@ func SetupRouter() *gin.Engine {
 		leaveBalance.GET("/persons/:id/lil-balance", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILBalance)
 		leaveBalance.GET("/persons/:id/lil-balance-history", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILHistory)
 		leaveBalance.GET("/lil-events", middleware.RequirePermission("annual_leave.read"), handler.GetLILEvents)
+		leaveBalance.GET("/annual-leave-balances", middleware.RequirePermission("annual_leave.read"), handler.GetAllALBalances)
+		leaveBalance.GET("/lil-balances", middleware.RequirePermission("annual_leave.read"), handler.GetAllLILBalances)
 	}
 
 	carryover := r.Group("/api/annual-leave-carryover")

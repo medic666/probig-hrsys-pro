@@ -114,3 +114,25 @@ func GetBatchEvents(c *gin.Context) {
 	}
 	utils.Success(c, events)
 }
+
+func GetAllALBalances(c *gin.Context) {
+	pageReq := utils.BindPage(c)
+	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	list, total, err := service.GetAllALBalances(pageReq.PageNum, pageReq.PageSize, uint(personID))
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+}
+
+func GetAllLILBalances(c *gin.Context) {
+	pageReq := utils.BindPage(c)
+	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	list, total, err := service.GetAllLILBalances(pageReq.PageNum, pageReq.PageSize, uint(personID))
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+}

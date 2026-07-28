@@ -32,16 +32,7 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 
 		switch e.EventType {
 		case "出勤":
-			switch e.SubType {
-			case "普通出勤", "补班出勤", "外勤出勤":
-				workHours += e.Hours
-			case "工作日加班":
-				overtimeWorkday += e.Hours
-			case "节假日加班":
-				overtimeHoliday += e.Hours
-			default:
-				workHours += e.Hours
-			}
+			workHours += e.Hours
 		case "休假":
 			switch e.SubType {
 			case "事假":

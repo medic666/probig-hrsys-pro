@@ -38,8 +38,12 @@ func CreateAttendanceEvent(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if e.PersonID == 0 || e.EventType == "" || e.SubType == "" {
-		utils.BadRequest(c, "人员、事件类型、子类型为必填项")
+	if e.PersonID == 0 || e.EventType == "" {
+		utils.BadRequest(c, "人员、事件类型为必填项")
+		return
+	}
+	if e.EventType != "打卡时间戳" && e.SubType == "" {
+		utils.BadRequest(c, "子类型为必填项")
 		return
 	}
 	if err := service.CreateAttendanceEvent(&e); err != nil {

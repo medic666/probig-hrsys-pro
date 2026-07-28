@@ -41,6 +41,7 @@
                 <el-descriptions-item label="绩效工资基数">{{ currentPosition.performance_salary || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="计薪天数">{{ currentPosition.salary_days || '-' }}</el-descriptions-item>
               </el-descriptions>
+              <el-button v-if="currentPosition" size="small" style="margin-top:4px" @click="posDetailVisible=true">查看完整职务信息</el-button>
               <el-empty v-else description="暂无职务信息" :image-size="40" />
 
               <h4 style="margin-top:16px">变动历史</h4>
@@ -124,6 +125,34 @@
     </el-dialog>
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restorePerson" :columns="trashColumns" @restored="onTrashRestored" />
+
+    <el-dialog v-model="posDetailVisible" title="完整职务信息" width="600px">
+      <el-descriptions v-if="currentPosition" :column="2" border size="small">
+        <template #title>在职信息</template>
+        <el-descriptions-item label="在职状态">{{ currentPosition.is_active ? '在职' : '已离职' }}</el-descriptions-item>
+        <el-descriptions-item label="入职日期">{{ currentPosition.entry_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="离职日期">{{ currentPosition.leave_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="考勤组">{{ currentPosition.attendance_group || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="享有年假">{{ currentPosition.has_annual_leave ? '是' : '否' }}</el-descriptions-item>
+        <el-descriptions-item label="享有全勤奖">{{ currentPosition.has_attendance_bonus ? '是' : '否' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-descriptions v-if="currentPosition" :column="2" border size="small" style="margin-top:12px" title="薪资基数">
+        <el-descriptions-item label="基本工资">{{ currentPosition.base_salary || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="绩效工资基数">{{ currentPosition.performance_salary || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="计薪天数">{{ currentPosition.salary_days || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-descriptions v-if="currentPosition" :column="2" border size="small" style="margin-top:12px" title="补贴与代扣">
+        <el-descriptions-item label="职位津贴">{{ currentPosition.post_allowance || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="餐补">{{ currentPosition.meal_allowance || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="房补">{{ currentPosition.housing_allowance || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="交通补贴">{{ currentPosition.transport_allowance || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="高温补贴">{{ currentPosition.high_temp_allowance || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="保险补偿">{{ currentPosition.insurance_compensation || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="公积金补偿">{{ currentPosition.fund_compensation || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="社保代扣">{{ currentPosition.social_security_deduct || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="公积金代扣">{{ currentPosition.housing_fund_deduct || '-' }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </div>
 </template>
 
@@ -150,6 +179,7 @@ const fileList = ref<any[]>([])
 const positionLoading = ref(false)
 const currentPosition = ref<any>(null)
 const positionHistory = ref<any[]>([])
+const posDetailVisible = ref(false)
 
 const newPhone = ref('')
 const newEmail = ref('')

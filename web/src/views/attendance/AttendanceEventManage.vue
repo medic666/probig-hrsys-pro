@@ -17,13 +17,17 @@
             <el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" />
           </el-select>
         </el-form-item>
-        <el-form-item label="子类型" required>
+        <el-form-item v-if="form.event_type !== '打卡时间戳'" label="子类型" required>
           <el-select v-model="form.sub_type" placeholder="选择子类型" style="width:100%">
             <el-option v-for="s in currentSubTypes" :key="s" :label="s" :value="s" />
           </el-select>
         </el-form-item>
-        <el-form-item label="时长(小时)"><el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" /></el-form-item>
-        <el-form-item label="打卡时间"><el-input v-model="form.punch_time" placeholder="可选" /></el-form-item>
+        <el-form-item v-if="form.event_type !== '打卡时间戳' && form.event_type !== '违纪'" label="时长(小时)" required>
+          <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
+        </el-form-item>
+        <el-form-item v-if="form.event_type === '打卡时间戳'" label="打卡时间" required>
+          <el-input v-model="form.punch_time" placeholder="如 08:30" />
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
       <template #footer>
@@ -44,10 +48,15 @@
         <el-form-item label="事件类型">
           <el-select v-model="batchForm.event_type" style="width:100%" @change="onBatchTypeChange"><el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" /></el-select>
         </el-form-item>
-        <el-form-item label="子类型">
+        <el-form-item v-if="batchForm.event_type !== '打卡时间戳'" label="子类型">
           <el-select v-model="batchForm.sub_type" style="width:100%"><el-option v-for="s in batchSubTypes" :key="s" :label="s" :value="s" /></el-select>
         </el-form-item>
-        <el-form-item label="每日时长"><el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" /></el-form-item>
+        <el-form-item v-if="batchForm.event_type !== '打卡时间戳' && batchForm.event_type !== '违纪'" label="每日时长" required>
+          <el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" />
+        </el-form-item>
+        <el-form-item v-if="batchForm.event_type === '打卡时间戳'" label="打卡时间" required>
+          <el-input v-model="batchForm.punch_time" placeholder="如 08:30" />
+        </el-form-item>
         <el-form-item label="备注"><el-input v-model="batchForm.remark" /></el-form-item>
       </el-form>
       <template #footer>
@@ -78,7 +87,7 @@ const trashVisible = ref(false)
 const batchVisible = ref(false)
 const personList = ref<{id:number;name:string}[]>([])
 
-const eventTypes = ['出勤','休假','加班','违纪']
+const eventTypes = ['出勤','休假','加班','违纪','打卡时间戳']
 const subTypeMap: Record<string,string[]> = {
   '出勤':['普通出勤','补班出勤','外勤出勤'],
   '休假':['调休','事假','病假','年假','法定假','福利假'],

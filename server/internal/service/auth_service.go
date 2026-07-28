@@ -190,7 +190,7 @@ func SeedDefaultAdmin(db *gorm.DB) error {
 		{"position_event", "职务事件", []string{"read", "write", "delete", "export"}},
 		{"attendance", "考勤管理", []string{"read", "write", "delete", "export"}},
 		{"annual_leave", "年假管理", []string{"read", "write", "delete", "export"}},
-		{"salary", "工资管理", []string{"read", "write", "export"}},
+		{"salary", "工资管理", []string{"read", "write", "delete", "export"}},
 		{"file", "文件管理", []string{"read", "write", "delete", "export"}},
 		{"audit", "审计日志", []string{"read", "export"}},
 		{"user", "用户管理", []string{"read", "write", "delete", "export"}},

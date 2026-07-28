@@ -14,7 +14,7 @@
         <el-form-item label="事件类型" required>
           <el-select v-model="form.event_type" style="width:100%"><el-option v-for="t in types" :key="t" :label="t" :value="t"/></el-select>
         </el-form-item>
-        <el-form-item label="金额"><el-input-number v-model="form.amount" :precision="2" style="width:100%"/></el-form-item>
+        <el-form-item label="值" required><el-input-number v-model="form.amount" :precision="2" style="width:100%"/></el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="s" @click="submit">确定</el-button></template>
@@ -38,7 +38,7 @@ const form=reactive({person_id:null as any,belong_month:'',event_type:'绩效系
 
 const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
-  {prop:'event_type',label:'类型',width:'100'},{prop:'amount',label:'金额',width:'100'},
+  {prop:'event_type',label:'类型',width:'100'},  {prop:'amount',label:'值',width:'100'},
   {prop:'remark',label:'备注'},
 ]
 const searchFields=[

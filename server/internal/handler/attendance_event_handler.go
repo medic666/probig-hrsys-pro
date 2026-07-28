@@ -46,6 +46,10 @@ func CreateAttendanceEvent(c *gin.Context) {
 		utils.BadRequest(c, "子类型为必填项")
 		return
 	}
+	if !isValidSubType(e.EventType, e.SubType) {
+		utils.BadRequest(c, "事件类型与子类型不匹配")
+		return
+	}
 	if err := service.CreateAttendanceEvent(&e); err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -58,6 +62,10 @@ func UpdateAttendanceEvent(c *gin.Context) {
 	var e model.AttendanceEvent
 	if err := c.ShouldBindJSON(&e); err != nil {
 		utils.BadRequest(c, "参数错误")
+		return
+	}
+	if e.EventType != "" && e.SubType != "" && !isValidSubType(e.EventType, e.SubType) {
+		utils.BadRequest(c, "事件类型与子类型不匹配")
 		return
 	}
 	if err := service.UpdateAttendanceEvent(uint(id), &e); err != nil {
@@ -118,4 +126,25 @@ func GetAttendanceEventsByDate(c *gin.Context) {
 		return
 	}
 	utils.Success(c, events)
+}
+
+var validSubTypes = map[string][]string{
+	"出勤":   {"普通出勤", "补班出勤", "外勤出勤"},
+	"休假":   {"调休", "事假", "病假", "年假", "法定假", "福利假"},
+	"加班":   {"工作日加班", "节假日加班"},
+	"违纪":   {"缺卡", "迟到", "早退"},
+	"打卡时间戳": {},
+}
+
+func isValidSubType(eventType, subType string) bool {
+	if eventType == "打卡时间戳" {
+		return true
+	}
+	list := validSubTypes[eventType]
+	for _, v := range list {
+		if v == subType {
+			return true
+		}
+	}
+	return false
 }

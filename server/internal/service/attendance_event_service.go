@@ -22,7 +22,10 @@ func CreateAttendanceEvent(event *model.AttendanceEvent) error {
 		if err := tx.Create(event).Error; err != nil {
 			return err
 		}
-		return RebuildDailyProjection(tx, event.PersonID, event.EventDate)
+		if err := RebuildDailyProjection(tx, event.PersonID, event.EventDate); err != nil {
+			return err
+		}
+		return triggerLeaveRebuild(tx, event)
 	})
 }
 
@@ -31,6 +34,9 @@ func UpdateAttendanceEvent(id uint, event *model.AttendanceEvent) error {
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("考勤事件不存在")
 	}
+	oldDate := existing.EventDate
+	oldType := existing.EventType
+	oldSubType := existing.SubType
 	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
 		updates := map[string]interface{}{
 			"event_date": event.EventDate,
@@ -43,7 +49,19 @@ func UpdateAttendanceEvent(id uint, event *model.AttendanceEvent) error {
 		if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 			return err
 		}
-		return RebuildDailyProjection(tx, existing.PersonID, existing.EventDate)
+		if err := RebuildDailyProjection(tx, existing.PersonID, oldDate); err != nil {
+			return err
+		}
+		if event.EventDate != oldDate {
+			if err := RebuildDailyProjection(tx, existing.PersonID, event.EventDate); err != nil {
+				return err
+			}
+		}
+		oldEvent := model.AttendanceEvent{EventType: oldType, SubType: oldSubType, PersonID: existing.PersonID}
+		if err := triggerLeaveRebuild(tx, &oldEvent); err != nil {
+			return err
+		}
+		return triggerLeaveRebuild(tx, event)
 	})
 }
 
@@ -56,7 +74,10 @@ func DeleteAttendanceEvent(id uint) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
 		}
-		return RebuildDailyProjection(tx, event.PersonID, event.EventDate)
+		if err := RebuildDailyProjection(tx, event.PersonID, event.EventDate); err != nil {
+			return err
+		}
+		return triggerLeaveRebuild(tx, &event)
 	})
 }
 
@@ -69,8 +90,25 @@ func RestoreAttendanceEvent(id uint) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
-		return RebuildDailyProjection(tx, event.PersonID, event.EventDate)
+		if err := RebuildDailyProjection(tx, event.PersonID, event.EventDate); err != nil {
+			return err
+		}
+		return triggerLeaveRebuild(tx, &event)
 	})
+}
+
+func triggerLeaveRebuild(tx *gorm.DB, event *model.AttendanceEvent) error {
+	if event.EventType == "休假" && event.SubType == "年假" {
+		if err := RebuildAnnualLeaveBalance(tx, event.PersonID); err != nil {
+			return err
+		}
+	}
+	if event.SubType == "补班出勤" || event.SubType == "调休" {
+		if err := RebuildLeaveInLieuBalance(tx, event.PersonID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func GetAttendanceEvent(id uint) (*model.AttendanceEvent, error) {

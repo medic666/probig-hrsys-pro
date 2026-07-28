@@ -175,6 +175,8 @@ function handleCommand(command: string) {
 
   .el-menu {
     border-right: none;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
   }
 }
 

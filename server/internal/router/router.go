@@ -149,5 +149,35 @@ func SetupRouter() *gin.Engine {
 		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.write"), handler.CalculateMonthly)
 	}
 
+	annualLeave := r.Group("/api/annual-leave-events")
+	annualLeave.Use(middleware.AuthRequired())
+	{
+		annualLeave.GET("", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEvents)
+		annualLeave.GET("/trash", middleware.RequirePermission("annual_leave.read"), handler.GetDeletedAnnualLeaveEvents)
+		annualLeave.POST("", middleware.RequirePermission("annual_leave.write"), handler.CreateAnnualLeaveEvent)
+		annualLeave.PUT("/:id", middleware.RequirePermission("annual_leave.write"), handler.UpdateAnnualLeaveEvent)
+		annualLeave.DELETE("/:id", middleware.RequirePermission("annual_leave.delete"), handler.DeleteAnnualLeaveEvent)
+		annualLeave.POST("/:id/restore", middleware.RequirePermission("annual_leave.write"), handler.RestoreAnnualLeaveEvent)
+	}
+
+	leaveBalance := r.Group("/api")
+	leaveBalance.Use(middleware.AuthRequired())
+	{
+		leaveBalance.GET("/persons/:id/annual-leave-balance", middleware.RequirePermission("annual_leave.read"), handler.GetPersonAnnualLeaveBalance)
+		leaveBalance.GET("/persons/:id/annual-leave-balance-history", middleware.RequirePermission("annual_leave.read"), handler.GetPersonAnnualLeaveHistory)
+		leaveBalance.GET("/persons/:id/lil-balance", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILBalance)
+		leaveBalance.GET("/persons/:id/lil-balance-history", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILHistory)
+		leaveBalance.GET("/lil-events", middleware.RequirePermission("annual_leave.read"), handler.GetLILEvents)
+	}
+
+	carryover := r.Group("/api/annual-leave-carryover")
+	carryover.Use(middleware.AuthRequired())
+	{
+		carryover.POST("", middleware.RequirePermission("annual_leave.write"), handler.ExecuteAnnualLeaveCarryover)
+		carryover.POST("/:batchId/cancel", middleware.RequirePermission("annual_leave.write"), handler.CancelCarryover)
+		carryover.GET("/batches", middleware.RequirePermission("annual_leave.read"), handler.GetCarryoverBatches)
+		carryover.GET("/batches/:batchId/events", middleware.RequirePermission("annual_leave.read"), handler.GetBatchEvents)
+	}
+
 	return r
 }

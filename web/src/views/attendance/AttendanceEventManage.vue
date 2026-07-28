@@ -101,16 +101,16 @@ const batchForm = reactive({ person_ids:[] as number[], start_date:'', end_date:
 const currentSubTypes = computed(() => subTypeMap[form.event_type] || [])
 const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
 
-function onTypeChange() { form.sub_type = '' }
-function onBatchTypeChange() { batchForm.sub_type = '' }
+function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = (form.event_type==='打卡时间戳'||form.event_type==='违纪') ? 0 : 8 }
+function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = (batchForm.event_type==='打卡时间戳'||batchForm.event_type==='违纪') ? 0 : 8 }
 
-const columns = [
+  const columns = [
   { prop:'id', label:'ID', width:'60' },
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'event_date', label:'日期', width:'110' },
   { prop:'event_type', label:'事件类型', width:'80' },
   { prop:'sub_type', label:'子类型', width:'100' },
-  { prop:'hours', label:'时长(小时)', width:'90' },
+  { prop:'hours', label:'时长(小时)', width:'90', formatter:(r:any)=>(r.event_type==='打卡时间戳'||r.event_type==='违纪')&&r.hours===0?'-':r.hours },
   { prop:'punch_time', label:'打卡时间', width:'90' },
   { prop:'remark', label:'备注' },
 ]
@@ -149,7 +149,13 @@ async function handleEdit(row: any) {
 async function handleSubmit() {
   saving.value=true
   try {
-    const d: any = { person_id:form.person_id, event_date:form.event_date, event_type:form.event_type, sub_type:form.sub_type, hours:form.hours, punch_time:form.punch_time, remark:form.remark }
+    const d: any = { person_id:form.person_id, event_date:form.event_date, event_type:form.event_type, sub_type:form.sub_type }
+    if (form.event_type === '打卡时间戳') {
+      d.punch_time = form.punch_time || ''
+    } else if (form.event_type !== '违纪') {
+      d.hours = form.hours
+    }
+    d.remark = form.remark || ''
     if (dialogMode.value==='add') await createAttendanceEvent(d)
     else await updateAttendanceEvent(editId.value, d)
     ElMessage.success(dialogMode.value==='add'?'创建成功':'更新成功')

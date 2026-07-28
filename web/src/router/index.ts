@@ -70,6 +70,36 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/attendance/AttendanceMonthlyCalc.vue'),
         meta: { title: '月度考勤核算', permissionKey: 'attendance.read' },
       },
+      {
+        path: 'annual-leave-events',
+        name: 'AnnualLeaveEventFlow',
+        component: () => import('@/views/annual-leave/AnnualLeaveEventFlow.vue'),
+        meta: { title: '年假事件', permissionKey: 'annual_leave.read' },
+      },
+      {
+        path: 'annual-leave-balance',
+        name: 'AnnualLeaveBalance',
+        component: () => import('@/views/annual-leave/AnnualLeaveBalance.vue'),
+        meta: { title: '年假余额', permissionKey: 'annual_leave.read' },
+      },
+      {
+        path: 'annual-leave-carryover',
+        name: 'AnnualLeaveCarryover',
+        component: () => import('@/views/annual-leave/AnnualLeaveCarryover.vue'),
+        meta: { title: '周年结转', permissionKey: 'annual_leave.read' },
+      },
+      {
+        path: 'lil-events',
+        name: 'LILEventFlow',
+        component: () => import('@/views/annual-leave/LILEventFlow.vue'),
+        meta: { title: '调休事件', permissionKey: 'annual_leave.read' },
+      },
+      {
+        path: 'lil-balance',
+        name: 'LILBalance',
+        component: () => import('@/views/annual-leave/LILBalance.vue'),
+        meta: { title: '调休余额', permissionKey: 'annual_leave.read' },
+      },
     ],
   },
   {

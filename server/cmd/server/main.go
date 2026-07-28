@@ -82,6 +82,10 @@ func autoMigrate(db *gorm.DB) error {
 		&model.AttendanceEvent{},
 		&model.AttendanceDailyProjection{},
 		&model.AttendanceCalculationMonthly{},
+		&model.AnnualLeaveAccountEvent{},
+		&model.AnnualLeaveBalanceSnapshot{},
+		&model.LeaveInLieuBalanceSnapshot{},
+		&model.SysBatch{},
 	); err != nil {
 		return err
 	}
@@ -90,6 +94,7 @@ func autoMigrate(db *gorm.DB) error {
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_credit_code ON companies(credit_code) WHERE deleted_at IS NULL AND credit_code != ''")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_position_events_person_seq ON position_events(person_id, seq) WHERE deleted_at IS NULL")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_events_person_seq ON attendance_events(person_id, seq) WHERE deleted_at IS NULL")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_annual_leave_events_person_seq ON annual_leave_account_events(person_id, seq) WHERE deleted_at IS NULL")
 
 	return nil
 }

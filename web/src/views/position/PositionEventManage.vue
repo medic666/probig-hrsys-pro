@@ -193,7 +193,13 @@ async function handleSubmit() {
       data.effective_date = eventForm.effective_date
     }
     for (const f of allFields) {
-      if (fieldFlags[f]) data[f] = eventForm[f] === '' ? null : eventForm[f]
+      if (fieldFlags[f]) {
+        if (f === 'has_annual_leave' || f === 'has_attendance_bonus') {
+          data[f] = true
+        } else {
+          data[f] = eventForm[f] === '' ? null : eventForm[f]
+        }
+      }
     }
     if (dialogMode.value === 'add') { await createPositionEvent(data) }
     else { await updatePositionEvent(editId.value, data) }

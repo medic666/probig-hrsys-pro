@@ -7,8 +7,11 @@ import (
 	"probig/server/internal/model"
 )
 
-func GetPersonList(pageNum, pageSize int, name, idCard string) ([]model.Person, int64, error) {
+func GetPersonList(pageNum, pageSize int, name, idCard string, personID string) ([]model.Person, int64, error) {
 	tx := dao.DB.Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards")
+	if personID != "" {
+		tx = tx.Where("id = ?", personID)
+	}
 	if name != "" {
 		tx = tx.Where("name LIKE ?", "%"+name+"%")
 	}

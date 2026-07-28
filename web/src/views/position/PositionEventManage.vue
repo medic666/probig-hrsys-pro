@@ -121,8 +121,8 @@ const columns = [
 ]
 
 const searchFields = [
-  { prop: 'person_id', label: '人员ID', type: 'input' as const },
-  { prop: 'event_type', label: '事件类型', type: 'select' as const, options: eventTypes.map(t => ({ label: t, value: t })) },
+  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
+  { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t => ({ label: t, value: t })) },
 ]
 
 const actions = [

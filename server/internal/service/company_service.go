@@ -7,8 +7,11 @@ import (
 	"probig/server/internal/model"
 )
 
-func GetCompanyList(pageNum, pageSize int, name, creditCode string) ([]model.Company, int64, error) {
+func GetCompanyList(pageNum, pageSize int, name, creditCode string, id string) ([]model.Company, int64, error) {
 	tx := dao.DB.Model(&model.Company{})
+	if id != "" {
+		tx = tx.Where("id = ?", id)
+	}
 	if name != "" {
 		tx = tx.Where("name LIKE ?", "%"+name+"%")
 	}

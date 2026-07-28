@@ -53,7 +53,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies } from '@/api/company'
+import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies } from '@/api/company'
 import { getFilesByTarget, uploadFile, associateFile, disassociateFile } from '@/api/file'
 
 const tableRef = ref()
@@ -76,9 +76,14 @@ const columns = [
 ]
 
 const searchFields = [
-  { prop: 'name', label: '公司名称', type: 'input' as const, placeholder: '模糊搜索' },
-  { prop: 'credit_code', label: '统一社会信用代码', type: 'input' as const, placeholder: '模糊搜索' },
+  { prop:'id', label:'公司名称', type:'person-select' as const, fetchApi: fetchCompanyOptions },
+  { prop:'credit_code', label:'统一社会信用代码', type:'input' as const, placeholder:'模糊搜索' },
 ]
+
+async function fetchCompanyOptions(k?: string) {
+  const list = (await getAllCompanies()) as { id: number; name: string }[] || []
+  return k ? list.filter(c => c.name.includes(k)) : list
+}
 
 const actions = [
   { key: 'add', label: '新增公司', type: 'primary' as const },

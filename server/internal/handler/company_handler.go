@@ -14,7 +14,7 @@ import (
 
 func GetCompanies(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetCompanyList(pageReq.PageNum, pageReq.PageSize, c.Query("name"), c.Query("credit_code"))
+	list, total, err := service.GetCompanyList(pageReq.PageNum, pageReq.PageSize, c.Query("name"), c.Query("credit_code"), c.Query("id"))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -88,7 +88,7 @@ func GetDeletedCompanies(c *gin.Context) {
 }
 
 func ExportCompanies(c *gin.Context) {
-	list, _, err := service.GetCompanyList(1, 10000, c.Query("name"), c.Query("credit_code"))
+	list, _, err := service.GetCompanyList(1, 10000, c.Query("name"), c.Query("credit_code"), "")
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return

@@ -134,7 +134,7 @@ import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard } from '@/api/person'
+import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, getAllPersons } from '@/api/person'
 import { getFilesByTarget, uploadFile, associateFile, disassociateFile } from '@/api/file'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
 
@@ -170,9 +170,14 @@ const columns = [
 ]
 
 const searchFields = [
-  { prop: 'name', label: '姓名', type: 'input' as const, placeholder: '模糊搜索' },
-  { prop: 'id_card', label: '身份证号', type: 'input' as const, placeholder: '模糊搜索' },
+  { prop:'person_id', label:'姓名', type:'person-select' as const, fetchApi: fetchPersonOptions },
+  { prop:'id_card', label:'身份证号', type:'input' as const, placeholder:'模糊搜索' },
 ]
+
+async function fetchPersonOptions(k?: string) {
+  const list = (await getAllPersons()) as { id: number; name: string }[] || []
+  return k ? list.filter(p => p.name.includes(k)) : list
+}
 
 const actions = [
   { key: 'add', label: '新增人员', type: 'primary' as const },

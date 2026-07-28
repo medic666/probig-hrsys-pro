@@ -14,7 +14,7 @@ import (
 
 func GetPersons(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetPersonList(pageReq.PageNum, pageReq.PageSize, c.Query("name"), c.Query("id_card"))
+	list, total, err := service.GetPersonList(pageReq.PageNum, pageReq.PageSize, c.Query("name"), c.Query("id_card"), c.Query("person_id"))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -88,7 +88,7 @@ func GetDeletedPersons(c *gin.Context) {
 }
 
 func ExportPersons(c *gin.Context) {
-	list, _, err := service.GetPersonList(1, 10000, c.Query("name"), c.Query("id_card"))
+	list, _, err := service.GetPersonList(1, 10000, c.Query("name"), c.Query("id_card"), "")
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return

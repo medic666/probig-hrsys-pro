@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,11 +13,13 @@ import (
 	"probig/server/internal/utils"
 )
 
+var ErrAttendanceNotCalculated = errors.New("未完成月度考勤核算，请先进行考勤核算")
+
 func CalculateSalary(personID uint, month string, operatorID uint, operatorName string) error {
 	var calc model.AttendanceCalculationMonthly
 	err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc).Error
 	if err != nil {
-		return fmt.Errorf("未完成月度考勤核算，请先进行考勤核算")
+		return fmt.Errorf("%w", ErrAttendanceNotCalculated)
 	}
 
 	monthStart, _ := time.Parse("2006-01", month)
@@ -230,7 +233,7 @@ func CalculateSalaryBatch(month string, personIDs []uint, operatorID uint, opera
 	for _, pid := range personIDs {
 		err := CalculateSalary(pid, month, operatorID, operatorName)
 		if err != nil {
-			if err.Error()[:6] == "未完成月度考勤核算" {
+			if errors.Is(err, ErrAttendanceNotCalculated) {
 				skip++
 			} else {
 				fail++

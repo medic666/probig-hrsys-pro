@@ -7,5 +7,10 @@
     "explore": {
       "disable": true
     }
+  },
+  "compaction": {
+    "auto": false,
+    "prune": false,
+    "reserved": 20000
   }
 }

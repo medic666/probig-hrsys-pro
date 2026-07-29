@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -12,6 +14,7 @@ import (
 	"probig/server/internal/router"
 	"probig/server/internal/service"
 
+	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
@@ -36,6 +39,21 @@ func main() {
 	}
 
 	r := router.SetupRouter()
+
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err == nil {
+		r.StaticFS("/assets", http.FS(staticFS))
+		r.NoRoute(func(c *gin.Context) {
+			if c.Request.Method != "GET" {
+				c.Status(http.StatusNotFound)
+				return
+			}
+			indexData, _ := staticFiles.ReadFile("static/index.html")
+			c.Data(http.StatusOK, "text/html; charset=utf-8", indexData)
+		})
+	} else {
+		log.Println("警告: 静态资源未嵌入，仅提供API服务")
+	}
 
 	addr := fmt.Sprintf(":%d", config.AppConfig.Server.Port)
 	log.Printf("服务启动在 http://localhost%s", addr)

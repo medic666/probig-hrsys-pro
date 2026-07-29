@@ -166,13 +166,18 @@ const selectedRows = ref<any[]>([])
 
 const searchForm = reactive<Record<string, any>>({})
 
+initSearchForm()
+
 function initSearchForm() {
   for (const key of Object.keys(searchForm)) {
     delete searchForm[key]
   }
   if (props.searchFields) {
     for (const field of props.searchFields) {
-      searchForm[field.prop] = props.defaultSearch?.[field.prop] ?? field.type === 'date-range' ? [] : ''
+      searchForm[field.prop] = props.defaultSearch?.[field.prop] ?? (
+        field.type === 'date-range' ? [] :
+        field.type === 'person-select' ? null : ''
+      )
     }
   }
 }

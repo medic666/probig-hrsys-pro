@@ -126,7 +126,7 @@ func UploadFile(c *gin.Context) {
 func DownloadFile(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var f model.File
-	if err := dao.DB.First(&f, id).Error; err != nil { utils.Error(c, "文件不存在"); return }
+	if err := dao.DB.Unscoped().First(&f, id).Error; err != nil { c.String(404, "文件不存在"); return }
 	c.File(f.Path)
 }
 
@@ -139,6 +139,9 @@ type associateReq struct {
 func AssociateFile(c *gin.Context) {
 	var req associateReq
 	if err := c.ShouldBindJSON(&req); err != nil { utils.BadRequest(c, "参数错误"); return }
+	var count int64
+	dao.DB.Model(&model.FileRelation{}).Where("file_id = ? AND target_type = ? AND target_id = ?", req.FileID, req.TargetType, req.TargetID).Count(&count)
+	if count > 0 { utils.SuccessWithMsg(c, "已存在关联", nil); return }
 	dao.DB.Create(&model.FileRelation{FileID: req.FileID, TargetType: req.TargetType, TargetID: req.TargetID})
 	utils.SuccessWithMsg(c, "关联成功", nil)
 }
@@ -154,15 +157,7 @@ func GetFilesByTarget(c *gin.Context) {
 	targetType, targetIDStr := c.Query("target_type"), c.Query("target_id")
 	if targetType == "" || targetIDStr == "" { utils.BadRequest(c, "参数错误"); return }
 	targetID, _ := strconv.ParseUint(targetIDStr, 10, 64)
-	var relations []model.FileRelation
-	dao.DB.Where("target_type = ? AND target_id = ?", targetType, targetID).Find(&relations)
-	var fileIDs []uint
-	for _, r := range relations { fileIDs = append(fileIDs, r.FileID) }
-	var files []model.File
-	if len(fileIDs) > 0 { dao.DB.Where("id IN ?", fileIDs).Find(&files) }
-	type result struct{ Relation model.FileRelation `json:"relation"`; File model.File `json:"file"` }
-	var list []result
-	for _, rel := range relations { for _, f := range files { if f.ID == rel.FileID { list = append(list, result{rel, f}) } } }
+	list, _ := service.GetFilesForTarget(targetType, uint(targetID))
 	utils.Success(c, list)
 }
 

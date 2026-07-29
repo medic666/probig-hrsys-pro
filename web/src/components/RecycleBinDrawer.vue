@@ -40,6 +40,7 @@
         @current-change="loadData"
       />
     </div>
+    <slot name="footer" />
   </el-drawer>
 </template>
 

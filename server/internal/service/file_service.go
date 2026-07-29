@@ -88,17 +88,89 @@ func GetFileAssociations(fileID uint) ([]FileAssociation, error) {
 	var result []FileAssociation
 	for _, r := range relations {
 		assoc := FileAssociation{TargetType: r.TargetType, TargetID: r.TargetID}
-		switch r.TargetType {
-		case "person":
-			dao.DB.Table("persons").Select("name").Where("id = ?", r.TargetID).Scan(&assoc.TargetName)
-		case "company":
-			dao.DB.Table("companies").Select("name").Where("id = ?", r.TargetID).Scan(&assoc.TargetName)
-		default:
-			assoc.TargetName = fmt.Sprintf("%s#%d", r.TargetType, r.TargetID)
-		}
+		assoc.TargetName = resolveTargetName(r.TargetType, r.TargetID)
 		result = append(result, assoc)
 	}
 	return result, nil
+}
+
+func resolveTargetName(targetType string, targetID uint) string {
+	switch targetType {
+	case "person":
+		var name string
+		dao.DB.Table("persons").Select("name").Where("id = ?", targetID).Scan(&name)
+		if name != "" { return "人员: " + name }
+	case "company":
+		var name string
+		dao.DB.Table("companies").Select("name").Where("id = ?", targetID).Scan(&name)
+		if name != "" { return "公司: " + name }
+	case "position_event":
+		var row struct{ PersonID uint; EventType string; EffectiveDate time.Time }
+		dao.DB.Table("position_events").Select("person_id, event_type, effective_date").Where("id = ?", targetID).Scan(&row)
+		if row.PersonID > 0 {
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			return fmt.Sprintf("职务事件: %s 的 %s (%s)", pn, row.EventType, row.EffectiveDate.AddDate(0,0,0).Format("2006-01-02"))
+		}
+	case "attendance_event":
+		var row struct{ PersonID uint; EventType string; SubType string; EventDate time.Time }
+		dao.DB.Table("attendance_events").Select("person_id, event_type, sub_type, event_date").Where("id = ?", targetID).Scan(&row)
+		if row.PersonID > 0 {
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			return fmt.Sprintf("考勤事件: %s 的 %s-%s (%s)", pn, row.EventType, row.SubType, row.EventDate.AddDate(0,0,0).Format("2006-01-02"))
+		}
+	case "annual_leave_event":
+		var row struct{ PersonID uint; EventType string; EffectiveDate time.Time }
+		dao.DB.Table("annual_leave_account_events").Select("person_id, event_type, effective_date").Where("id = ?", targetID).Scan(&row)
+		if row.PersonID > 0 {
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			return fmt.Sprintf("年假事件: %s 的 %s (%s)", pn, row.EventType, row.EffectiveDate.AddDate(0,0,0).Format("2006-01-02"))
+		}
+	case "salary_event":
+		var row struct{ PersonID uint; EventType string; BelongMonth string }
+		dao.DB.Table("salary_events").Select("person_id, event_type, belong_month").Where("id = ?", targetID).Scan(&row)
+		if row.PersonID > 0 {
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			return fmt.Sprintf("工资事件: %s 的 %s (%s)", pn, row.EventType, row.BelongMonth)
+		}
+	}
+	return fmt.Sprintf("%s#%d", targetType, targetID)
+}
+
+type FileTargetResult struct {
+	Relation model.FileRelation `json:"relation"`
+	File     model.File         `json:"file"`
+}
+
+func GetFilesForTarget(targetType string, targetID uint) ([]FileTargetResult, error) {
+	if !targetExists(targetType, targetID) {
+		return []FileTargetResult{}, nil
+	}
+	var relations []model.FileRelation
+	dao.DB.Where("target_type = ? AND target_id = ?", targetType, targetID).Find(&relations)
+	var fileIDs []uint
+	for _, r := range relations { fileIDs = append(fileIDs, r.FileID) }
+	var files []model.File
+	if len(fileIDs) > 0 { dao.DB.Where("id IN ?", fileIDs).Find(&files) }
+	var list []FileTargetResult
+	for _, rel := range relations { for _, f := range files { if f.ID == rel.FileID { list = append(list, FileTargetResult{rel, f}) } } }
+	return list, nil
+}
+
+var targetTableNames = map[string]string{
+	"person":              "persons",
+	"company":             "companies",
+	"position_event":      "position_events",
+	"attendance_event":    "attendance_events",
+	"annual_leave_event":  "annual_leave_account_events",
+	"salary_event":        "salary_events",
+}
+
+func targetExists(targetType string, targetID uint) bool {
+	table := targetTableNames[targetType]
+	if table == "" { return true }
+	var count int64
+	dao.DB.Table(table).Where("id = ?", targetID).Count(&count)
+	return count > 0
 }
 
 func CountFileAssociations(fileID uint) int64 {

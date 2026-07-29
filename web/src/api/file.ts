@@ -14,8 +14,14 @@ export function associateFile(file_id: number, target_type: string, target_id: n
 export function disassociateFile(id: number) {
   return request.post('/files/disassociate', { id })
 }
-export function downloadFile(fileId: number) {
-  return request.get(`/files/${fileId}/download`, { responseType: 'blob' })
+export function downloadFile(fileId: number, fileName?: string) {
+  return request.get(`/files/${fileId}/download`, { responseType: 'blob' }).then((res) => {
+    const blob = res as unknown as Blob
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = fileName || 'download'; a.click()
+    URL.revokeObjectURL(url)
+  })
 }
 export function getFiles(params: any) { return request.get('/files', { params }) }
 export function deleteFile(id: number) { return request.delete(`/files/${id}`) }

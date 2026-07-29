@@ -4,6 +4,7 @@
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
         <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
       </template>
     </ProTable>
 
@@ -20,6 +21,10 @@
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="s" @click="submit">确定</el-button></template>
     </el-dialog>
     <RecycleBinDrawer v-model:visible="tv" :fetch-api="fd" :restore-api="rst" :columns="tc" @restored="onR"/>
+
+    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
+      <FileAttachPanel :target-type="'salary_event'" :target-id="attachFileId" />
+    </el-dialog>
   </div>
 </template>
 
@@ -29,10 +34,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
+import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 
-const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false)
+const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false), attachVisible=ref(false), attachFileId=ref<number|null>(null)
 const types=['绩效系数','提成','奖惩','借款还款','个税扣除']
 const form=reactive({person_id:null as any,belong_month:'',event_type:'绩效系数',amount:1,remark:''})
 

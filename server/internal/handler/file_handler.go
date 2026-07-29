@@ -110,9 +110,17 @@ func UploadFile(c *gin.Context) {
 	if err != nil { utils.Error(c, "文件保存失败"); return }
 	defer out.Close()
 	size, _ := io.Copy(out, file)
-	f := model.File{Name: saveName, OriginalName: header.Filename, Path: savePath, Size: size, MimeType: header.Header.Get("Content-Type")}
+	md5hash, _ := service.ComputeFileMD5(savePath)
+
+	if dup, err := service.FindFileByMD5(md5hash); err == nil {
+		os.Remove(savePath)
+		utils.SuccessWithMsg(c, "文件已存在(复用已有记录)", gin.H{"id": dup.ID, "name": dup.OriginalName, "duplicate": true})
+		return
+	}
+
+	f := model.File{Name: saveName, OriginalName: header.Filename, Path: savePath, Size: size, MimeType: header.Header.Get("Content-Type"), MD5: md5hash}
 	dao.DB.Create(&f)
-	utils.Success(c, gin.H{"id": f.ID, "name": f.OriginalName, "size": f.Size, "mime_type": f.MimeType})
+	utils.Success(c, gin.H{"id": f.ID, "name": f.OriginalName, "size": f.Size, "mime_type": f.MimeType, "duplicate": false})
 }
 
 func DownloadFile(c *gin.Context) {
@@ -156,4 +164,31 @@ func GetFilesByTarget(c *gin.Context) {
 	var list []result
 	for _, rel := range relations { for _, f := range files { if f.ID == rel.FileID { list = append(list, result{rel, f}) } } }
 	utils.Success(c, list)
+}
+
+func GetFileAssociations(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	list, err := service.GetFileAssociations(uint(id))
+	if err != nil { utils.Error(c, err.Error()); return }
+	utils.Success(c, list)
+}
+
+func PermanentDeleteFile(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	usedCount, err := service.PermanentDeleteFile(uint(id))
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	if usedCount > 0 {
+		utils.Error(c, fmt.Sprintf("该文件仍被 %d 个实体使用", usedCount))
+		return
+	}
+	utils.SuccessWithMsg(c, "已彻底删除", nil)
+}
+
+func CleanOrphanFiles(c *gin.Context) {
+	count, err := service.CleanOrphanFiles()
+	if err != nil { utils.Error(c, err.Error()); return }
+	utils.SuccessWithMsg(c, fmt.Sprintf("已清理 %d 个孤儿文件", count), gin.H{"count": count})
 }

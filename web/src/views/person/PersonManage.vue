@@ -107,18 +107,7 @@
           </el-tab-pane>
 
           <el-tab-pane label="附件" name="files">
-            <el-table :data="fileList" border size="small" class="sub-table">
-              <el-table-column prop="file" label="文件名" :formatter="(r: any) => r.file?.original_name || '-'" />
-              <el-table-column prop="file" label="大小" width="100" :formatter="(r: any) => formatSize(r.file?.size)" />
-              <el-table-column label="操作" width="120">
-                <template #default="{ row: r }">
-                  <el-button type="danger" link size="small" @click="disassociateFileItem(r.relation.id)">移除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-upload :show-file-list="false" :http-request="handleUpload" style="margin-top:8px">
-              <el-button size="small">上传文件</el-button>
-            </el-upload>
+            <FileAttachPanel v-if="detailRow" :target-type="'person'" :target-id="detailRow.id" />
           </el-tab-pane>
         </el-tabs>
       </template>
@@ -163,8 +152,8 @@ import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, getAllPersons } from '@/api/person'
-import { getFilesByTarget, uploadFile, associateFile, disassociateFile } from '@/api/file'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
 
 const tableRef = ref()
@@ -175,7 +164,6 @@ const detailVisible = ref(false)
 const detailRow = ref<any>(null)
 const activeTab = ref('info')
 const trashVisible = ref(false)
-const fileList = ref<any[]>([])
 const positionLoading = ref(false)
 const currentPosition = ref<any>(null)
 const positionHistory = ref<any[]>([])
@@ -250,7 +238,6 @@ function handleEdit(row: any) { dialogMode.value = 'edit'; editRow.value = row; 
 async function handleDetail(row: any) {
   try {
     detailRow.value = (await getPerson(row.id)) as any
-    fileList.value = (await getFilesByTarget('person', row.id) as any[]) || []
     positionLoading.value = true
     try {
       currentPosition.value = (await getCurrentPosition(row.id)) as any
@@ -307,23 +294,6 @@ async function delBankCard(id: number) {
   await deletePersonBankCard(id)
   ElMessage.success('删除成功')
   handleDetail({ id: detailRow.value.id })
-}
-async function handleUpload(req: any) {
-  const data = (await uploadFile(req.file)) as any
-  await associateFile(data.id, 'person', detailRow.value.id)
-  ElMessage.success('上传成功')
-  handleDetail({ id: detailRow.value.id })
-}
-async function disassociateFileItem(relationId: number) {
-  try { await ElMessageBox.confirm('确认移除该附件？', '提示', { type: 'warning' }) } catch { return }
-  await disassociateFile(relationId)
-  ElMessage.success('已移除')
-  handleDetail({ id: detailRow.value.id })
-}
-function formatSize(bytes: number) {
-  if (!bytes) return '-'
-  if (bytes < 1024) return bytes + ' B'
-  return (bytes / 1024 / 1024).toFixed(2) + ' MB'
 }
 function onFormSuccess() { tableRef.value?.refresh() }
 function onTrashRestored() { tableRef.value?.refresh() }

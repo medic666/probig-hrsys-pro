@@ -4,6 +4,7 @@
       <template #actions="{ row }">
         <el-button v-if="row.source_type !== 'system_period'" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
         <el-button v-if="row.source_type !== 'system_period'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
       </template>
     </ProTable>
 
@@ -18,6 +19,10 @@
       <template #footer><el-button @click="dialogVisible=false">取消</el-button><el-button type="primary" :loading="s" @click="submit">确定</el-button></template>
     </el-dialog>
     <RecycleBinDrawer v-model:visible="tv" :fetch-api="fd" :restore-api="rst" :columns="tc" @restored="onR" />
+
+    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
+      <FileAttachPanel :target-type="'annual_leave_event'" :target-id="attachFileId" />
+    </el-dialog>
   </div>
 </template>
 
@@ -27,10 +32,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
+import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getAnnualLeaveEvents, createAnnualLeaveEvent, updateAnnualLeaveEvent, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 
 const tableRef = ref(); const dialogVisible = ref(false); const mode = ref<'add'|'edit'>('add'); const eid = ref(0); const s = ref(false); const tv = ref(false)
+const attachVisible = ref(false)
+const attachFileId = ref<number | null>(null)
 const types = ref(['grant', 'carryover_deduct', 'adjust'])
 const form = reactive({ person_id: null as any, event_type: 'grant', hours: 8, effective_date: '', remark: '' })
 

@@ -112,6 +112,9 @@ func SetupRouter() *gin.Engine {
 		files.GET("/trash", middleware.RequirePermission("file.read"), handler.GetDeletedFiles)
 		files.DELETE("/:id", middleware.RequirePermission("file.delete"), handler.DeleteFile)
 		files.POST("/:id/restore", middleware.RequirePermission("file.write"), handler.RestoreFile)
+		files.GET("/:id/associations", middleware.RequirePermission("file.read"), handler.GetFileAssociations)
+		files.DELETE("/:id/permanent", middleware.RequirePermission("file.delete"), handler.PermanentDeleteFile)
+		files.POST("/clean-orphans", middleware.RequirePermission("file.delete"), handler.CleanOrphanFiles)
 	}
 
 	positionEvents := r.Group("/api/position-events")

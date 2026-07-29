@@ -1,8 +1,10 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"probig/server/internal/dao"
@@ -274,10 +276,19 @@ func GetSalaryVersionByID(versionID uint) (*model.SalarySummaryVersion, error) {
 
 func isHighTempMonth(month string) bool {
 	v := GetConfigValueOrDefault("attendance.high_temp_months", `["06","07","08","09"]`)
+	var months []string
+	if err := json.Unmarshal([]byte(v), &months); err != nil {
+		return false
+	}
 	m := month[5:7]
-	return len(v) > 0 && containsMonth(v, m)
+	for _, mm := range months {
+		if mm == m {
+			return true
+		}
+	}
+	return false
 }
 
 func containsMonth(jsonList string, m string) bool {
-	return len(jsonList) > len(m) && (jsonList[1:3] == m || jsonList[6:8] == m || jsonList[11:13] == m || jsonList[16:18] == m)
+	return len(jsonList) > len(m) && (strings.Contains(jsonList, m))
 }

@@ -29,6 +29,21 @@ func writeAudit(db *gorm.DB, action, beforeMask, afterMask string) {
 		return
 	}
 
+	excludedProjections := map[string]bool{
+		"position_snapshots":                true,
+		"attendance_daily_projections":      true,
+		"attendance_calculation_monthly":    true,
+		"annual_leave_balance_snapshots":    true,
+		"leave_in_lieu_balance_snapshots":   true,
+		"salary_summaries":                  true,
+		"salary_summary_versions":          true,
+		"files":                             true,
+		"file_relations":                    true,
+	}
+	if excludedProjections[table] {
+		return
+	}
+
 	var beforeJSON, afterJSON string
 	if beforeMask != "" {
 		b, _ := json.Marshal(db.Statement.Dest)

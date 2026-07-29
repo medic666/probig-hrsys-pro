@@ -26,18 +26,7 @@
           </el-tab-pane>
 
           <el-tab-pane label="附件" name="files">
-            <el-table :data="fileList" border size="small">
-              <el-table-column label="文件名" :formatter="(r: any) => r.file?.original_name || '-'" />
-              <el-table-column label="大小" width="100" :formatter="(r: any) => formatSize(r.file?.size)" />
-              <el-table-column label="操作" width="100">
-                <template #default="{ row: r }">
-                  <el-button type="danger" link size="small" @click="disassociateFileItem(r.relation.id)">移除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            <el-upload :show-file-list="false" :http-request="handleUpload" style="margin-top:8px">
-              <el-button size="small">上传文件</el-button>
-            </el-upload>
+            <FileAttachPanel v-if="detailRow" :target-type="'company'" :target-id="detailRow.id" />
           </el-tab-pane>
         </el-tabs>
       </template>
@@ -53,8 +42,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
+import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies } from '@/api/company'
-import { getFilesByTarget, uploadFile, associateFile, disassociateFile } from '@/api/file'
 
 const tableRef = ref()
 const dialogVisible = ref(false)
@@ -64,8 +53,6 @@ const detailVisible = ref(false)
 const detailRow = ref<any>(null)
 const activeTab = ref('info')
 const trashVisible = ref(false)
-const fileList = ref<any[]>([])
-
 const columns = [
   { prop: 'id', label: 'ID', width: '60' },
   { prop: 'name', label: '公司名称', width: '180' },
@@ -122,7 +109,6 @@ function handleEdit(row: any) { dialogMode.value = 'edit'; editRow.value = row; 
 async function handleDetail(row: any) {
   try {
     detailRow.value = (await getCompany(row.id)) as any
-    fileList.value = (await getFilesByTarget('company', row.id) as any[]) || []
     activeTab.value = 'info'
     detailVisible.value = true
   } catch { /* handled */ }
@@ -136,26 +122,6 @@ async function submitForm(data: any) {
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' }) } catch { return }
   try { await deleteCompany(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh() } catch { /* handled */ }
-}
-
-async function handleUpload(req: any) {
-  const data = (await uploadFile(req.file)) as any
-  await associateFile(data.id, 'company', detailRow.value.id)
-  ElMessage.success('上传成功')
-  handleDetail({ id: detailRow.value.id })
-}
-
-async function disassociateFileItem(relationId: number) {
-  try { await ElMessageBox.confirm('确认移除该附件？', '提示', { type: 'warning' }) } catch { return }
-  await disassociateFile(relationId)
-  ElMessage.success('已移除')
-  handleDetail({ id: detailRow.value.id })
-}
-
-function formatSize(bytes: number) {
-  if (!bytes) return '-'
-  if (bytes < 1024) return bytes + ' B'
-  return (bytes / 1024 / 1024).toFixed(2) + ' MB'
 }
 
 function onFormSuccess() { tableRef.value?.refresh() }

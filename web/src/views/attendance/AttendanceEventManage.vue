@@ -5,6 +5,7 @@
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
         <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
       </template>
     </ProTable>
 
@@ -66,6 +67,10 @@
     </el-dialog>
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restore" :columns="trashCols" @restored="onRefresh" />
+
+    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
+      <FileAttachPanel :target-type="'attendance_event'" :target-id="attachFileId" />
+    </el-dialog>
   </div>
 </template>
 
@@ -75,6 +80,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
+import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
@@ -85,6 +91,8 @@ const editId = ref(0)
 const saving = ref(false)
 const trashVisible = ref(false)
 const batchVisible = ref(false)
+const attachVisible = ref(false)
+const attachFileId = ref<number | null>(null)
 const personList = ref<{id:number;name:string}[]>([])
 
 const eventTypes = ['出勤','休假','加班','违纪','打卡时间戳']

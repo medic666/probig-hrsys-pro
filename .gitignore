@@ -17,3 +17,6 @@ server/data
 server/cmd/server/static/
 server/probig-server
 web/dist/
+
+# 示例文件
+examples/

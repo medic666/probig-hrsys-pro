@@ -17,8 +17,25 @@ func RebuildAnnualLeaveBalance(tx *gorm.DB, personID uint) error {
 	var accountEvents []model.AnnualLeaveAccountEvent
 	tx.Where("person_id = ?", personID).Order("effective_date ASC, seq ASC").Find(&accountEvents)
 
-	var attendEvents []model.AttendanceEvent
-	tx.Where("person_id = ? AND event_type = ? AND sub_type = ?", personID, "休假", "年假").Order("event_date ASC, seq ASC").Find(&attendEvents)
+	var attendEvents []model.AttendanceEventDetail
+	var attendDates []utils.DateOnly
+	rows2, _ := tx.Table("attendance_event_details").
+		Select("attendance_event_details.hours, attendance_daily.event_date").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
+		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?",
+			personID, "休假", "年假").
+		Order("attendance_daily.event_date ASC").
+		Rows()
+	if rows2 != nil {
+		for rows2.Next() {
+			var hours float64
+			var eventDate utils.DateOnly
+			rows2.Scan(&hours, &eventDate)
+			attendEvents = append(attendEvents, model.AttendanceEventDetail{Hours: hours})
+			attendDates = append(attendDates, eventDate)
+		}
+		rows2.Close()
+	}
 
 	type ch struct {
 		date  utils.DateOnly
@@ -33,8 +50,8 @@ func RebuildAnnualLeaveBalance(tx *gorm.DB, personID uint) error {
 		}
 		changes = append(changes, ch{e.EffectiveDate, h})
 	}
-	for _, e := range attendEvents {
-		changes = append(changes, ch{e.EventDate, -e.Hours})
+	for i, e := range attendEvents {
+		changes = append(changes, ch{attendDates[i], -e.Hours})
 	}
 
 	if len(changes) == 0 {
@@ -103,8 +120,26 @@ func GetAnnualLeaveBalanceHistory(personID uint) ([]model.AnnualLeaveBalanceSnap
 func RebuildLeaveInLieuBalance(tx *gorm.DB, personID uint) error {
 	tx.Where("person_id = ?", personID).Delete(&model.LeaveInLieuBalanceSnapshot{})
 
-	var events []model.AttendanceEvent
-	tx.Where("person_id = ? AND sub_type IN ?", personID, []string{"补班出勤", "调休"}).Order("event_date ASC, seq ASC").Find(&events)
+	var events []model.AttendanceEventDetail
+	var eventDates []utils.DateOnly
+	rows, _ := tx.Table("attendance_event_details").
+		Select("attendance_event_details.hours, attendance_event_details.sub_type, attendance_daily.event_date").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
+		Where("attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?",
+			personID, []string{"补班出勤", "调休"}).
+		Order("attendance_daily.event_date ASC").
+		Rows()
+	if rows != nil {
+		for rows.Next() {
+			var hours float64
+			var subType string
+			var eventDate utils.DateOnly
+			rows.Scan(&hours, &subType, &eventDate)
+			events = append(events, model.AttendanceEventDetail{Hours: hours, SubType: subType})
+			eventDates = append(eventDates, eventDate)
+		}
+		rows.Close()
+	}
 
 	if len(events) == 0 {
 		return nil
@@ -116,12 +151,12 @@ func RebuildLeaveInLieuBalance(tx *gorm.DB, personID uint) error {
 	}
 
 	var changes []ch
-	for _, e := range events {
+	for i, e := range events {
 		h := e.Hours
 		if e.SubType == "调休" {
 			h = -h
 		}
-		changes = append(changes, ch{e.EventDate, h})
+		changes = append(changes, ch{eventDates[i], h})
 	}
 
 	sort.Slice(changes, func(i, j int) bool {
@@ -234,8 +269,12 @@ func GetAnnualLeaveBalanceDetail(personID uint) (*ALBalanceDetail, error) {
 	var accountEvents []model.AnnualLeaveAccountEvent
 	dao.DB.Where("person_id = ?", personID).Find(&accountEvents)
 
-	var attendEvents []model.AttendanceEvent
-	dao.DB.Where("person_id = ? AND event_type = ? AND sub_type = ?", personID, "休假", "年假").Find(&attendEvents)
+	var attendEvents []model.AttendanceEventDetail
+	dao.DB.Table("attendance_event_details").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
+		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
+		Select("attendance_event_details.hours").
+		Scan(&attendEvents)
 
 	detail := &ALBalanceDetail{}
 	for _, e := range accountEvents {
@@ -262,8 +301,12 @@ type LILBalanceDetail struct {
 }
 
 func GetLILBalanceDetail(personID uint) (*LILBalanceDetail, error) {
-	var events []model.AttendanceEvent
-	dao.DB.Where("person_id = ? AND sub_type IN ?", personID, []string{"补班出勤", "调休"}).Find(&events)
+	var events []model.AttendanceEventDetail
+	dao.DB.Table("attendance_event_details").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
+		Where("attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?", personID, []string{"补班出勤", "调休"}).
+		Select("attendance_event_details.hours, attendance_event_details.sub_type").
+		Scan(&events)
 
 	detail := &LILBalanceDetail{}
 	for _, e := range events {

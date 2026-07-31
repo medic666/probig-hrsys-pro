@@ -121,11 +121,15 @@ func resolveTargetName(targetType string, targetID uint) string {
 			return fmt.Sprintf("职务事件: %s 的 %s (%s)", pn, row.EventType, row.EffectiveDate.AddDate(0,0,0).Format("2006-01-02"))
 		}
 	case "attendance_event":
-		var row struct{ PersonID uint; EventType string; SubType string; EventDate time.Time }
-		dao.DB.Table("attendance_events").Select("person_id, event_type, sub_type, event_date").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
-		if row.PersonID > 0 {
-			var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", row.PersonID).Scan(&pn)
-			return fmt.Sprintf("考勤事件: %s 的 %s-%s (%s)", pn, row.EventType, row.SubType, row.EventDate.AddDate(0,0,0).Format("2006-01-02"))
+		var row struct{ DailyID uint; EventType string; SubType string }
+		dao.DB.Table("attendance_event_details").Select("daily_id, event_type, sub_type").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
+		if row.DailyID > 0 {
+			var dailyRow struct{ PersonID uint; EventDate time.Time }
+			dao.DB.Table("attendance_daily").Select("person_id, event_date").Where("id = ? AND deleted_at IS NULL", row.DailyID).Scan(&dailyRow)
+			if dailyRow.PersonID > 0 {
+				var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", dailyRow.PersonID).Scan(&pn)
+				return fmt.Sprintf("考勤事件: %s 的 %s-%s (%s)", pn, row.EventType, row.SubType, dailyRow.EventDate.AddDate(0,0,0).Format("2006-01-02"))
+			}
 		}
 	case "annual_leave_event":
 		var row struct{ PersonID uint; EventType string; EffectiveDate time.Time }

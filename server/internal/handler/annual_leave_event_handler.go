@@ -33,13 +33,23 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 	}
 
 	if eventType == "" || eventType == "休假" {
-		attList, _, _ := service.GetAttendanceEventList(pageReq.PageNum, pageReq.PageSize, uint(personID), dateStart, dateEnd, "休假", "年假")
-		for i := range attList {
-			attList[i]["event_type"] = "休假(年假)"
-			attList[i]["source_type"] = "attendance"
-			attList[i]["source"] = "attendance"
-			attList[i]["hours"] = -(attList[i]["hours"].(float64))
-			list = append(list, attList[i])
+		attDailyList, _, _ := service.GetAttendanceDailyList(uint(personID), dateStart, dateEnd, "", pageReq.PageNum, pageReq.PageSize)
+		for _, daily := range attDailyList {
+			if details, ok := daily["details"].([]map[string]interface{}); ok {
+				for _, d := range details {
+					if sub, _ := d["sub_type"].(string); sub == "年假" {
+						h, _ := d["hours"].(float64)
+						d["event_type"] = "休假(年假)"
+						d["source_type"] = "attendance"
+						d["source"] = "attendance"
+						d["person_id"] = daily["person_id"]
+						d["person_name"] = daily["person_name"]
+						d["event_date"] = daily["event_date"]
+						d["hours"] = -h
+						list = append(list, d)
+					}
+				}
+			}
 		}
 	}
 

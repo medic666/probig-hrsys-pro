@@ -52,17 +52,25 @@ func GetPersonLILHistory(c *gin.Context) {
 func GetLILEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, _, err := service.GetAttendanceEventList(pageReq.PageNum, pageReq.PageSize,
-		uint(personID), c.Query("date_start"), c.Query("date_end"), "", "")
+	list, _, err := service.GetAttendanceDailyList(uint(personID),
+		c.Query("date_start"), c.Query("date_end"), "", pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
 	var filtered []map[string]interface{}
-	for _, e := range list {
-		sub, ok := e["sub_type"].(string)
-		if ok && (sub == "补班出勤" || sub == "调休") {
-			filtered = append(filtered, e)
+	for _, daily := range list {
+		if details, ok := daily["details"].([]map[string]interface{}); ok {
+			for _, d := range details {
+				sub, _ := d["sub_type"].(string)
+				if sub == "补班出勤" || sub == "调休" {
+					filtered = append(filtered, map[string]interface{}{
+						"id": d["id"], "person_id": daily["person_id"], "person_name": daily["person_name"],
+						"event_date": daily["event_date"], "event_type": d["event_type"],
+						"sub_type": d["sub_type"], "hours": d["hours"], "remark": d["remark"],
+					})
+				}
+			}
 		}
 	}
 	utils.Success(c, utils.NewPageResult(filtered, int64(len(filtered)), pageReq))

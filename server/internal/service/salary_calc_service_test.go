@@ -20,7 +20,7 @@ func newSalaryTestDB(t *testing.T) *gorm.DB {
 	}
 	if err := db.AutoMigrate(
 		&model.PositionEvent{}, &model.PositionSnapshot{},
-		&model.AttendanceEvent{}, &model.AttendanceDailyProjection{},
+		&model.AttendanceDaily{}, &model.AttendanceEventDetail{}, &model.AttendanceDailyProjection{},
 		&model.AttendanceCalculationMonthly{},
 		&model.SalaryEvent{}, &model.SalarySummary{}, &model.SalarySummaryVersion{},
 		&model.AnnualLeaveAccountEvent{},
@@ -72,10 +72,9 @@ func seedAttendanceDays(db *gorm.DB, personID uint, monthStr string, days int, h
 	m, _ := utils.MonthStart(monthStr)
 	for i := 0; i < days; i++ {
 		d := utils.DateOnlyFromTime(m.AddDate(0, 0, i))
-		db.Create(&model.AttendanceEvent{
-			PersonID: personID, Seq: i + 1, EventDate: d,
-			EventType: "出勤", SubType: "普通出勤", Hours: hoursPerDay,
-		})
+		daily := model.AttendanceDaily{PersonID: personID, EventDate: d, Status: "confirmed"}
+		db.Create(&daily)
+		db.Create(&model.AttendanceEventDetail{DailyID: daily.ID, EventType: "出勤", SubType: "普通出勤", Hours: hoursPerDay})
 		RebuildDailyProjection(db, personID, d)
 	}
 }
@@ -83,13 +82,13 @@ func seedAttendanceDays(db *gorm.DB, personID uint, monthStr string, days int, h
 func seedAttendanceEvent(db *gorm.DB, personID uint, date, evType, subType string, hours float64) {
 	d, _ := utils.ParseDate(date)
 	dOnly := utils.DateOnlyFromTime(d)
-	maxSeq := 0
-	db.Unscoped().Model(&model.AttendanceEvent{}).Where("person_id = ?", personID).
-		Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq)
-	db.Create(&model.AttendanceEvent{
-		PersonID: personID, Seq: maxSeq + 1, EventDate: dOnly,
-		EventType: evType, SubType: subType, Hours: hours,
-	})
+	var daily model.AttendanceDaily
+	db.Where("person_id = ? AND event_date = ?", personID, dOnly).First(&daily)
+	if daily.ID == 0 {
+		daily = model.AttendanceDaily{PersonID: personID, EventDate: dOnly, Status: "confirmed"}
+		db.Create(&daily)
+	}
+	db.Create(&model.AttendanceEventDetail{DailyID: daily.ID, EventType: evType, SubType: subType, Hours: hours})
 	RebuildDailyProjection(db, personID, dOnly)
 }
 

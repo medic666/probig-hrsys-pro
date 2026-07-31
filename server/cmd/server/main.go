@@ -140,7 +140,8 @@ func autoMigrate(db *gorm.DB) error {
 		&model.FileRelation{},
 		&model.PositionEvent{},
 		&model.PositionSnapshot{},
-		&model.AttendanceEvent{},
+		&model.AttendanceDaily{},
+		&model.AttendanceEventDetail{},
 		&model.AttendanceDailyProjection{},
 		&model.AttendanceCalculationMonthly{},
 		&model.AnnualLeaveAccountEvent{},
@@ -157,7 +158,8 @@ func autoMigrate(db *gorm.DB) error {
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_id_card ON persons(id_card) WHERE deleted_at IS NULL AND id_card != ''")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_credit_code ON companies(credit_code) WHERE deleted_at IS NULL AND credit_code != ''")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_position_events_person_seq ON position_events(person_id, seq) WHERE deleted_at IS NULL")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_events_person_seq ON attendance_events(person_id, seq) WHERE deleted_at IS NULL")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_daily_person_date ON attendance_daily(person_id, event_date) WHERE deleted_at IS NULL")
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_summaries_person_month ON salary_summaries(person_id, belong_month)")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_annual_leave_events_person_seq ON annual_leave_account_events(person_id, seq) WHERE deleted_at IS NULL")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_events_person_seq ON salary_events(person_id, seq) WHERE deleted_at IS NULL")
 

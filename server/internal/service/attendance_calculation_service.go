@@ -18,6 +18,14 @@ func CalculateMonthlyAttendance(personID uint, month string) (*model.AttendanceC
 	monthStartDate := utils.DateOnlyFromTime(monthStart)
 	monthEndDate := utils.DateOnlyFromTime(monthEnd)
 
+	var pendingCount int64
+	dao.DB.Model(&model.AttendanceDailyProjection{}).
+		Where("person_id = ? AND work_date >= ? AND work_date <= ? AND status = ?",
+			personID, monthStartDate, monthEndDate, "pending").Count(&pendingCount)
+	if pendingCount > 0 {
+		return nil, fmt.Errorf("当月有 %d 天待确认的考勤记录，请先完成核实", pendingCount)
+	}
+
 	var snapshots []model.PositionSnapshot
 	dao.DB.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 		personID, monthEndDate, monthStartDate).Find(&snapshots)

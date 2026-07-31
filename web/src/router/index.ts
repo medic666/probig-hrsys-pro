@@ -59,6 +59,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '考勤事件', permissionKey: 'attendance.read' },
       },
       {
+        path: 'attendance-pending',
+        name: 'PendingConfirm',
+        component: () => import('@/views/attendance/PendingConfirm.vue'),
+        meta: { title: '待确认考勤', permissionKey: 'attendance.read' },
+      },
+      {
         path: 'attendance-daily',
         name: 'AttendanceDailyQuery',
         component: () => import('@/views/attendance/AttendanceDailyQuery.vue'),

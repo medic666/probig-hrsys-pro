@@ -350,7 +350,7 @@ type SalaryTrace struct {
 	Summary            model.SalarySummary               `json:"summary"`
 	AttendanceCalc     model.AttendanceCalculationMonthly `json:"attendance_calc"`
 	DailyProjections   []model.AttendanceDailyProjection  `json:"daily_projections"`
-	AttendanceEvents   []model.AttendanceEvent            `json:"attendance_events"`
+	AttendanceDailies   []model.AttendanceDaily              `json:"attendance_dailies"`
 	PositionSnapshots  []model.PositionSnapshot           `json:"position_snapshots"`
 	SalaryEvents       []model.SalaryEvent                `json:"salary_events"`
 	AnnualLeaveCarryover []model.AnnualLeaveAccountEvent  `json:"annual_leave_carryover"`
@@ -374,9 +374,9 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 	dao.DB.Where("person_id = ? AND work_date >= ? AND work_date <= ?",
 		personID, monthStartD, monthEndD).Order("work_date ASC").Find(&dailyProjections)
 
-	var attendanceEvents []model.AttendanceEvent
+	var attendanceDailies []model.AttendanceDaily
 	dao.DB.Where("person_id = ? AND event_date >= ? AND event_date <= ?",
-		personID, monthStartD, monthEndD).Order("event_date ASC, seq ASC").Find(&attendanceEvents)
+		personID, monthStartD, monthEndD).Order("event_date ASC").Preload("Details").Find(&attendanceDailies)
 
 	var snapshots []model.PositionSnapshot
 	dao.DB.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
@@ -393,7 +393,7 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 		Summary:              summary,
 		AttendanceCalc:       calc,
 		DailyProjections:     dailyProjections,
-		AttendanceEvents:     attendanceEvents,
+		AttendanceDailies:     attendanceDailies,
 		PositionSnapshots:    snapshots,
 		SalaryEvents:         salaryEvents,
 		AnnualLeaveCarryover: alCarryover,

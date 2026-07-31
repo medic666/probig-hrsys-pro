@@ -16,6 +16,7 @@ type AttendanceDailyProjection struct {
 	HasPersonalLeave        bool           `gorm:"default:false" json:"has_personal_leave"`
 	ViolationCount          int            `gorm:"default:0" json:"violation_count"`
 	Remark                  string         `gorm:"type:varchar(256)" json:"remark"`
+	Status                  string         `gorm:"type:varchar(16);default:confirmed" json:"status"`
 	LastCalcAt              utils.DateOnly `json:"last_calc_at"`
 	CreatedAt               time.Time      `json:"created_at"`
 	UpdatedAt               time.Time      `json:"updated_at"`

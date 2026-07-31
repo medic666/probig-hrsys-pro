@@ -32,7 +32,8 @@ func withTestDB(t *testing.T, fn func(db *gorm.DB)) {
 	if err := db.AutoMigrate(
 		&model.PositionEvent{},
 		&model.PositionSnapshot{},
-		&model.AttendanceEvent{},
+		&model.AttendanceDaily{},
+		&model.AttendanceEventDetail{},
 		&model.AttendanceDailyProjection{},
 		&model.AttendanceCalculationMonthly{},
 	); err != nil {
@@ -61,9 +62,10 @@ func TestCalculateMonthlyAttendance_Basic(t *testing.T) {
 		RebuildPositionSnapshots(db, 1)
 
 		workD, _ := utils.ParseDate("2026-06-15")
-		db.Create(&model.AttendanceEvent{
-			PersonID: 1, Seq: 1, EventDate: utils.DateOnlyFromTime(workD),
-			EventType: "出勤", SubType: "普通出勤", Hours: 8,
+		daily := model.AttendanceDaily{PersonID: 1, EventDate: utils.DateOnlyFromTime(workD), Status: "confirmed"}
+		db.Create(&daily)
+		db.Create(&model.AttendanceEventDetail{
+			DailyID: daily.ID, EventType: "出勤", SubType: "普通出勤", Hours: 8,
 		})
 		RebuildDailyProjection(db, 1, utils.DateOnlyFromTime(workD))
 

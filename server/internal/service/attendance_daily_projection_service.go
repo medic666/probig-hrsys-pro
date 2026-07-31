@@ -14,22 +14,32 @@ import (
 func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly) error {
 	tx.Where("person_id = ? AND work_date = ?", personID, workDate).Delete(&model.AttendanceDailyProjection{})
 
-	var events []model.AttendanceEvent
-	tx.Where("person_id = ? AND event_date = ?", personID, workDate).Find(&events)
-
-	if len(events) == 0 {
+	var daily model.AttendanceDaily
+	if err := tx.Where("person_id = ? AND event_date = ?", personID, workDate).First(&daily).Error; err != nil {
 		return nil
 	}
+
+	proj := model.AttendanceDailyProjection{
+		PersonID: personID,
+		WorkDate: workDate,
+		Status:   daily.Status,
+		PunchTime: daily.PunchTime,
+		Remark:   daily.Remark,
+		LastCalcAt: utils.DateOnlyFromTime(time.Now()),
+	}
+
+	if daily.Status == "pending" {
+		return tx.Create(&proj).Error
+	}
+
+	var details []model.AttendanceEventDetail
+	tx.Where("daily_id = ?", daily.ID).Find(&details)
 
 	var workHours, overtimeWorkday, overtimeHoliday float64
 	var hasPersonalLeave bool
 	var violationCount int
-	var punchTime, remark string
 
-	for _, e := range events {
-		punchTime = e.PunchTime
-		remark = e.Remark
-
+	for _, e := range details {
 		switch e.EventType {
 		case "出勤":
 			workHours += e.Hours
@@ -54,18 +64,11 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 		}
 	}
 
-	proj := model.AttendanceDailyProjection{
-		PersonID:             personID,
-		WorkDate:             workDate,
-		PunchTime:            punchTime,
-		WorkHours:            workHours,
-		OvertimeWorkdayHours: overtimeWorkday,
-		OvertimeHolidayHours: overtimeHoliday,
-		HasPersonalLeave:     hasPersonalLeave,
-		ViolationCount:       violationCount,
-		Remark:               remark,
-		LastCalcAt:           utils.DateOnlyFromTime(time.Now()),
-	}
+	proj.WorkHours = workHours
+	proj.OvertimeWorkdayHours = overtimeWorkday
+	proj.OvertimeHolidayHours = overtimeHoliday
+	proj.HasPersonalLeave = hasPersonalLeave
+	proj.ViolationCount = violationCount
 	return tx.Create(&proj).Error
 }
 

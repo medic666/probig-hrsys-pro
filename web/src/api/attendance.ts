@@ -36,3 +36,17 @@ export function getMonthlyList(params: any) {
 export function calculateMonthly(data: any) {
   return request.post('/attendance-monthly/calculate', data)
 }
+export function getPendingDailies(params: any) {
+  return request.get('/attendance-events/pending', { params })
+}
+export function confirmPendingDaily(id: number, details: any[]) {
+  return request.post(`/attendance-events/pending/${id}/confirm`, { details })
+}
+export function dingTalkPreview(file: File) {
+  const fd = new FormData()
+  fd.append('file', file)
+  return request.post('/attendance-events/import-dingtalk/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export function dingTalkExecute(month: string, mappings: any[]) {
+  return request.post('/attendance-events/import-dingtalk/execute', { month, mappings })
+}

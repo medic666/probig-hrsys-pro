@@ -137,8 +137,12 @@ func calculatePersonAnnualBalance(tx *gorm.DB, personID uint) float64 {
 	var accountEvents []model.AnnualLeaveAccountEvent
 	tx.Where("person_id = ?", personID).Find(&accountEvents)
 
-	var attendEvents []model.AttendanceEvent
-	tx.Where("person_id = ? AND event_type = ? AND sub_type = ?", personID, "休假", "年假").Find(&attendEvents)
+	var attendEvents []model.AttendanceEventDetail
+	tx.Table("attendance_event_details").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
+		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
+		Select("attendance_event_details.hours").
+		Scan(&attendEvents)
 
 	var balance float64
 	for _, e := range accountEvents {

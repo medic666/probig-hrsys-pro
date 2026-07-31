@@ -15,12 +15,12 @@ web/node_modules/
 # Runtime data (auto-generated at first launch)
 dist/config.yaml
 dist/data/
+server/dist/data/
 
 # Build artifacts
 web/dist/
-server/data/
+server/dist/probig-server
 server/cmd/server/static/
-server/probig-server
 dist/probig-server
 
 # 示例文件

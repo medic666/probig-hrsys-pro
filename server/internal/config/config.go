@@ -40,15 +40,6 @@ type LogConfig struct {
 }
 
 var AppConfig *Config
-var baseDir string
-
-func init() {
-	if wd, err := os.Getwd(); err == nil {
-		baseDir = wd
-	} else {
-		baseDir = "."
-	}
-}
 
 func GetExeDir() string {
 	exe, err := os.Executable()
@@ -62,37 +53,29 @@ func ResolvePath(relPath string) string {
 	if filepath.IsAbs(relPath) {
 		return relPath
 	}
-	return filepath.Join(baseDir, relPath)
+	return filepath.Join(GetExeDir(), relPath)
 }
 
 func LoadConfig() (loadedFromFile bool) {
-	candidatePaths := []string{
-		filepath.Join(GetExeDir(), "config.yaml"),
-		"config.yaml",
-		"config/config.yaml",
-	}
+	configPath := filepath.Join(GetExeDir(), "config.yaml")
 
-	for _, p := range candidatePaths {
-		cfg, ok := tryLoadFile(p)
-		if ok {
-			applyDefaults(cfg)
-			AppConfig = cfg
-			log.Printf("已加载配置文件: %s", p)
-			return true
-		}
+	cfg, ok := tryLoadFile(configPath)
+	if ok {
+		applyDefaults(cfg)
+		AppConfig = cfg
+		log.Printf("已加载配置文件: %s", configPath)
+		return true
 	}
 
 	log.Println("未找到配置文件，使用默认配置")
-	cfg := &Config{}
+	cfg = &Config{}
 	applyDefaults(cfg)
 	AppConfig = cfg
-	baseDir = GetExeDir()
 	return false
 }
 
 func WriteDefaultConfig() error {
-	exeDir := GetExeDir()
-	configPath := filepath.Join(exeDir, "config.yaml")
+	configPath := filepath.Join(GetExeDir(), "config.yaml")
 
 	cfg := &Config{}
 	applyDefaults(cfg)

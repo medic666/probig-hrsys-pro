@@ -6,6 +6,9 @@ database:
   type: sqlite
   path: ./data/probig.db
 
+file_storage:
+  path: ./data/uploads
+
 jwt:
   secret: probig-jwt-secret-change-in-production
 

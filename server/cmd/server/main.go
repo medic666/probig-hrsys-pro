@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"probig/server/internal/config"
 	"probig/server/internal/dao"
@@ -19,15 +19,26 @@ import (
 )
 
 func main() {
-	if err := config.LoadConfig("config/config.yaml"); err != nil {
-		log.Printf("警告: 加载配置文件失败，使用默认配置: %v", err)
+	loaded := config.LoadConfig()
+
+	if !loaded {
+		if err := config.WriteDefaultConfig(); err != nil {
+			log.Fatalf("生成默认配置文件失败: %v", err)
+		}
 	}
 
-	dbPath := config.AppConfig.Database.Path
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.Fatalf("创建数据库目录失败: %v", err)
+	dbPath := config.ResolvePath(config.AppConfig.Database.Path)
+	uploadDir := config.ResolvePath(config.AppConfig.FileStorage.Path)
+	logPath := config.ResolvePath(config.AppConfig.Log.File)
+
+	for _, p := range []string{filepath.Dir(dbPath), uploadDir, filepath.Dir(logPath)} {
+		if err := os.MkdirAll(p, 0755); err != nil {
+			log.Fatalf("创建目录失败 %s: %v", p, err)
+		}
 	}
+
+	log.Printf("数据库路径: %s", dbPath)
+	log.Printf("文件存储路径: %s", uploadDir)
 
 	db, err := dao.InitDB(dbPath)
 	if err != nil {
@@ -40,20 +51,13 @@ func main() {
 
 	r := router.SetupRouter()
 
-	staticFS, err := fs.Sub(staticFiles, "static")
-	if err == nil {
-		r.StaticFS("/assets", http.FS(staticFS))
-		r.NoRoute(func(c *gin.Context) {
-			if c.Request.Method != "GET" {
-				c.Status(http.StatusNotFound)
-				return
-			}
-			indexData, _ := staticFiles.ReadFile("static/index.html")
-			c.Data(http.StatusOK, "text/html; charset=utf-8", indexData)
-		})
-	} else {
-		log.Println("警告: 静态资源未嵌入，仅提供API服务")
-	}
+	r.NoRoute(func(c *gin.Context) {
+		if c.Request.Method != "GET" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		serveEmbeddedFile(c)
+	})
 
 	addr := fmt.Sprintf(":%d", config.AppConfig.Server.Port)
 	log.Printf("服务启动在 http://localhost%s", addr)
@@ -79,6 +83,43 @@ func initSystem(db *gorm.DB) error {
 
 	log.Println("系统初始化完成")
 	return nil
+}
+
+var contentTypeMap = map[string]string{
+	".html": "text/html; charset=utf-8",
+	".js":   "application/javascript",
+	".css":  "text/css",
+	".svg":  "image/svg+xml",
+	".png":  "image/png",
+	".woff": "font/woff",
+	".woff2": "font/woff2",
+}
+
+func serveEmbeddedFile(c *gin.Context) {
+	urlPath := c.Request.URL.Path
+	filePath := "static" + urlPath
+	if urlPath == "/" {
+		filePath = "static/index.html"
+	}
+
+	data, err := staticFiles.ReadFile(filePath)
+	if err != nil {
+		filePath = "static/index.html"
+		data, err = staticFiles.ReadFile(filePath)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+	}
+
+	contentType := "text/html; charset=utf-8"
+	for ext, ct := range contentTypeMap {
+		if strings.HasSuffix(filePath, ext) {
+			contentType = ct
+			break
+		}
+	}
+	c.Data(http.StatusOK, contentType, data)
 }
 
 func autoMigrate(db *gorm.DB) error {

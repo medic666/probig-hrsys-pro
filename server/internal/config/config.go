@@ -1,16 +1,19 @@
 package config
 
 import (
+	"log"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server   ServerConfig   `yaml:"server"`
-	Database DatabaseConfig `yaml:"database"`
-	Jwt      JwtConfig      `yaml:"jwt"`
-	Log      LogConfig      `yaml:"log"`
+	Server      ServerConfig      `yaml:"server"`
+	Database    DatabaseConfig    `yaml:"database"`
+	FileStorage FileStorageConfig `yaml:"file_storage"`
+	Jwt         JwtConfig         `yaml:"jwt"`
+	Log         LogConfig         `yaml:"log"`
 }
 
 type ServerConfig struct {
@@ -20,6 +23,10 @@ type ServerConfig struct {
 
 type DatabaseConfig struct {
 	Type string `yaml:"type"`
+	Path string `yaml:"path"`
+}
+
+type FileStorageConfig struct {
 	Path string `yaml:"path"`
 }
 
@@ -33,25 +40,104 @@ type LogConfig struct {
 }
 
 var AppConfig *Config
+var baseDir string
 
-func LoadConfig(path string) error {
-	data, err := os.ReadFile(path)
+func init() {
+	if wd, err := os.Getwd(); err == nil {
+		baseDir = wd
+	} else {
+		baseDir = "."
+	}
+}
+
+func GetExeDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "."
+	}
+	return filepath.Dir(exe)
+}
+
+func ResolvePath(relPath string) string {
+	if filepath.IsAbs(relPath) {
+		return relPath
+	}
+	return filepath.Join(baseDir, relPath)
+}
+
+func LoadConfig() (loadedFromFile bool) {
+	candidatePaths := []string{
+		filepath.Join(GetExeDir(), "config.yaml"),
+		"config.yaml",
+		"config/config.yaml",
+	}
+
+	for _, p := range candidatePaths {
+		cfg, ok := tryLoadFile(p)
+		if ok {
+			applyDefaults(cfg)
+			AppConfig = cfg
+			log.Printf("已加载配置文件: %s", p)
+			return true
+		}
+	}
+
+	log.Println("未找到配置文件，使用默认配置")
+	cfg := &Config{}
+	applyDefaults(cfg)
+	AppConfig = cfg
+	baseDir = GetExeDir()
+	return false
+}
+
+func WriteDefaultConfig() error {
+	exeDir := GetExeDir()
+	configPath := filepath.Join(exeDir, "config.yaml")
+
+	cfg := &Config{}
+	applyDefaults(cfg)
+
+	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return err
 	}
-
-	cfg := &Config{}
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return err
 	}
+	log.Printf("已生成默认配置文件: %s", configPath)
+	return nil
+}
 
+func tryLoadFile(path string) (*Config, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	cfg := &Config{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		log.Printf("配置文件 %s 解析失败: %v", path, err)
+		return nil, false
+	}
+	return cfg, true
+}
+
+func applyDefaults(cfg *Config) {
 	if cfg.Server.Port == 0 {
 		cfg.Server.Port = 8080
+	}
+	if cfg.Server.Mode == "" {
+		cfg.Server.Mode = "release"
 	}
 	if cfg.Database.Path == "" {
 		cfg.Database.Path = "./data/probig.db"
 	}
-
-	AppConfig = cfg
-	return nil
+	if cfg.FileStorage.Path == "" {
+		cfg.FileStorage.Path = "./data/uploads"
+	}
+	if cfg.Jwt.Secret == "" {
+		cfg.Jwt.Secret = "probig-jwt-secret-change-in-production"
+	}
+	if cfg.Log.File == "" {
+		cfg.Log.File = "./data/probig.log"
+	}
 }

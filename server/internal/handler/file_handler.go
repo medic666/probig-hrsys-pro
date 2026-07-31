@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"probig/server/internal/config"
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
 	"probig/server/internal/service"
@@ -102,7 +103,7 @@ func UploadFile(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil { utils.BadRequest(c, "请选择文件"); return }
 	defer file.Close()
-	uploadDir := "./data/uploads"; os.MkdirAll(uploadDir, 0755)
+	uploadDir := config.ResolvePath(config.AppConfig.FileStorage.Path); os.MkdirAll(uploadDir, 0755)
 	ext := filepath.Ext(header.Filename)
 	saveName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	savePath := filepath.Join(uploadDir, saveName)

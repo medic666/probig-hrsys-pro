@@ -1,10 +1,13 @@
 package service
 
 import (
+	"context"
 	"crypto/md5"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"probig/server/internal/dao"
@@ -14,10 +17,19 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetFileList(pageNum, pageSize int, name string) ([]model.File, int64, error) {
+func GetFileList(pageNum, pageSize int, name, mimeType, dateStart, dateEnd string) ([]model.File, int64, error) {
 	tx := dao.DB.Model(&model.File{})
 	if name != "" {
 		tx = tx.Where("original_name LIKE ?", "%"+name+"%")
+	}
+	if mimeType != "" {
+		tx = tx.Where("mime_type LIKE ?", mimeType+"%")
+	}
+	if dateStart != "" {
+		tx = tx.Where("created_at >= ?", dateStart)
+	}
+	if dateEnd != "" {
+		tx = tx.Where("created_at <= ?", dateEnd+" 23:59:59")
 	}
 	var total int64
 	tx.Count(&total)
@@ -27,12 +39,12 @@ func GetFileList(pageNum, pageSize int, name string) ([]model.File, int64, error
 	return list, total, err
 }
 
-func DeleteFileByID(id uint) error {
-	return dao.DB.Delete(&model.File{}, id).Error
+func DeleteFileByID(ctx context.Context, id uint) error {
+	return dao.DBFromContext(ctx).Delete(&model.File{}, id).Error
 }
 
-func RestoreFileByID(id uint) error {
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+func RestoreFileByID(ctx context.Context, id uint) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&model.File{}).Where("id = ?", id).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
@@ -71,7 +83,7 @@ func FindFileByMD5(md5hash string) (*model.File, error) {
 	return &f, nil
 }
 
-func PermanentDeleteFile(id uint) (int64, error) {
+func PermanentDeleteFile(ctx context.Context, id uint) (int64, error) {
 	var count int64
 	dao.DB.Model(&model.FileRelation{}).Where("file_id = ?", id).Count(&count)
 	if count > 0 {
@@ -82,7 +94,7 @@ func PermanentDeleteFile(id uint) (int64, error) {
 		return 0, err
 	}
 	os.Remove(f.Path)
-	return 0, dao.DB.Unscoped().Delete(&f).Error
+	return 0, dao.DBFromContext(ctx).Unscoped().Delete(&f).Error
 }
 
 type FileAssociation struct {
@@ -192,7 +204,7 @@ func CountFileAssociations(fileID uint) int64 {
 	return count
 }
 
-func CleanOrphanFiles() (int, error) {
+func CleanOrphanFiles(ctx context.Context) (int, error) {
 	deadline := time.Now().AddDate(0, 0, -30)
 	var files []model.File
 	dao.DB.Unscoped().Where("deleted_at IS NOT NULL AND deleted_at < ?", deadline).Find(&files)
@@ -202,10 +214,48 @@ func CleanOrphanFiles() (int, error) {
 		dao.DB.Model(&model.FileRelation{}).Where("file_id = ?", f.ID).Count(&relCount)
 		if relCount == 0 {
 			os.Remove(f.Path)
-			dao.DB.Unscoped().Delete(&f)
+			dao.DBFromContext(ctx).Unscoped().Delete(&f)
 			count++
 		}
 	}
 	return count, nil
 }
 
+
+func GetFileUnscoped(id uint) (*model.File, error) {
+	var f model.File
+	if err := dao.DB.Unscoped().First(&f, id).Error; err != nil {
+		return nil, err
+	}
+	return &f, nil
+}
+
+func IsFileAssociated(fileID uint, targetType string, targetID uint) bool {
+	var count int64
+	dao.DB.Model(&model.FileRelation{}).
+		Where("file_id = ? AND target_type = ? AND target_id = ?", fileID, targetType, targetID).
+		Count(&count)
+	return count > 0
+}
+
+// GetFileMaxSizeMB 上传大小上限（MB），读系统配置
+func GetFileMaxSizeMB() int64 {
+	v := GetConfigValueOrDefault("file.max_size_mb", "50")
+	n, _ := strconv.ParseInt(v, 10, 64)
+	if n <= 0 {
+		return 50
+	}
+	return n
+}
+
+var blockedFileExts = map[string]bool{
+	".exe": true, ".bat": true, ".cmd": true, ".sh": true,
+	".php": true, ".jsp": true, ".asp": true, ".aspx": true,
+	".py": true, ".pl": true, ".rb": true, ".jar": true, ".msi": true,
+	".dll": true, ".so": true, ".dylib": true, ".com": true, ".scr": true,
+}
+
+// IsBlockedFileExt 可执行文件扩展名黑名单
+func IsBlockedFileExt(ext string) bool {
+	return blockedFileExts[strings.ToLower(ext)]
+}

@@ -87,7 +87,8 @@ func ExecuteAnnualLeaveCarryover(c *gin.Context) {
 		return
 	}
 	userID := c.GetUint("userID")
-	result, err := service.ExecuteCarryover(req.Month, userID)
+	userName := c.GetString("username")
+	result, err := service.ExecuteCarryover(c.Request.Context(), req.Month, userID, userName)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -97,7 +98,7 @@ func ExecuteAnnualLeaveCarryover(c *gin.Context) {
 
 func CancelCarryover(c *gin.Context) {
 	batchID, _ := strconv.ParseUint(c.Param("batchId"), 10, 64)
-	if err := service.CancelCarryover(uint(batchID)); err != nil {
+	if err := service.CancelCarryover(c.Request.Context(), uint(batchID)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

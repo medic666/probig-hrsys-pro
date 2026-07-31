@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"probig/server/internal/dao"
@@ -41,7 +42,7 @@ func GetPersonByID(id uint) (*model.Person, error) {
 	return &person, nil
 }
 
-func CreatePerson(p *model.Person) error {
+func CreatePerson(ctx context.Context, p *model.Person) error {
 	if p.IDCard != "" {
 		var count int64
 		dao.DB.Model(&model.Person{}).Where("id_card = ?", p.IDCard).Count(&count)
@@ -49,10 +50,10 @@ func CreatePerson(p *model.Person) error {
 			return errors.New("身份证号已存在")
 		}
 	}
-	return dao.DB.Create(p).Error
+	return dao.DBFromContext(ctx).Create(p).Error
 }
 
-func UpdatePerson(id uint, p *model.Person) error {
+func UpdatePerson(ctx context.Context, id uint, p *model.Person) error {
 	var existing model.Person
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("人员不存在")
@@ -78,15 +79,15 @@ func UpdatePerson(id uint, p *model.Person) error {
 		"marital_status":   p.MaritalStatus,
 		"alias":            p.Alias,
 	}
-	return dao.DB.Model(&existing).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&existing).Updates(updates).Error
 }
 
-func DeletePerson(id uint) error {
+func DeletePerson(ctx context.Context, id uint) error {
 	var person model.Person
 	if err := dao.DB.First(&person, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&person).Error; err != nil {
 			return err
 		}
@@ -102,7 +103,7 @@ func DeletePerson(id uint) error {
 	})
 }
 
-func RestorePerson(id uint) error {
+func RestorePerson(ctx context.Context, id uint) error {
 	var person model.Person
 	if err := dao.DB.Unscoped().First(&person, id).Error; err != nil {
 		return err
@@ -114,7 +115,7 @@ func RestorePerson(id uint) error {
 			return errors.New("身份证号已被占用，无法恢复")
 		}
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&person).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
@@ -148,27 +149,27 @@ func GetAllPersons() ([]model.Person, error) {
 	return list, nil
 }
 
-func AddPersonPhone(personID uint, phone, phoneType string) error {
+func AddPersonPhone(ctx context.Context, personID uint, phone, phoneType string) error {
 	if phoneType == "" {
 		phoneType = "mobile"
 	}
 	p := model.PersonPhone{PersonID: personID, Phone: phone, PhoneType: phoneType}
-	return dao.DB.Create(&p).Error
+	return dao.DBFromContext(ctx).Create(&p).Error
 }
 
-func UpdatePersonPhone(id uint, phone, phoneType string) error {
+func UpdatePersonPhone(ctx context.Context, id uint, phone, phoneType string) error {
 	updates := map[string]interface{}{"phone": phone}
 	if phoneType != "" {
 		updates["phone_type"] = phoneType
 	}
-	return dao.DB.Model(&model.PersonPhone{}).Where("id = ?", id).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&model.PersonPhone{}).Where("id = ?", id).Updates(updates).Error
 }
 
-func DeletePersonPhone(id uint) error {
-	return dao.DB.Delete(&model.PersonPhone{}, id).Error
+func DeletePersonPhone(ctx context.Context, id uint) error {
+	return dao.DBFromContext(ctx).Delete(&model.PersonPhone{}, id).Error
 }
 
-func AddPersonEmail(personID uint, email, emailType string) error {
+func AddPersonEmail(ctx context.Context, personID uint, email, emailType string) error {
 	if emailType == "" {
 		emailType = "personal"
 	}
@@ -176,28 +177,52 @@ func AddPersonEmail(personID uint, email, emailType string) error {
 	return dao.DB.Create(&e).Error
 }
 
-func UpdatePersonEmail(id uint, email, emailType string) error {
+func UpdatePersonEmail(ctx context.Context, id uint, email, emailType string) error {
 	updates := map[string]interface{}{"email": email}
 	if emailType != "" {
 		updates["email_type"] = emailType
 	}
-	return dao.DB.Model(&model.PersonEmail{}).Where("id = ?", id).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&model.PersonEmail{}).Where("id = ?", id).Updates(updates).Error
 }
 
-func DeletePersonEmail(id uint) error {
-	return dao.DB.Delete(&model.PersonEmail{}, id).Error
+func DeletePersonEmail(ctx context.Context, id uint) error {
+	return dao.DBFromContext(ctx).Delete(&model.PersonEmail{}, id).Error
 }
 
-func AddPersonBankCard(personID uint, bankName, accountNumber, accountHolder string) error {
+func AddPersonBankCard(ctx context.Context, personID uint, bankName, accountNumber, accountHolder string) error {
 	c := model.PersonBankCard{PersonID: personID, BankName: bankName, AccountNumber: accountNumber, AccountHolder: accountHolder}
 	return dao.DB.Create(&c).Error
 }
 
-func UpdatePersonBankCard(id uint, bankName, accountNumber, accountHolder string) error {
+func UpdatePersonBankCard(ctx context.Context, id uint, bankName, accountNumber, accountHolder string) error {
 	updates := map[string]interface{}{"bank_name": bankName, "account_number": accountNumber, "account_holder": accountHolder}
-	return dao.DB.Model(&model.PersonBankCard{}).Where("id = ?", id).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&model.PersonBankCard{}).Where("id = ?", id).Updates(updates).Error
 }
 
-func DeletePersonBankCard(id uint) error {
-	return dao.DB.Delete(&model.PersonBankCard{}, id).Error
+func DeletePersonBankCard(ctx context.Context, id uint) error {
+	return dao.DBFromContext(ctx).Delete(&model.PersonBankCard{}, id).Error
+}
+
+// PersonName 单条人员姓名查询（审计/导出等一次性场景）
+func PersonName(personID uint) string {
+	var name string
+	dao.DB.Table("persons").Select("name").Where("id = ?", personID).Scan(&name)
+	return name
+}
+
+// PersonNameMap 一次 IN 查询返回 id→name 映射，替代列表循环逐行查库（消除 N+1）
+func PersonNameMap(personIDs []uint) map[uint]string {
+	m := make(map[uint]string)
+	if len(personIDs) == 0 {
+		return m
+	}
+	var rows []struct {
+		ID   uint
+		Name string
+	}
+	dao.DB.Table("persons").Where("id IN ?", personIDs).Scan(&rows)
+	for _, r := range rows {
+		m[r.ID] = r.Name
+	}
+	return m
 }

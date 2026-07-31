@@ -2,14 +2,12 @@ package handler
 
 import (
 	"strconv"
-	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 )
 
 func GetCompanies(c *gin.Context) {
@@ -38,7 +36,7 @@ func CreateCompany(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.CreateCompany(&co); err != nil {
+	if err := service.CreateCompany(c.Request.Context(), &co); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -52,7 +50,7 @@ func UpdateCompany(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.UpdateCompany(uint(id), &co); err != nil {
+	if err := service.UpdateCompany(c.Request.Context(), uint(id), &co); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -61,7 +59,7 @@ func UpdateCompany(c *gin.Context) {
 
 func DeleteCompany(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeleteCompany(uint(id)); err != nil {
+	if err := service.DeleteCompany(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -70,7 +68,7 @@ func DeleteCompany(c *gin.Context) {
 
 func RestoreCompany(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestoreCompany(uint(id)); err != nil {
+	if err := service.RestoreCompany(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -94,28 +92,14 @@ func ExportCompanies(c *gin.Context) {
 		return
 	}
 
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "公司列表"
-	f.SetSheetName("Sheet1", sheet)
-	headers := []string{"公司名称", "统一社会信用代码", "地址", "联系电话", "开户行", "银行账号"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
+	var rows [][]interface{}
+	for _, co := range list {
+		rows = append(rows, []interface{}{
+			co.Name, co.CreditCode, co.Address, co.ContactPhone, co.BankName, co.BankAccount,
+		})
 	}
-	for i, co := range list {
-		row := i + 2
-		f.SetCellValue(sheet, cellName(1, row), co.Name)
-		f.SetCellValue(sheet, cellName(2, row), co.CreditCode)
-		f.SetCellValue(sheet, cellName(3, row), co.Address)
-		f.SetCellValue(sheet, cellName(4, row), co.ContactPhone)
-		f.SetCellValue(sheet, cellName(5, row), co.BankName)
-		f.SetCellValue(sheet, cellName(6, row), co.BankAccount)
-	}
-
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=companies_"+time.Now().Format("20060102")+".xlsx")
-	f.Write(c.Writer)
+	writeExcel(c, "公司列表", "companies",
+		[]string{"公司名称", "统一社会信用代码", "地址", "联系电话", "开户行", "银行账号"}, rows)
 }
 
 func GetAllCompaniesList(c *gin.Context) {

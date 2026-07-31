@@ -22,7 +22,10 @@ instance.interceptors.request.use((config) => {
 instance.interceptors.response.use(
   (response) => {
     if (response.config.responseType === 'blob') {
-      return response.data
+      const disposition = response.headers['content-disposition'] || ''
+      const match = disposition.match(/filename=([^;]+)/)
+      const filename = match ? decodeURIComponent(match[1].trim()) : ''
+      return { blob: response.data, filename }
     }
     const { data } = response
     if (data.code !== 0) {

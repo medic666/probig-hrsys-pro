@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import request from '@/utils/request'
-
 interface UserInfo {
   id: number
   username: string
@@ -43,11 +41,6 @@ export const useUserStore = defineStore('user', () => {
     saveToken('')
   }
 
-  async function fetchUserInfo() {
-    const data = (await request.get('/user/info')) as UserInfo
-    userInfo.value = data
-  }
-
   return {
     token,
     userInfo,
@@ -55,6 +48,5 @@ export const useUserStore = defineStore('user', () => {
     setToken,
     setUserInfo,
     clearUser,
-    fetchUserInfo,
   }
 })

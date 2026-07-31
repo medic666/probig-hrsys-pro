@@ -1,6 +1,9 @@
 package service
 
 import (
+	"fmt"
+	"path/filepath"
+	"context"
 	"testing"
 	"time"
 
@@ -14,7 +17,8 @@ import (
 
 func newSalaryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	// 临时文件库：多连接并发安全（:memory: 各连接独立空库，且单连接下审计 hook 内嵌写入会互锁）
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?_busy_timeout=10000", filepath.Join(t.TempDir(), "test.db"))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -25,6 +29,7 @@ func newSalaryTestDB(t *testing.T) *gorm.DB {
 		&model.SalaryEvent{}, &model.SalarySummary{}, &model.SalarySummaryVersion{},
 		&model.AnnualLeaveAccountEvent{},
 		&model.SysConfig{},
+		&model.Person{}, &model.AuditLog{}, &model.File{}, &model.Company{},
 	); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
@@ -110,11 +115,11 @@ func TestSalaryFullMonthNormal(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
 		seedEmployee(db, 1, "2026-01-01", 8000, 2000, 300, 500, 26)
 		seedAttendanceDays(db, 1, "2026-06", 26, 8)
-		_, err := CalculateMonthlyAttendance(1, "2026-06")
+		_, err := CalculateMonthlyAttendance(context.Background(), 1, "2026-06")
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(1, "2026-06", 1, "admin")
+		err = CalculateSalary(context.Background(), 1, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -157,11 +162,11 @@ func TestSalaryMidMonthLeave(t *testing.T) {
 		seedEmployee(db, 2, "2026-01-01", 8000, 2000, 300, 500, 26)
 		seedLeave(db, 2, "2026-06-15")
 		seedAttendanceDays(db, 2, "2026-06", 14, 8)
-		_, err := CalculateMonthlyAttendance(2, "2026-06")
+		_, err := CalculateMonthlyAttendance(context.Background(), 2, "2026-06")
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(2, "2026-06", 1, "admin")
+		err = CalculateSalary(context.Background(), 2, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -193,11 +198,11 @@ func TestSalaryPersonalLeaveZeroBonus(t *testing.T) {
 		seedAttendanceDays(db, 3, "2026-06", 25, 8)
 		seedAttendanceEvent(db, 3, "2026-06-15", "休假", "事假", 8)
 
-		_, err := CalculateMonthlyAttendance(3, "2026-06")
+		_, err := CalculateMonthlyAttendance(context.Background(), 3, "2026-06")
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(3, "2026-06", 1, "admin")
+		err = CalculateSalary(context.Background(), 3, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -222,11 +227,11 @@ func TestSalaryViolationsBonus(t *testing.T) {
 		seedAttendanceEvent(db, 4, "2026-06-05", "违纪", "缺卡", 0)
 		seedAttendanceEvent(db, 4, "2026-06-07", "违纪", "迟到", 0)
 
-		_, err := CalculateMonthlyAttendance(4, "2026-06")
+		_, err := CalculateMonthlyAttendance(context.Background(), 4, "2026-06")
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(4, "2026-06", 1, "admin")
+		err = CalculateSalary(context.Background(), 4, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -251,11 +256,11 @@ func TestSalaryCarryover(t *testing.T) {
 		seedAttendanceDays(db, 5, "2026-06", 26, 8)
 		seedAnnualLeaveDeduct(db, 5, "2026-06-15", 16)
 
-		_, err := CalculateMonthlyAttendance(5, "2026-06")
+		_, err := CalculateMonthlyAttendance(context.Background(), 5, "2026-06")
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(5, "2026-06", 1, "admin")
+		err = CalculateSalary(context.Background(), 5, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -292,8 +297,8 @@ func TestSalaryPerfCoeff(t *testing.T) {
 		seedEmployee(db, 6, "2026-01-01", 8000, 2000, 300, 500, 26)
 		seedAttendanceDays(db, 6, "2026-06", 26, 8)
 		seedSalaryEvent(db, 6, "2026-06", "绩效系数", 1.2)
-		_, _ = CalculateMonthlyAttendance(6, "2026-06")
-		_ = CalculateSalary(6, "2026-06", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 6, "2026-06")
+		_ = CalculateSalary(context.Background(), 6, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 6, "2026-06").First(&s)
@@ -315,8 +320,8 @@ func TestSalaryAdjustments(t *testing.T) {
 		seedSalaryEvent(db, 7, "2026-06", "奖惩", -200)
 		seedSalaryEvent(db, 7, "2026-06", "借款还款", 1500)
 		seedSalaryEvent(db, 7, "2026-06", "个税扣除", 800)
-		_, _ = CalculateMonthlyAttendance(7, "2026-06")
-		_ = CalculateSalary(7, "2026-06", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 7, "2026-06")
+		_ = CalculateSalary(context.Background(), 7, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 7, "2026-06").First(&s)
@@ -354,8 +359,8 @@ func TestSalaryHighTempMonth(t *testing.T) {
 
 		// June = high-temp month (config: ["06","07","08","09"])
 		seedAttendanceDays(db, 8, "2026-06", 26, 8)
-		_, _ = CalculateMonthlyAttendance(8, "2026-06")
-		_ = CalculateSalary(8, "2026-06", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 8, "2026-06")
+		_ = CalculateSalary(context.Background(), 8, "2026-06", 1, "admin")
 		var sJune model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 8, "2026-06").First(&sJune)
 
@@ -365,8 +370,8 @@ func TestSalaryHighTempMonth(t *testing.T) {
 
 		// January = not high-temp
 		seedAttendanceDays(db, 8, "2026-01", 26, 8)
-		_, _ = CalculateMonthlyAttendance(8, "2026-01")
-		_ = CalculateSalary(8, "2026-01", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 8, "2026-01")
+		_ = CalculateSalary(context.Background(), 8, "2026-01", 1, "admin")
 		var sJan model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 8, "2026-01").First(&sJan)
 
@@ -402,8 +407,8 @@ func TestSalaryMidMonthAdjust(t *testing.T) {
 		RebuildPositionSnapshots(db, 9)
 
 		seedAttendanceDays(db, 9, "2026-06", 26, 8)
-		_, _ = CalculateMonthlyAttendance(9, "2026-06")
-		_ = CalculateSalary(9, "2026-06", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 9, "2026-06")
+		_ = CalculateSalary(context.Background(), 9, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 9, "2026-06").First(&s)
@@ -441,8 +446,8 @@ func TestSalaryComplexCombo(t *testing.T) {
 		seedAttendanceEvent(db, 10, "2026-06-10", "休假", "事假", 8)
 		seedAnnualLeaveDeduct(db, 10, "2026-06-15", 8)
 
-		_, _ = CalculateMonthlyAttendance(10, "2026-06")
-		_ = CalculateSalary(10, "2026-06", 1, "admin")
+		_, _ = CalculateMonthlyAttendance(context.Background(), 10, "2026-06")
+		_ = CalculateSalary(context.Background(), 10, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 10, "2026-06").First(&s)

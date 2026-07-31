@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"strconv"
@@ -112,7 +113,7 @@ func DingTalkPreview(filePath string) ([]DingTalkPreviewResult, error) {
 	return result, nil
 }
 
-func DingTalkExecute(filePath, month string, mappings []DingTalkImportMapping) (created, pending int, err error) {
+func DingTalkExecute(ctx context.Context, filePath, month string, mappings []DingTalkImportMapping) (created, pending int, err error) {
 	_, persons, err := ParseDingTalkExcel(filePath)
 	if err != nil {
 		return 0, 0, err
@@ -137,7 +138,7 @@ func DingTalkExecute(filePath, month string, mappings []DingTalkImportMapping) (
 			}
 			date := monthStart.AddDate(0, 0, dayIdx)
 			dateOnly := utils.DateOnlyFromTime(date)
-			c, p := parseDailyCell(cell, pid, dateOnly)
+			c, p := parseDailyCell(ctx, cell, pid, dateOnly)
 			created += c
 			pending += p
 		}
@@ -145,7 +146,7 @@ func DingTalkExecute(filePath, month string, mappings []DingTalkImportMapping) (
 	return created, pending, nil
 }
 
-func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, pending int) {
+func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.DateOnly) (created, pending int) {
 	status := "confirmed"
 	var events []model.AttendanceEventDetail
 
@@ -178,7 +179,7 @@ func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, p
 				EventType: "打卡时间戳", SubType: "", Hours: 0, Remark: punchTime,
 			})
 		}
-		err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 			daily, err := GetOrCreateDaily(tx, personID, date, status)
 			if err != nil {
 				return err
@@ -189,10 +190,12 @@ func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, p
 				}
 			}
 			if punchTime != "" {
-				tx.Model(daily).Update("punch_time", punchTime)
+				if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
+					return err
+				}
 			}
 			if status == "confirmed" {
-				return RebuildDailyProjection(tx, personID, date)
+				return RebuildProjectionsAfterAttendanceChange(tx, personID, date, events)
 			}
 			return nil
 		})
@@ -206,7 +209,7 @@ func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, p
 		events = append(events, model.AttendanceEventDetail{
 			EventType: "休假", SubType: "事假", Hours: 8, Remark: "钉钉导入:旷工",
 		})
-		status = "pending"; pending = 1
+		status = "pending"; pending = 1; created = 1
 		return createEvents()
 	}
 
@@ -224,7 +227,7 @@ func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, p
 		events = append(events, model.AttendanceEventDetail{
 			EventType: "加班", SubType: "节假日加班", Hours: 8, Remark: "钉钉导入:休息并打卡",
 		})
-		status = "pending"; pending = 1
+		status = "pending"; pending = 1; created = 1
 		return createEvents()
 	}
 
@@ -234,15 +237,28 @@ func parseDailyCell(cell string, personID uint, date utils.DateOnly) (created, p
 			events = append(events, model.AttendanceEventDetail{
 				EventType: "休假", SubType: leaveType, Hours: leaveHours, Remark: "钉钉导入:"+cell,
 			})
+			created = 1
 			if leaveHours < 8 {
+				// 不满 8 小时：补足出勤并标记待确认（企划 4.3.4）
 				events = append(events, model.AttendanceEventDetail{
 					EventType: "出勤", SubType: "普通出勤", Hours: 8 - leaveHours,
 				})
+				status = "pending"; pending = 1
 			}
-			status = "pending"; pending = 1
-			if !isLate && !isEarly && !isMissingCard {
-				return createEvents()
+			// 请假与违纪组合自包含处理，避免落入下方普通出勤分支重复记 8h
+			lateMin := extractLateMinutes(cell, "迟到")
+			earlyMin := extractLateMinutes(cell, "早退")
+			if isLate && lateMin > 0 {
+				events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "迟到", Minutes: lateMin})
 			}
+			if isEarly && earlyMin > 0 {
+				events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "早退", Minutes: earlyMin})
+			}
+			if isMissingCard {
+				events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "缺卡", Hours: 0})
+				status = "pending"; pending = 1
+			}
+			return createEvents()
 		}
 	}
 

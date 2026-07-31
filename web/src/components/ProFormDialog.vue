@@ -60,6 +60,12 @@
               v-else-if="field.type === 'switch'"
               v-model="formData[field.prop]"
             />
+            <NameSelect
+              v-else-if="field.type === 'person-select'"
+              v-model="formData[field.prop]"
+              :fetch-api="field.fetchApi!"
+              :placeholder="field.placeholder || '请选择'"
+            />
           </el-form-item>
         </el-col>
       </el-row>
@@ -75,16 +81,18 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import NameSelect from '@/components/NameSelect.vue'
 
 export interface FormField {
   prop: string
   label: string
-  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch'
+  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch' | 'person-select'
   options?: { label: string; value: any }[]
   placeholder?: string
   span?: number
   precision?: number
   defaultValue?: any
+  fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
 }
 
 const props = defineProps<{
@@ -153,6 +161,11 @@ async function handleSubmit() {
     for (const key of Object.keys(formData)) {
       if (formData[key] !== '' && formData[key] !== null && formData[key] !== undefined) {
         data[key] = formData[key]
+      }
+    }
+    for (const field of props.formFields) {
+      if (field.type === 'person-select' && (data[field.prop] === undefined || data[field.prop] === null)) {
+        data[field.prop] = 0
       }
     }
     await props.submitApi(data)

@@ -153,8 +153,9 @@ import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, getAllPersons } from '@/api/person'
+import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, getAllPersons, exportPersons } from '@/api/person'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
 const dialogVisible = ref(false)
@@ -199,6 +200,7 @@ async function fetchPersonOptions(k?: string) {
 
 const actions = [
   { key: 'add', label: '新增人员', type: 'primary' as const },
+  { key: 'export', label: '导出', type: 'default' as const },
   { key: 'trash', label: '回收站', type: 'default' as const },
 ]
 
@@ -230,7 +232,13 @@ async function fetchDeleted(params: any) { return (await getDeletedPersons(param
 
 function handleAction(key: string) {
   if (key === 'add') { dialogMode.value = 'add'; editRow.value = null; dialogVisible.value = true }
+  else if (key === 'export') { handleExport() }
   else if (key === 'trash') { trashVisible.value = true }
+}
+
+async function handleExport() {
+  const data = await exportPersons({})
+  downloadBlob(data)
 }
 
 function handleEdit(row: any) { dialogMode.value = 'edit'; editRow.value = row; dialogVisible.value = true }

@@ -117,7 +117,7 @@ func RebuildPositionSnapshots(tx *gorm.DB, personID uint) error {
 			FundCompensation:      s.FundCompensation,
 			SocialSecurityDeduct:  s.SocialSecurityDeduct,
 			HousingFundDeduct:     s.HousingFundDeduct,
-			LastCalcAt:           utils.DateOnlyFromTime(time.Now()),
+			LastCalcAt: time.Now(),
 		}
 	}
 

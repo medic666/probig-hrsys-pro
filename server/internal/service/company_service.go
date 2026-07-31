@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"probig/server/internal/dao"
@@ -37,7 +38,7 @@ func GetCompanyByID(id uint) (*model.Company, error) {
 	return &c, nil
 }
 
-func CreateCompany(c *model.Company) error {
+func CreateCompany(ctx context.Context, c *model.Company) error {
 	if c.CreditCode != "" {
 		var count int64
 		dao.DB.Model(&model.Company{}).Where("credit_code = ?", c.CreditCode).Count(&count)
@@ -45,10 +46,10 @@ func CreateCompany(c *model.Company) error {
 			return errors.New("统一社会信用代码已存在")
 		}
 	}
-	return dao.DB.Create(c).Error
+	return dao.DBFromContext(ctx).Create(c).Error
 }
 
-func UpdateCompany(id uint, c *model.Company) error {
+func UpdateCompany(ctx context.Context, id uint, c *model.Company) error {
 	var existing model.Company
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("公司不存在")
@@ -68,15 +69,15 @@ func UpdateCompany(id uint, c *model.Company) error {
 		"bank_name":     c.BankName,
 		"bank_account":  c.BankAccount,
 	}
-	return dao.DB.Model(&existing).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&existing).Updates(updates).Error
 }
 
-func DeleteCompany(id uint) error {
+func DeleteCompany(ctx context.Context, id uint) error {
 	var c model.Company
 	if err := dao.DB.First(&c, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&c).Error; err != nil {
 			return err
 		}
@@ -85,7 +86,7 @@ func DeleteCompany(id uint) error {
 	})
 }
 
-func RestoreCompany(id uint) error {
+func RestoreCompany(ctx context.Context, id uint) error {
 	var c model.Company
 	if err := dao.DB.Unscoped().First(&c, id).Error; err != nil {
 		return err
@@ -97,7 +98,7 @@ func RestoreCompany(id uint) error {
 			return errors.New("统一社会信用代码已被占用，无法恢复")
 		}
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&c).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}

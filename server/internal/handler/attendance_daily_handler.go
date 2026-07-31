@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"time"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"probig/server/internal/config"
 	"probig/server/internal/dao"
@@ -15,7 +15,6 @@ import (
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -52,20 +51,22 @@ func CreateAttendanceEvent(c *gin.Context) {
 	d, _ := utils.ParseDate(req.EventDate)
 	dateOnly := utils.DateOnlyFromTime(d)
 
-	err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	err := utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
 		daily, err := service.GetOrCreateDaily(tx, req.PersonID, dateOnly, "confirmed")
 		if err != nil {
 			return err
 		}
 		if req.PunchTime != "" {
-			tx.Model(daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark})
+			if err := tx.Model(daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
+				return err
+			}
 		}
 		for _, dt := range req.Details {
 			if err := service.CreateDetail(tx, daily.ID, dt.EventType, dt.SubType, dt.Hours, dt.Minutes, dt.Remark); err != nil {
 				return err
 			}
 		}
-		return service.RebuildDailyProjection(tx, req.PersonID, dateOnly)
+		return service.RebuildProjectionsAfterAttendanceChange(tx, req.PersonID, dateOnly, req.Details)
 	})
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -87,12 +88,16 @@ func UpdateAttendanceEvent(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	var daily model.AttendanceDaily
-	if err := dao.DB.First(&daily, uint(id)).Error; err != nil {
+	daily, err := service.GetAttendanceDailyByID(uint(id))
+	if err != nil {
 		utils.Error(c, "记录不存在")
 		return
 	}
-	err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
+		oldDetails, err := service.GetDetailsByDailyID(tx, uint(id))
+		if err != nil {
+			return err
+		}
 		if err := tx.Where("daily_id = ?", uint(id)).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
 			return err
 		}
@@ -103,8 +108,11 @@ func UpdateAttendanceEvent(c *gin.Context) {
 				return err
 			}
 		}
-		tx.Model(&daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark})
-		return service.RebuildDailyProjection(tx, daily.PersonID, daily.EventDate)
+		if err := tx.Model(&daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
+			return err
+		}
+		involved := append(oldDetails, req.Details...)
+		return service.RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, involved)
 	})
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -115,7 +123,7 @@ func UpdateAttendanceEvent(c *gin.Context) {
 
 func DeleteAttendanceEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeleteAttendanceDaily(uint(id)); err != nil {
+	if err := service.DeleteAttendanceDaily(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -124,7 +132,7 @@ func DeleteAttendanceEvent(c *gin.Context) {
 
 func RestoreAttendanceEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestoreAttendanceDaily(uint(id)); err != nil {
+	if err := service.RestoreAttendanceDaily(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -147,7 +155,7 @@ func CreateBatchAttendanceEvents(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	success, fail, err := service.CreateBatchAttendanceDailies(req)
+	success, fail, err := service.CreateBatchAttendanceDailies(c.Request.Context(), req)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -177,8 +185,8 @@ func ConfirmPendingDaily(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
-		return service.ConfirmDaily(tx, uint(id), req.Details)
+	err := utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
+		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details)
 	})
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -224,7 +232,7 @@ func DingTalkExecute(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	created, pending, err := service.DingTalkExecute(req.FilePath, req.Month, req.Mappings)
+	created, pending, err := service.DingTalkExecute(c.Request.Context(), req.FilePath, req.Month, req.Mappings)
 	if err != nil {
 		utils.Error(c, "导入失败:"+err.Error())
 		return
@@ -234,32 +242,21 @@ func DingTalkExecute(c *gin.Context) {
 
 func ExportAttendanceEvents(c *gin.Context) {
 	list, _, _ := service.GetAttendanceDailyList(0, "", "", "", 1, 10000)
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "考勤事件"
-	f.SetSheetName("Sheet1", sheet)
-	headers := []string{"人员", "日期", "状态", "打卡时间", "事件摘要"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
-	}
-	for i, e := range list {
-		row := i + 2
-		f.SetCellValue(sheet, cellName(1, row), e["person_name"])
-		f.SetCellValue(sheet, cellName(2, row), e["event_date"])
-		f.SetCellValue(sheet, cellName(3, row), e["status"])
-		f.SetCellValue(sheet, cellName(4, row), e["punch_time"])
+
+	var rows [][]interface{}
+	for _, e := range list {
 		summary := ""
 		if details, ok := e["details"].([]map[string]interface{}); ok {
 			for _, d := range details {
 				summary += fmt.Sprintf("%s-%s(%.1fh);", d["event_type"], d["sub_type"], d["hours"])
 			}
 		}
-		f.SetCellValue(sheet, cellName(5, row), summary)
+		rows = append(rows, []interface{}{
+			e["person_name"], e["event_date"], e["status"], e["punch_time"], summary,
+		})
 	}
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=attendance_events_"+time.Now().Format("20060102")+".xlsx")
-	f.Write(c.Writer)
+	writeExcel(c, "考勤事件", "attendance_events",
+		[]string{"人员", "日期", "状态", "打卡时间", "事件摘要"}, rows)
 }
 
 func GetDailyProjections(c *gin.Context) {

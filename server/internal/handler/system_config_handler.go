@@ -8,7 +8,11 @@ import (
 )
 
 func GetSystemConfigs(c *gin.Context) {
-	configs := service.GetAllConfigs()
+	configs, err := service.GetSystemConfigItems()
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	utils.Success(c, configs)
 }
 
@@ -23,7 +27,7 @@ func UpdateSystemConfig(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.SetConfig(service.GetDB(), key, req.Value); err != nil {
+	if err := service.SetConfig(c.Request.Context(), key, req.Value); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

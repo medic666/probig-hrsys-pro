@@ -8,6 +8,8 @@ export function deleteSalaryEvent(id: number) { return request.delete(`/salary-e
 export function restoreSalaryEvent(id: number) { return request.post(`/salary-events/${id}/restore`) }
 export function getDeletedSalaryEvents(params: any) { return request.get('/salary-events/trash', { params }) }
 export function getSalarySummaries(params: any) { return request.get('/salary-summaries', { params }) }
+export function exportSalarySummaries(params: any) { return request.get('/salary-summaries/export', { params, responseType: 'blob' }) }
 export function calculateSalaries(data: any) { return request.post('/salary-summaries/calculate', data) }
 export function getSalaryVersions(personId: number, month: string) { return request.get(`/salary-summaries/${personId}/${month}/versions`) }
+export function getSalaryTrace(personId: number, month: string) { return request.get(`/salary-summaries/${personId}/${month}/trace`) }
 export function getSalaryVersionDetail(vid: number) { return request.get(`/salary-summaries/versions/${vid}`) }

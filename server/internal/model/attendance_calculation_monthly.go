@@ -1,7 +1,6 @@
 package model
 
 import (
-	"probig/server/internal/utils"
 	"time"
 )
 
@@ -21,7 +20,7 @@ type AttendanceCalculationMonthly struct {
 	HasPersonalLeaveMonth     bool          `gorm:"default:false" json:"has_personal_leave_month"`
 	TotalViolationCount       int           `gorm:"default:0" json:"total_violation_count"`
 	AttendanceBonus           float64       `gorm:"type:decimal(10,2);default:0" json:"attendance_bonus"`
-	LastCalcAt                utils.DateOnly `json:"last_calc_at"`
+	LastCalcAt time.Time `json:"last_calc_at"`
 	CreatedAt                 time.Time      `json:"created_at"`
 	UpdatedAt                 time.Time      `json:"updated_at"`
 }

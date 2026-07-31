@@ -36,7 +36,7 @@ type PositionSnapshot struct {
 	SocialSecurityDeduct float64 `gorm:"type:decimal(10,2)" json:"social_security_deduct"`
 	HousingFundDeduct    float64 `gorm:"type:decimal(10,2)" json:"housing_fund_deduct"`
 
-	LastCalcAt utils.DateOnly `json:"last_calc_at"`
+	LastCalcAt time.Time `json:"last_calc_at"`
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 }

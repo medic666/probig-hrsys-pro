@@ -2,14 +2,12 @@ package handler
 
 import (
 	"strconv"
-	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 )
 
 func GetPositionEvents(c *gin.Context) {
@@ -110,7 +108,7 @@ func CreatePositionEvent(c *gin.Context) {
 	}
 
 	e := reqToModel(req)
-	if err := service.CreatePositionEvent(&e); err != nil {
+	if err := service.CreatePositionEvent(c.Request.Context(), &e); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -124,9 +122,69 @@ func UpdatePositionEvent(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
+	if req.EventType == "" || req.EffectiveDate == "" {
+		utils.BadRequest(c, "事件类型、生效日期为必填项")
+		return
+	}
 
-	e := reqToModel(req)
-	if err := service.UpdatePositionEvent(uint(id), &e); err != nil {
+	updates := map[string]interface{}{
+		"event_type":     req.EventType,
+		"remark":         req.Remark,
+		"effective_date": req.EffectiveDate,
+	}
+	if req.EntryDate != nil && *req.EntryDate != "" {
+		updates["entry_date"] = *req.EntryDate
+	}
+	if req.LeaveDate != nil && *req.LeaveDate != "" {
+		updates["leave_date"] = *req.LeaveDate
+	}
+	if req.AttendanceGroup != nil {
+		updates["attendance_group"] = *req.AttendanceGroup
+	}
+	if req.HasAnnualLeave != nil {
+		updates["has_annual_leave"] = *req.HasAnnualLeave
+	}
+	if req.HasAttendanceBonus != nil {
+		updates["has_attendance_bonus"] = *req.HasAttendanceBonus
+	}
+	if req.BaseSalary != nil {
+		updates["base_salary"] = *req.BaseSalary
+	}
+	if req.PerformanceSalary != nil {
+		updates["performance_salary"] = *req.PerformanceSalary
+	}
+	if req.SalaryDays != nil {
+		updates["salary_days"] = *req.SalaryDays
+	}
+	if req.PostAllowance != nil {
+		updates["post_allowance"] = *req.PostAllowance
+	}
+	if req.MealAllowance != nil {
+		updates["meal_allowance"] = *req.MealAllowance
+	}
+	if req.HousingAllowance != nil {
+		updates["housing_allowance"] = *req.HousingAllowance
+	}
+	if req.TransportAllowance != nil {
+		updates["transport_allowance"] = *req.TransportAllowance
+	}
+	if req.HighTempAllowance != nil {
+		updates["high_temp_allowance"] = *req.HighTempAllowance
+	}
+	if req.InsuranceCompensation != nil {
+		updates["insurance_compensation"] = *req.InsuranceCompensation
+	}
+	if req.FundCompensation != nil {
+		updates["fund_compensation"] = *req.FundCompensation
+	}
+	if req.SocialSecurityDeduct != nil {
+		updates["social_security_deduct"] = *req.SocialSecurityDeduct
+	}
+	if req.HousingFundDeduct != nil {
+		updates["housing_fund_deduct"] = *req.HousingFundDeduct
+	}
+
+	if err := service.UpdatePositionEvent(c.Request.Context(), uint(id), updates); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -135,7 +193,7 @@ func UpdatePositionEvent(c *gin.Context) {
 
 func DeletePositionEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeletePositionEvent(uint(id)); err != nil {
+	if err := service.DeletePositionEvent(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -144,7 +202,7 @@ func DeletePositionEvent(c *gin.Context) {
 
 func RestorePositionEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestorePositionEvent(uint(id)); err != nil {
+	if err := service.RestorePositionEvent(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -163,24 +221,13 @@ func GetDeletedPositionEvents(c *gin.Context) {
 
 func ExportPositionEvents(c *gin.Context) {
 	list, _, _ := service.GetPositionEventList(1, 10000, 0, c.Query("start_date"), c.Query("end_date"), c.Query("event_type"))
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "职务事件"
-	f.SetSheetName("Sheet1", sheet)
-	headers := []string{"人员", "事件类型", "变更字段", "生效日期", "备注"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
+
+	var rows [][]interface{}
+	for _, e := range list {
+		rows = append(rows, []interface{}{
+			e["person_name"], e["event_type"], e["changed_fields"], e["effective_date"], e["remark"],
+		})
 	}
-	for i, e := range list {
-		row := i + 2
-		f.SetCellValue(sheet, cellName(1, row), e["person_name"])
-		f.SetCellValue(sheet, cellName(2, row), e["event_type"])
-		f.SetCellValue(sheet, cellName(3, row), e["changed_fields"])
-		f.SetCellValue(sheet, cellName(4, row), e["effective_date"])
-		f.SetCellValue(sheet, cellName(5, row), e["remark"])
-	}
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=position_events_"+time.Now().Format("20060102")+".xlsx")
-	f.Write(c.Writer)
+	writeExcel(c, "职务事件", "position_events",
+		[]string{"人员", "事件类型", "变更字段", "生效日期", "备注"}, rows)
 }

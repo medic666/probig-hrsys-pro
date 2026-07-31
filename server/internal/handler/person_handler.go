@@ -2,14 +2,12 @@ package handler
 
 import (
 	"strconv"
-	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 )
 
 func GetPersons(c *gin.Context) {
@@ -38,7 +36,7 @@ func CreatePerson(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.CreatePerson(&p); err != nil {
+	if err := service.CreatePerson(c.Request.Context(), &p); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -52,7 +50,7 @@ func UpdatePerson(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.UpdatePerson(uint(id), &p); err != nil {
+	if err := service.UpdatePerson(c.Request.Context(), uint(id), &p); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -61,7 +59,7 @@ func UpdatePerson(c *gin.Context) {
 
 func DeletePerson(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeletePerson(uint(id)); err != nil {
+	if err := service.DeletePerson(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -70,7 +68,7 @@ func DeletePerson(c *gin.Context) {
 
 func RestorePerson(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestorePerson(uint(id)); err != nil {
+	if err := service.RestorePerson(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -94,39 +92,19 @@ func ExportPersons(c *gin.Context) {
 		return
 	}
 
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "人员列表"
-	f.SetSheetName("Sheet1", sheet)
-	headers := []string{"姓名", "身份证号", "性别", "生日", "民族", "籍贯", "住址", "政治面貌", "婚姻状态", "别名"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
-	}
-	for i, p := range list {
-		row := i + 2
-		f.SetCellValue(sheet, cellName(1, row), p.Name)
-		f.SetCellValue(sheet, cellName(2, row), p.IDCard)
-		f.SetCellValue(sheet, cellName(3, row), genderText(p.Gender))
+	var rows [][]interface{}
+	for _, p := range list {
+		birthday := ""
 		if p.Birthday != nil {
-			f.SetCellValue(sheet, cellName(4, row), p.Birthday.Format("2006-01-02"))
+			birthday = p.Birthday.Format("2006-01-02")
 		}
-		f.SetCellValue(sheet, cellName(5, row), p.Nation)
-		f.SetCellValue(sheet, cellName(6, row), p.NativePlace)
-		f.SetCellValue(sheet, cellName(7, row), p.Address)
-		f.SetCellValue(sheet, cellName(8, row), p.PoliticalStatus)
-		f.SetCellValue(sheet, cellName(9, row), maritalText(p.MaritalStatus))
-		f.SetCellValue(sheet, cellName(10, row), p.Alias)
+		rows = append(rows, []interface{}{
+			p.Name, p.IDCard, genderText(p.Gender), birthday, p.Nation,
+			p.NativePlace, p.Address, p.PoliticalStatus, maritalText(p.MaritalStatus), p.Alias,
+		})
 	}
-
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=persons_"+time.Now().Format("20060102")+".xlsx")
-	f.Write(c.Writer)
-}
-
-func cellName(col, row int) string {
-	name, _ := excelize.CoordinatesToCellName(col, row)
-	return name
+	writeExcel(c, "人员列表", "persons",
+		[]string{"姓名", "身份证号", "性别", "生日", "民族", "籍贯", "住址", "政治面貌", "婚姻状态", "别名"}, rows)
 }
 
 func genderText(g int8) string {
@@ -156,7 +134,7 @@ func AddPersonPhone(c *gin.Context) {
 		Type  string `json:"phone_type"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.AddPersonPhone(uint(id), req.Phone, req.Type); err != nil {
+	if err := service.AddPersonPhone(c.Request.Context(), uint(id), req.Phone, req.Type); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -170,7 +148,7 @@ func UpdatePersonPhone(c *gin.Context) {
 		Type  string `json:"phone_type"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonPhone(uint(pid), req.Phone, req.Type); err != nil {
+	if err := service.UpdatePersonPhone(c.Request.Context(), uint(pid), req.Phone, req.Type); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -179,7 +157,7 @@ func UpdatePersonPhone(c *gin.Context) {
 
 func DeletePersonPhone(c *gin.Context) {
 	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonPhone(uint(pid)); err != nil {
+	if err := service.DeletePersonPhone(c.Request.Context(), uint(pid)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -193,7 +171,7 @@ func AddPersonEmail(c *gin.Context) {
 		Type  string `json:"email_type"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.AddPersonEmail(uint(id), req.Email, req.Type); err != nil {
+	if err := service.AddPersonEmail(c.Request.Context(), uint(id), req.Email, req.Type); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -207,7 +185,7 @@ func UpdatePersonEmail(c *gin.Context) {
 		Type  string `json:"email_type"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonEmail(uint(pid), req.Email, req.Type); err != nil {
+	if err := service.UpdatePersonEmail(c.Request.Context(), uint(pid), req.Email, req.Type); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -216,7 +194,7 @@ func UpdatePersonEmail(c *gin.Context) {
 
 func DeletePersonEmail(c *gin.Context) {
 	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonEmail(uint(pid)); err != nil {
+	if err := service.DeletePersonEmail(c.Request.Context(), uint(pid)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -231,7 +209,7 @@ func AddPersonBankCard(c *gin.Context) {
 		AccountHolder string `json:"account_holder"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.AddPersonBankCard(uint(id), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
+	if err := service.AddPersonBankCard(c.Request.Context(), uint(id), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -246,7 +224,7 @@ func UpdatePersonBankCard(c *gin.Context) {
 		AccountHolder string `json:"account_holder"`
 	}
 	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonBankCard(uint(pid), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
+	if err := service.UpdatePersonBankCard(c.Request.Context(), uint(pid), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -255,7 +233,7 @@ func UpdatePersonBankCard(c *gin.Context) {
 
 func DeletePersonBankCard(c *gin.Context) {
 	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonBankCard(uint(pid)); err != nil {
+	if err := service.DeletePersonBankCard(c.Request.Context(), uint(pid)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

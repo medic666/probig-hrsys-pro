@@ -2,14 +2,12 @@ package handler
 
 import (
 	"strconv"
-	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/xuri/excelize/v2"
 )
 
 func GetAnnualLeaveEvents(c *gin.Context) {
@@ -67,7 +65,7 @@ func CreateAnnualLeaveEvent(c *gin.Context) {
 		return
 	}
 	e.SourceType = "manual"
-	if err := service.CreateAnnualLeaveEvent(&e); err != nil {
+	if err := service.CreateAnnualLeaveEvent(c.Request.Context(), &e); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -81,7 +79,7 @@ func UpdateAnnualLeaveEvent(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	if err := service.UpdateAnnualLeaveEvent(uint(id), &e); err != nil {
+	if err := service.UpdateAnnualLeaveEvent(c.Request.Context(), uint(id), &e); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -90,7 +88,7 @@ func UpdateAnnualLeaveEvent(c *gin.Context) {
 
 func DeleteAnnualLeaveEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeleteAnnualLeaveEvent(uint(id)); err != nil {
+	if err := service.DeleteAnnualLeaveEvent(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -99,7 +97,7 @@ func DeleteAnnualLeaveEvent(c *gin.Context) {
 
 func RestoreAnnualLeaveEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestoreAnnualLeaveEvent(uint(id)); err != nil {
+	if err := service.RestoreAnnualLeaveEvent(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -124,25 +122,13 @@ func GetDeletedAnnualLeaveEvents(c *gin.Context) {
 
 func ExportAnnualLeaveEvents(c *gin.Context) {
 	list, _, _ := service.GetAnnualLeaveEventList(1, 10000, 0, c.Query("date_start"), c.Query("date_end"), c.Query("event_type"))
-	f := excelize.NewFile()
-	defer f.Close()
-	sheet := "年假事件"
-	f.SetSheetName("Sheet1", sheet)
-	headers := []string{"人员", "事件类型", "来源", "变动时长", "生效日期", "备注"}
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
+
+	var rows [][]interface{}
+	for _, e := range list {
+		rows = append(rows, []interface{}{
+			e["person_name"], e["event_type"], e["source_type"], e["hours"], e["effective_date"], e["remark"],
+		})
 	}
-	for i, e := range list {
-		row := i + 2
-		f.SetCellValue(sheet, cellName(1, row), e["person_name"])
-		f.SetCellValue(sheet, cellName(2, row), e["event_type"])
-		f.SetCellValue(sheet, cellName(3, row), e["source_type"])
-		f.SetCellValue(sheet, cellName(4, row), e["hours"])
-		f.SetCellValue(sheet, cellName(5, row), e["effective_date"])
-		f.SetCellValue(sheet, cellName(6, row), e["remark"])
-	}
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=annual_leave_events_"+time.Now().Format("20060102")+".xlsx")
-	f.Write(c.Writer)
+	writeExcel(c, "年假事件", "annual_leave_events",
+		[]string{"人员", "类型", "来源", "变动时长(小时)", "生效日期", "备注"}, rows)
 }

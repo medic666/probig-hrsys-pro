@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"probig/server/internal/dao"
@@ -10,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateSalaryEvent(event *model.SalaryEvent) error {
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+func CreateSalaryEvent(ctx context.Context, event *model.SalaryEvent) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.SalaryEvent{}).Where("person_id = ?", event.PersonID).
 			Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq)
@@ -20,7 +21,7 @@ func CreateSalaryEvent(event *model.SalaryEvent) error {
 	})
 }
 
-func UpdateSalaryEvent(id uint, event *model.SalaryEvent) error {
+func UpdateSalaryEvent(ctx context.Context, id uint, event *model.SalaryEvent) error {
 	var existing model.SalaryEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("工资事件不存在")
@@ -31,23 +32,23 @@ func UpdateSalaryEvent(id uint, event *model.SalaryEvent) error {
 		"amount":       event.Amount,
 		"remark":       event.Remark,
 	}
-	return dao.DB.Model(&existing).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&existing).Updates(updates).Error
 }
 
-func DeleteSalaryEvent(id uint) error {
+func DeleteSalaryEvent(ctx context.Context, id uint) error {
 	var event model.SalaryEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
 		return err
 	}
-	return dao.DB.Delete(&event).Error
+	return dao.DBFromContext(ctx).Delete(&event).Error
 }
 
-func RestoreSalaryEvent(id uint) error {
+func RestoreSalaryEvent(ctx context.Context, id uint) error {
 	var event model.SalaryEvent
 	if err := dao.DB.Unscoped().First(&event, id).Error; err != nil {
 		return err
 	}
-	return dao.DB.Unscoped().Model(&event).Update("deleted_at", nil).Error
+	return dao.DBFromContext(ctx).Unscoped().Model(&event).Update("deleted_at", nil).Error
 }
 
 func GetSalaryEvent(id uint) (*model.SalaryEvent, error) {
@@ -74,6 +75,12 @@ func GetSalaryEventList(pageNum, pageSize int, personID uint, belongMonth, event
 	var events []model.SalaryEvent
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("belong_month DESC, seq DESC").Find(&events)
+	ids := make([]uint, len(events))
+	for i, e := range events {
+		ids[i] = e.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
 	var result []map[string]interface{}
 	for _, e := range events {
 		item := map[string]interface{}{
@@ -86,9 +93,7 @@ func GetSalaryEventList(pageNum, pageSize int, personID uint, belongMonth, event
 			"remark":       e.Remark,
 			"created_at":   e.CreatedAt,
 		}
-		var personName string
-		dao.DB.Table("persons").Select("name").Where("id = ?", e.PersonID).Scan(&personName)
-		item["person_name"] = personName
+		item["person_name"] = nameMap[e.PersonID]
 		result = append(result, item)
 	}
 	return result, total, nil

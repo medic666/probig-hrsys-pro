@@ -47,11 +47,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import StatusTag from '@/components/StatusTag.vue'
-import { getMonthlyList, calculateMonthly } from '@/api/attendance'
+import { getMonthlyList, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
+import { formatDateTime } from '@/utils'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
 const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
@@ -61,23 +63,37 @@ const columns=[
   {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'overtime_workday_salary',label:'工作日加班工资',width:'120'},
   {prop:'overtime_holiday_salary',label:'节假日加班工资',width:'120'},  {prop:'attendance_bonus',label:'全勤奖',width:'80'},
   {prop:'status',label:'状态',width:'110',slot:'status'},
-  {prop:'last_calc_at',label:'核算时间',width:'110'},
+  {prop:'last_calc_at',label:'核算时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
 ]
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchPersonOpts},
   {prop:'month',label:'月份',type:'month' as const},
 ]
-const actions=[{key:'calc',label:'批量核算',type:'primary' as const}]
+const actions=[{key:'calc',label:'批量核算',type:'primary' as const},{key:'export',label:'导出',type:'default' as const}]
 
 onMounted(async()=>{personList.value=(await getAllPersons()) as any[]||[]})
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchMonthly(p:any){
-  const d=(await getMonthlyList(p)) as any
-  const persons=(await getAllPersons()) as any[]||[];const nm:Record<number,string>={};persons.forEach((x:any)=>nm[x.id]=x.name)
-  return {list:(d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})),total:d.total||0}
+  return (await getMonthlyList(p)) as any
 }
 
-function handleAction(k:string){if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}}
+function handleAction(k:string){
+  if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}
+  else if(k==='export'){handleExport()}
+}
+async function handleExport(){
+  const params: any = {}
+  if (calcMonth.value) params.month = calcMonth.value
+  const d = (await getMonthlyList(params)) as any
+  const changedCount = (d.list || []).filter((r:any)=>r.status==='data_changed').length
+  if (changedCount > 0) {
+    try {
+      await ElMessageBox.confirm(`当前筛选结果中有 ${changedCount} 条「数据已变动」记录，导出结果可能不准确，确认导出？`, '提示', { type: 'warning' })
+    } catch { return }
+  }
+  const data = await exportAttendanceMonthly(params)
+  downloadBlob(data)
+}
 async function doCalc(){
   if(!calcMonth.value){ElMessage.warning('请选择月份');return}
   saving.value=true

@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"probig/server/internal/dao"
@@ -25,6 +28,42 @@ func GetOrCreateDaily(tx *gorm.DB, personID uint, eventDate utils.DateOnly, stat
 		return nil, err
 	}
 	return &daily, nil
+}
+
+func GetDetailsByDailyID(tx *gorm.DB, dailyID uint) ([]model.AttendanceEventDetail, error) {
+	var details []model.AttendanceEventDetail
+	if err := tx.Where("daily_id = ?", dailyID).Find(&details).Error; err != nil {
+		return nil, err
+	}
+	return details, nil
+}
+
+// RebuildProjectionsAfterAttendanceChange 考勤事件变动后的统一投影重算入口。
+// 日记工时必然重建；年假/调休余额按涉及的事件子类型精细触发全量重建。
+func RebuildProjectionsAfterAttendanceChange(tx *gorm.DB, personID uint, workDate utils.DateOnly, involved []model.AttendanceEventDetail) error {
+	if err := RebuildDailyProjection(tx, personID, workDate); err != nil {
+		return err
+	}
+	var needAL, needLIL bool
+	for _, d := range involved {
+		switch d.SubType {
+		case "年假":
+			needAL = true
+		case "补班出勤", "调休":
+			needLIL = true
+		}
+	}
+	if needAL {
+		if err := RebuildAnnualLeaveBalance(tx, personID); err != nil {
+			return err
+		}
+	}
+	if needLIL {
+		if err := RebuildLeaveInLieuBalance(tx, personID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func CreateDetail(tx *gorm.DB, dailyID uint, eventType, subType string, hours float64, minutes int, remark string) error {
@@ -70,6 +109,12 @@ func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status str
 	offset := (pageNum - 1) * pageSize
 	tx.Order("event_date DESC, person_id ASC").Offset(offset).Limit(pageSize).Find(&list)
 
+	ids := make([]uint, len(list))
+	for i, d := range list {
+		ids[i] = d.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
 	result := make([]map[string]interface{}, len(list))
 	for i, d := range list {
 		item := map[string]interface{}{
@@ -77,9 +122,7 @@ func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status str
 			"status": d.Status, "punch_time": d.PunchTime, "remark": d.Remark,
 			"created_at": d.CreatedAt,
 		}
-		var name string
-		dao.DB.Table("persons").Select("name").Where("id = ?", d.PersonID).Scan(&name)
-		item["person_name"] = name
+		item["person_name"] = nameMap[d.PersonID]
 		detailList := make([]map[string]interface{}, len(d.Details))
 		for j, dt := range d.Details {
 			detailList[j] = map[string]interface{}{
@@ -97,29 +140,74 @@ func GetPendingDailyList(pageNum, pageSize int, personID uint) ([]map[string]int
 	return GetAttendanceDailyList(personID, "", "", "pending", pageNum, pageSize)
 }
 
-func ConfirmDaily(tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail) error {
-	if err := UpdateDailyDetails(tx, dailyID, details, "confirmed"); err != nil {
-		return err
+// detailSnapshots 将考勤事件明细转成审计快照（不含技术字段）
+func detailSnapshots(details []model.AttendanceEventDetail) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0, len(details))
+	for _, d := range details {
+		result = append(result, map[string]interface{}{
+			"event_type": d.EventType, "sub_type": d.SubType,
+			"hours": d.Hours, "minutes": d.Minutes, "remark": d.Remark,
+		})
 	}
+	return result
+}
+
+func writeConfirmAudit(ctx context.Context, tx *gorm.DB, daily model.AttendanceDaily, oldDetails, newDetails []model.AttendanceEventDetail) {
+	var personName string
+	tx.Table("persons").Select("name").Where("id = ?", daily.PersonID).Scan(&personName)
+	before, _ := json.Marshal(detailSnapshots(oldDetails))
+	after, _ := json.Marshal(detailSnapshots(newDetails))
+	// 复用业务事务连接写入，随事务提交/回滚（审计=实际发生的操作）
+	info := dao.AuditFromContext(ctx)
+	tx.Create(&model.AuditLog{
+		OperatorID:     info.OperatorID,
+		OperatorName:   info.OperatorName,
+		TargetType:     "attendance_daily",
+		TargetID:       daily.ID,
+		TargetName:     fmt.Sprintf("%s %s", personName, daily.EventDate.String()),
+		Action:         "确认",
+		BeforeSnapshot: string(before),
+		AfterSnapshot:  string(after),
+		IP:             info.IP,
+	})
+}
+
+func ConfirmDaily(ctx context.Context, tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail) error {
 	var daily model.AttendanceDaily
 	if err := tx.First(&daily, dailyID).Error; err != nil {
 		return err
 	}
-	return RebuildDailyProjection(tx, daily.PersonID, daily.EventDate)
+	oldDetails, err := GetDetailsByDailyID(tx, dailyID)
+	if err != nil {
+		return err
+	}
+	if err := UpdateDailyDetails(tx, dailyID, details, "confirmed"); err != nil {
+		return err
+	}
+	if err := RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, append(oldDetails, details...)); err != nil {
+		return err
+	}
+	writeConfirmAudit(ctx, tx, daily, oldDetails, details)
+	return nil
 }
 
-func ConfirmDailyBatch(tx *gorm.DB, dailyIDs []uint) error {
+func ConfirmDailyBatch(ctx context.Context, tx *gorm.DB, dailyIDs []uint) error {
 	for _, id := range dailyIDs {
 		var daily model.AttendanceDaily
 		if err := tx.First(&daily, id).Error; err != nil {
 			return err
 		}
+		details, err := GetDetailsByDailyID(tx, id)
+		if err != nil {
+			return err
+		}
 		if err := tx.Model(&daily).Update("status", "confirmed").Error; err != nil {
 			return err
 		}
-		if err := RebuildDailyProjection(tx, daily.PersonID, daily.EventDate); err != nil {
+		if err := RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, details); err != nil {
 			return err
 		}
+		writeConfirmAudit(ctx, tx, daily, details, details)
 	}
 	return nil
 }
@@ -134,33 +222,43 @@ func GetDeletedAttendanceDailies(pageNum, pageSize int) ([]model.AttendanceDaily
 	return list, total, nil
 }
 
-func DeleteAttendanceDaily(id uint) error {
+func DeleteAttendanceDaily(ctx context.Context, id uint) error {
 	var daily model.AttendanceDaily
 	if err := dao.DB.First(&daily, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		details, err := GetDetailsByDailyID(tx, id)
+		if err != nil {
+			return err
+		}
 		if err := tx.Where("daily_id = ?", id).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&daily).Error; err != nil {
 			return err
 		}
-		return RebuildDailyProjection(tx, daily.PersonID, daily.EventDate)
+		return RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, details)
 	})
 }
 
-func RestoreAttendanceDaily(id uint) error {
+func RestoreAttendanceDaily(ctx context.Context, id uint) error {
 	var daily model.AttendanceDaily
 	if err := dao.DB.Unscoped().First(&daily, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&daily).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
-		tx.Unscoped().Model(&model.AttendanceEventDetail{}).Where("daily_id = ?", id).Update("deleted_at", nil)
-		return RebuildDailyProjection(tx, daily.PersonID, daily.EventDate)
+		if err := tx.Unscoped().Model(&model.AttendanceEventDetail{}).Where("daily_id = ?", id).Update("deleted_at", nil).Error; err != nil {
+			return err
+		}
+		details, err := GetDetailsByDailyID(tx, id)
+		if err != nil {
+			return err
+		}
+		return RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, details)
 	})
 }
 
@@ -175,22 +273,26 @@ type BatchAttendanceReq struct {
 	Remark    string  `json:"remark"`
 }
 
-func CreateBatchAttendanceDailies(req BatchAttendanceReq) (int, int, error) {
+func CreateBatchAttendanceDailies(ctx context.Context, req BatchAttendanceReq) (int, int, error) {
 	start, _ := time.Parse("2006-01-02", req.StartDate)
 	end, _ := time.Parse("2006-01-02", req.EndDate)
 	if end.Before(start) {
 		return 0, 0, errors.New("结束日期不能早于开始日期")
 	}
+	involved := []model.AttendanceEventDetail{{EventType: req.EventType, SubType: req.SubType}}
 	success, fail := 0, 0
 	for _, pid := range req.PersonIDs {
 		for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 			dateOnly := utils.DateOnlyFromTime(d)
-			err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+			err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 				daily, err := GetOrCreateDaily(tx, pid, dateOnly, "confirmed")
 				if err != nil {
 					return err
 				}
-				return CreateDetail(tx, daily.ID, req.EventType, req.SubType, req.Hours, 0, req.Remark)
+				if err := CreateDetail(tx, daily.ID, req.EventType, req.SubType, req.Hours, 0, req.Remark); err != nil {
+					return err
+				}
+				return RebuildProjectionsAfterAttendanceChange(tx, pid, dateOnly, involved)
 			})
 			if err != nil {
 				fail++
@@ -200,4 +302,12 @@ func CreateBatchAttendanceDailies(req BatchAttendanceReq) (int, int, error) {
 		}
 	}
 	return success, fail, nil
+}
+
+func GetAttendanceDailyByID(id uint) (*model.AttendanceDaily, error) {
+	var daily model.AttendanceDaily
+	if err := dao.DB.First(&daily, id).Error; err != nil {
+		return nil, err
+	}
+	return &daily, nil
 }

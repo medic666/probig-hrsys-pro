@@ -23,7 +23,13 @@ export function createPositionEvent(data: any) {
 }
 
 export function updatePositionEvent(id: number, data: any) {
-  return request.put(`/position-events/${id}`, data)
+  const body: any = {}
+  for (const key of Object.keys(data)) {
+    if (data[key] !== null && data[key] !== undefined && data[key] !== '') {
+      body[key] = data[key]
+    }
+  }
+  return request.put(`/position-events/${id}`, body)
 }
 
 export function deletePositionEvent(id: number) {

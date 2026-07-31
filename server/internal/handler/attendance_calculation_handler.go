@@ -3,10 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"strconv"
-	"time"
 
-	"probig/server/internal/dao"
-	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
@@ -45,27 +42,41 @@ func CalculateMonthly(c *gin.Context) {
 	}
 
 	if len(req.PersonIDs) == 0 {
-		monthStart, err := time.Parse("2006-01", req.Month)
-		if err != nil {
-			utils.BadRequest(c, "月份格式错误")
-			return
-		}
-		monthEnd := monthStart.AddDate(0, 1, -1)
-		dao.DB.Model(&model.PositionSnapshot{}).
-			Select("DISTINCT person_id").
-			Where("effective_start_date <= ? AND effective_end_date >= ? AND is_active = true",
-				utils.DateOnlyFromTime(monthEnd), utils.DateOnlyFromTime(monthStart)).
-			Pluck("person_id", &req.PersonIDs)
+		req.PersonIDs = service.GetActivePersonIDsInMonth(req.Month)
 		if len(req.PersonIDs) == 0 {
 			utils.Error(c, "当月无在职人员")
 			return
 		}
 	}
 
-	success, fail, err := service.CalculateMonthlyBatch(req.Month, req.PersonIDs)
+	success, fail, err := service.CalculateMonthlyBatch(c.Request.Context(), req.Month, req.PersonIDs)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
 	utils.SuccessWithMsg(c, "核算完成", gin.H{"success": success, "fail": fail})
+}
+
+func ExportAttendanceMonthly(c *gin.Context) {
+	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	list, _, err := service.GetMonthlyList(c.Query("month"), uint(personID), 1, 10000)
+	if err != nil {
+		utils.Error(c, "导出失败")
+		return
+	}
+
+	var rows [][]interface{}
+	for _, s := range list {
+		rows = append(rows, []interface{}{
+			s.BelongMonth, service.PersonName(s.PersonID), s.SalaryDays, s.WeightedBaseSalary,
+			s.TotalWorkHours, s.TotalOvertimeWorkdayHours, s.TotalOvertimeHolidayHours,
+			s.AttendanceSalary, s.OvertimeWorkdaySalary, s.OvertimeHolidaySalary,
+			s.AttendanceBonus, s.TotalViolationCount, exportBool(s.HasPersonalLeaveMonth),
+			s.LastCalcAt.Format("2006-01-02 15:04:05"),
+			map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[service.IsAttendanceMonthlyStale(&s)],
+		})
+	}
+	writeExcel(c, "月度考勤核算", "attendance_monthly",
+		[]string{"月份", "人员", "计薪天数", "加权基本工资", "记出勤工时", "工作日加班工时", "节假日加班工时",
+			"出勤工资", "工作日加班工资", "节假日加班工资", "全勤奖", "违纪次数", "有事假", "核算时间", "状态"}, rows)
 }

@@ -37,6 +37,7 @@ import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents, exportSalaryEvents } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false), attachVisible=ref(false), attachFileId=ref<number|null>(null)
 const types=['绩效系数','提成','奖惩','借款还款','个税扣除']
@@ -66,11 +67,8 @@ function handleAction(k:string){
 }
 
 async function handleExport() {
-  const data = await exportSalaryEvents({}) as any
-  const url = URL.createObjectURL(data as Blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'salary_events.xlsx'; a.click()
-  URL.revokeObjectURL(url)
+  const data = await exportSalaryEvents({})
+  downloadBlob(data)
 }
 async function handleEdit(r:any){mode.value='edit';eid.value=r.id;Object.assign(form,{person_id:r.person_id,belong_month:r.belong_month,event_type:r.event_type,amount:r.amount,remark:r.remark||''});dialogVisible.value=true}
 async function submit(){

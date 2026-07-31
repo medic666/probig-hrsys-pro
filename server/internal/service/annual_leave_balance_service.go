@@ -21,8 +21,8 @@ func RebuildAnnualLeaveBalance(tx *gorm.DB, personID uint) error {
 	var attendDates []utils.DateOnly
 	rows2, _ := tx.Table("attendance_event_details").
 		Select("attendance_event_details.hours, attendance_daily.event_date").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
-		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?",
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?",
 			personID, "休假", "年假").
 		Order("attendance_daily.event_date ASC").
 		Rows()
@@ -98,7 +98,7 @@ func makeALSnapshot(personID uint, start, end utils.DateOnly, balance float64) m
 		EffectiveStartDate: start,
 		EffectiveEndDate:   end,
 		BalanceHours:       balance,
-		LastCalcAt:         utils.DateOnlyFromTime(time.Now()),
+		LastCalcAt: time.Now(),
 	}
 }
 
@@ -124,8 +124,8 @@ func RebuildLeaveInLieuBalance(tx *gorm.DB, personID uint) error {
 	var eventDates []utils.DateOnly
 	rows, _ := tx.Table("attendance_event_details").
 		Select("attendance_event_details.hours, attendance_event_details.sub_type, attendance_daily.event_date").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
-		Where("attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?",
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?",
 			personID, []string{"补班出勤", "调休"}).
 		Order("attendance_daily.event_date ASC").
 		Rows()
@@ -199,7 +199,7 @@ func makeLILSnapshot(personID uint, start, end utils.DateOnly, balance float64) 
 		EffectiveStartDate: start,
 		EffectiveEndDate:   end,
 		BalanceHours:       balance,
-		LastCalcAt:         utils.DateOnlyFromTime(time.Now()),
+		LastCalcAt: time.Now(),
 	}
 }
 
@@ -271,8 +271,8 @@ func GetAnnualLeaveBalanceDetail(personID uint) (*ALBalanceDetail, error) {
 
 	var attendEvents []model.AttendanceEventDetail
 	dao.DB.Table("attendance_event_details").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
-		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
 		Select("attendance_event_details.hours").
 		Scan(&attendEvents)
 
@@ -303,8 +303,8 @@ type LILBalanceDetail struct {
 func GetLILBalanceDetail(personID uint) (*LILBalanceDetail, error) {
 	var events []model.AttendanceEventDetail
 	dao.DB.Table("attendance_event_details").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
-		Where("attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?", personID, []string{"补班出勤", "调休"}).
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.sub_type IN ?", personID, []string{"补班出勤", "调休"}).
 		Select("attendance_event_details.hours, attendance_event_details.sub_type").
 		Scan(&events)
 

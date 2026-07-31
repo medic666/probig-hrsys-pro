@@ -43,7 +43,7 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	role, err := service.CreateRole(req.Name, req.Remark)
+	role, err := service.CreateRole(c.Request.Context(), req.Name, req.Remark)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -70,7 +70,7 @@ func UpdateRole(c *gin.Context) {
 		return
 	}
 
-	if err := service.UpdateRole(uint(id), req.Name, req.Remark); err != nil {
+	if err := service.UpdateRole(c.Request.Context(), uint(id), req.Name, req.Remark); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -85,7 +85,7 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
-	if err := service.DeleteRole(uint(id)); err != nil {
+	if err := service.DeleteRole(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -100,7 +100,7 @@ func RestoreRole(c *gin.Context) {
 		return
 	}
 
-	if err := service.RestoreRole(uint(id)); err != nil {
+	if err := service.RestoreRole(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -135,7 +135,7 @@ func AssignRolePermissions(c *gin.Context) {
 		return
 	}
 
-	if err := service.AssignRolePermissions(uint(id), req.PermissionIDs); err != nil {
+	if err := service.AssignRolePermissions(c.Request.Context(), uint(id), req.PermissionIDs); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

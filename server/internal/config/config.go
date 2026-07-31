@@ -17,8 +17,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Mode string `yaml:"mode"`
+	Port        int    `yaml:"port"`
+	Mode        string `yaml:"mode"`
+	CorsOrigins string `yaml:"cors_origins"`
 }
 
 type DatabaseConfig struct {

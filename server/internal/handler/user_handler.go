@@ -38,7 +38,7 @@ func CreateUser(c *gin.Context) {
 		req.Password = service.DefaultPassword
 	}
 
-	user, err := service.CreateUser(req)
+	user, err := service.CreateUser(c.Request.Context(), req)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -60,7 +60,7 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if err := service.UpdateUser(uint(id), req); err != nil {
+	if err := service.UpdateUser(c.Request.Context(), uint(id), req); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -76,7 +76,7 @@ func DeleteUser(c *gin.Context) {
 	}
 
 	operatorID := c.GetUint("userID")
-	if err := service.DeleteUser(uint(id), operatorID); err != nil {
+	if err := service.DeleteUser(c.Request.Context(), uint(id), operatorID); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -91,7 +91,7 @@ func RestoreUser(c *gin.Context) {
 		return
 	}
 
-	if err := service.RestoreUser(uint(id)); err != nil {
+	if err := service.RestoreUser(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -106,7 +106,7 @@ func ResetUserPassword(c *gin.Context) {
 		return
 	}
 
-	newPwd, err := service.ResetPassword(uint(id))
+	newPwd, err := service.ResetPassword(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -132,7 +132,7 @@ func AssignUserRoles(c *gin.Context) {
 		return
 	}
 
-	if err := service.AssignUserRoles(uint(id), req.RoleIDs); err != nil {
+	if err := service.AssignUserRoles(c.Request.Context(), uint(id), req.RoleIDs); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

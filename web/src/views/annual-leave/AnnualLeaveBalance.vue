@@ -24,14 +24,14 @@ import ProTable from '@/components/ProTable.vue'
 import { getAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import request from '@/utils/request'
-import { hoursToDays } from '@/utils'
+import { hoursToDays, formatDateTime } from '@/utils'
 
 const tableRef=ref(); const dv=ref(false); const detail=ref<any>(null)
 
 const columns=[
   {prop:'person_name',label:'人员',width:'100'},
   {prop:'balance_hours',label:'当前额度(天)',width:'120',formatter:(r:any)=>hoursToDays(r.balance_hours).toFixed(2)},
-  {prop:'last_calc_at',label:'更新时间',width:'110'},
+  {prop:'last_calc_at',label:'更新时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
 ]
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchPersonOpts},

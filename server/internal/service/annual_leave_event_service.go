@@ -1,7 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
+	"sort"
+	"time"
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
@@ -10,8 +13,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateAnnualLeaveEvent(event *model.AnnualLeaveAccountEvent) error {
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+func CreateAnnualLeaveEvent(ctx context.Context, event *model.AnnualLeaveAccountEvent) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("person_id = ?", event.PersonID).
 			Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq)
@@ -25,7 +28,7 @@ func CreateAnnualLeaveEvent(event *model.AnnualLeaveAccountEvent) error {
 	})
 }
 
-func UpdateAnnualLeaveEvent(id uint, event *model.AnnualLeaveAccountEvent) error {
+func UpdateAnnualLeaveEvent(ctx context.Context, id uint, event *model.AnnualLeaveAccountEvent) error {
 	var existing model.AnnualLeaveAccountEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("年假权益事件不存在")
@@ -33,7 +36,7 @@ func UpdateAnnualLeaveEvent(id uint, event *model.AnnualLeaveAccountEvent) error
 	if existing.SourceType == "system_period" {
 		return errors.New("系统周期事件不可编辑")
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		updates := map[string]interface{}{
 			"event_type":     event.EventType,
 			"hours":          event.Hours,
@@ -47,7 +50,7 @@ func UpdateAnnualLeaveEvent(id uint, event *model.AnnualLeaveAccountEvent) error
 	})
 }
 
-func DeleteAnnualLeaveEvent(id uint) error {
+func DeleteAnnualLeaveEvent(ctx context.Context, id uint) error {
 	var event model.AnnualLeaveAccountEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
 		return err
@@ -55,7 +58,7 @@ func DeleteAnnualLeaveEvent(id uint) error {
 	if event.SourceType == "system_period" {
 		return errors.New("系统周期事件不可删除")
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
 		}
@@ -63,7 +66,7 @@ func DeleteAnnualLeaveEvent(id uint) error {
 	})
 }
 
-func RestoreAnnualLeaveEvent(id uint) error {
+func RestoreAnnualLeaveEvent(ctx context.Context, id uint) error {
 	var event model.AnnualLeaveAccountEvent
 	if err := dao.DB.Unscoped().First(&event, id).Error; err != nil {
 		return err
@@ -71,7 +74,7 @@ func RestoreAnnualLeaveEvent(id uint) error {
 	if event.SourceType == "system_period" {
 		return errors.New("系统周期事件不可人工恢复")
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
@@ -102,33 +105,117 @@ func GetAnnualLeaveEventList(pageNum, pageSize int, personID uint, dateStart, da
 		tx = tx.Where("event_type = ?", eventType)
 	}
 
-	var total int64
-	tx.Count(&total)
-
 	var events []model.AnnualLeaveAccountEvent
-	offset := (pageNum - 1) * pageSize
-	tx.Offset(offset).Limit(pageSize).Order("person_id ASC, effective_date DESC, seq DESC").Find(&events)
+	tx.Order("effective_date DESC, seq DESC").Find(&events)
 
-	var result []map[string]interface{}
+	var attendanceLeaves []map[string]interface{}
+	if eventType == "" || eventType == "休假" {
+		attendanceLeaves = getAnnualLeaveAttendanceEvents(personID, dateStart, dateEnd)
+	}
+
+	ids := make([]uint, 0, len(events)+len(attendanceLeaves))
 	for _, e := range events {
-		item := map[string]interface{}{
-			"id":             e.ID,
-			"person_id":      e.PersonID,
-			"seq":            e.Seq,
-			"event_type":     e.EventType,
-			"source_type":    e.SourceType,
-			"batch_id":       e.BatchID,
-			"hours":          e.Hours,
-			"effective_date": e.EffectiveDate,
-			"remark":         e.Remark,
-			"created_at":     e.CreatedAt,
+		ids = append(ids, e.PersonID)
+	}
+	for _, a := range attendanceLeaves {
+		ids = append(ids, a["person_id"].(uint))
+	}
+	nameMap := PersonNameMap(ids)
+
+	type item struct {
+		date utils.DateOnly
+		seq  int
+		data map[string]interface{}
+	}
+	var items []item
+	for _, e := range events {
+		items = append(items, item{e.EffectiveDate, e.Seq, annualLeaveEventToMap(e, nameMap)})
+	}
+	for _, a := range attendanceLeaves {
+		items = append(items, item{a["effective_date"].(utils.DateOnly), 0, a})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if !items[i].date.Equal(items[j].date) {
+			return items[i].date.Time().After(items[j].date.Time())
 		}
-		var personName string
-		dao.DB.Table("persons").Select("name").Where("id = ?", e.PersonID).Scan(&personName)
-		item["person_name"] = personName
-		result = append(result, item)
+		return items[i].seq > items[j].seq
+	})
+
+	total := int64(len(items))
+	start := (pageNum - 1) * pageSize
+	end := start + pageSize
+	if start > len(items) {
+		start = len(items)
+	}
+	if end > len(items) {
+		end = len(items)
+	}
+	var result []map[string]interface{}
+	for _, it := range items[start:end] {
+		result = append(result, it.data)
 	}
 	return result, total, nil
+}
+
+// getAnnualLeaveAttendanceEvents 考勤事件中的「休假-年假」确认记录，映射为年假事件同构项
+func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []map[string]interface{} {
+	type attRow struct {
+		DetailID  uint
+		PersonID  uint
+		Hours     float64
+		EventDate utils.DateOnly
+		Remark    string
+		CreatedAt time.Time
+	}
+	var rows []attRow
+	q := dao.DB.Table("attendance_event_details").
+		Select("attendance_event_details.id AS detail_id, attendance_daily.person_id, attendance_event_details.hours, attendance_daily.event_date, attendance_event_details.remark, attendance_event_details.created_at").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", "休假", "年假")
+	if personID > 0 {
+		q = q.Where("attendance_daily.person_id = ?", personID)
+	}
+	if dateStart != "" {
+		q = q.Where("attendance_daily.event_date >= ?", dateStart)
+	}
+	if dateEnd != "" {
+		q = q.Where("attendance_daily.event_date <= ?", dateEnd)
+	}
+	q.Scan(&rows)
+
+	var result []map[string]interface{}
+	ids := make([]uint, len(rows))
+	for i, r := range rows {
+		ids[i] = r.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
+	for _, r := range rows {
+		result = append(result, map[string]interface{}{
+			"id": r.DetailID, "person_id": r.PersonID, "seq": 0,
+			"event_type": "休假", "sub_type": "年假", "source_type": "attendance",
+			"batch_id": nil, "hours": r.Hours, "effective_date": r.EventDate,
+			"remark": r.Remark, "created_at": r.CreatedAt, "person_name": nameMap[r.PersonID],
+		})
+	}
+	return result
+}
+
+func annualLeaveEventToMap(e model.AnnualLeaveAccountEvent, nameMap map[uint]string) map[string]interface{} {
+	item := map[string]interface{}{
+		"id":             e.ID,
+		"person_id":      e.PersonID,
+		"seq":            e.Seq,
+		"event_type":     e.EventType,
+		"source_type":    e.SourceType,
+		"batch_id":       e.BatchID,
+		"hours":          e.Hours,
+		"effective_date": e.EffectiveDate,
+		"remark":         e.Remark,
+		"created_at":     e.CreatedAt,
+	}
+	item["person_name"] = nameMap[e.PersonID]
+	return item
 }
 
 func GetDeletedAnnualLeaveEvents(pageNum, pageSize int) ([]model.AnnualLeaveAccountEvent, int64, error) {

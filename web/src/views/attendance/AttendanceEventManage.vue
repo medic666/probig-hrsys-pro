@@ -71,6 +71,54 @@
     <el-dialog v-model="attachVisible" title="文件附件" width="500px">
       <FileAttachPanel :target-type="'attendance_event'" :target-id="attachFileId" />
     </el-dialog>
+
+    <el-dialog v-model="importVisible" title="钉钉考勤导入" width="720px">
+      <el-steps :active="importStep" simple style="margin-bottom:16px">
+        <el-step title="上传文件" />
+        <el-step title="匹配确认" />
+        <el-step title="导入执行" />
+      </el-steps>
+
+      <div v-if="importStep === 0">
+        <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".xlsx" :on-change="onImportFileChange" :on-remove="()=>importFile=null">
+          <el-button type="primary">选择钉钉月度汇总文件</el-button>
+        </el-upload>
+        <el-button style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
+      </div>
+
+      <div v-else-if="importStep === 1">
+        <el-table :data="importPreview" border size="small" max-height="360">
+          <el-table-column prop="excel_name" label="Excel姓名" width="120" />
+          <el-table-column label="匹配状态" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.confidence==='exact'" type="success" size="small">精确匹配</el-tag>
+              <el-tag v-else-if="row.confidence==='fuzzy'" type="warning" size="small">模糊匹配</el-tag>
+              <el-tag v-else type="danger" size="small">未匹配</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="匹配人员">
+            <template #default="{ row }">
+              <NameSelect v-model="row.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="matched_name" label="建议匹配" width="110" />
+        </el-table>
+        <div class="import-hint">未匹配人员请手动选择，已匹配可改选</div>
+        <el-button style="margin-top:8px" @click="importStep=0">上一步</el-button>
+        <el-button style="margin-top:8px" type="primary" :disabled="importPreview.some(r=>!r.person_id)" @click="importStep=2">下一步</el-button>
+      </div>
+
+      <div v-else>
+        <el-form label-width="90px">
+          <el-form-item label="归属月份" required>
+            <el-date-picker v-model="importMonth" type="month" value-format="YYYY-MM" style="width:100%" />
+          </el-form-item>
+        </el-form>
+        <el-alert type="info" :closable="false" title="导入后系统自动标记为「待确认」的记录，请到待确认页面核实后再参与核算。" style="margin-bottom:12px" />
+        <el-button @click="importStep=1">上一步</el-button>
+        <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -81,9 +129,10 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents } from '@/api/attendance'
+import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
 const dialogVisible = ref(false)
@@ -95,6 +144,15 @@ const batchVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
 const personList = ref<{id:number;name:string}[]>([])
+const importVisible = ref(false)
+const importStep = ref(0)
+const importFile = ref<File | null>(null)
+const importPreview = ref<any[]>([])
+const importFilePath = ref('')
+const importMonth = ref('')
+const previewing = ref(false)
+const importing = ref(false)
+const uploadRef = ref()
 
 const eventTypes = ['出勤','休假','加班','违纪','打卡时间戳']
 const subTypeMap: Record<string,string[]> = {
@@ -130,6 +188,7 @@ const searchFields = [
 const actions = [
   { key:'add', label:'新增事件', type:'primary' as const },
   { key:'batch', label:'批量新增', type:'success' as const },
+  { key:'import', label:'钉钉导入', type:'warning' as const },
   { key:'trash', label:'回收站', type:'default' as const },
   { key:'export', label:'导出', type:'default' as const },
 ]
@@ -145,16 +204,39 @@ onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [
 function handleAction(key: string) {
   if (key==='add') { dialogMode.value='add'; editId.value=0; Object.assign(form,{person_id:null,event_date:'',event_type:'',sub_type:'',hours:8,punch_time:'',remark:''}); dialogVisible.value=true }
   else if (key==='batch') { Object.assign(batchForm,{person_ids:[],start_date:'',end_date:'',event_type:'',sub_type:'',hours:8,remark:''}); batchVisible.value=true }
+  else if (key==='import') { importVisible.value=true; importStep.value=0; importFile.value=null; importPreview.value=[]; importFilePath.value=''; importMonth.value='' }
   else if (key==='trash') { trashVisible.value=true }
   else if (key==='export') { handleExport() }
 }
 
+function onImportFileChange(file: any) { importFile.value = file.raw || null }
+
+async function doPreview() {
+  if (!importFile.value) return
+  previewing.value = true
+  try {
+    const d = await dingTalkPreview(importFile.value) as any
+    importPreview.value = (d.preview || []).map((p: any) => ({ ...p, person_id: p.matched_id || null }))
+    importFilePath.value = d.file_path
+    importStep.value = 1
+  } catch { /* handled */ } finally { previewing.value = false }
+}
+
+async function doImport() {
+  if (!importMonth.value) { ElMessage.warning('请选择归属月份'); return }
+  importing.value = true
+  try {
+    const mappings = importPreview.value.map((p: any) => ({ excel_name: p.excel_name, person_id: p.person_id }))
+    const d = await dingTalkExecute(importMonth.value, importFilePath.value, mappings) as any
+    ElMessage.success(`导入完成: 创建${d.created}条, 待确认${d.pending}条`)
+    importVisible.value = false
+    tableRef.value?.refresh()
+  } catch { /* handled */ } finally { importing.value = false }
+}
+
 async function handleExport() {
-  const data = await exportAttendanceEvents({}) as any
-  const url = URL.createObjectURL(data as Blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'attendance_events.xlsx'; a.click()
-  URL.revokeObjectURL(url)
+  const data = await exportAttendanceEvents({})
+  downloadBlob(data)
 }
 
 async function handleEdit(row: any) {
@@ -200,4 +282,5 @@ function onRefresh() { tableRef.value?.refresh() }
 <style lang="scss" scoped>
 .page-container { padding:0; background:transparent; }
 .page-header { margin-bottom:16px; h2 { font-size:18px; font-weight:600; color:#303133; } }
+.import-hint { color:#909399; font-size:12px; margin-top:8px; }
 </style>

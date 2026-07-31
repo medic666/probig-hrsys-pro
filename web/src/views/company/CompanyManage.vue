@@ -43,7 +43,8 @@ import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies } from '@/api/company'
+import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies, exportCompanies } from '@/api/company'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
 const dialogVisible = ref(false)
@@ -63,7 +64,7 @@ const columns = [
 ]
 
 const searchFields = [
-  { prop:'id', label:'公司名称', type:'person-select' as const, fetchApi: fetchCompanyOptions },
+  { prop:'id', label:'公司名称', type:'name-select' as const, fetchApi: fetchCompanyOptions },
   { prop:'credit_code', label:'统一社会信用代码', type:'input' as const, placeholder:'模糊搜索' },
 ]
 
@@ -74,6 +75,7 @@ async function fetchCompanyOptions(k?: string) {
 
 const actions = [
   { key: 'add', label: '新增公司', type: 'primary' as const },
+  { key: 'export', label: '导出', type: 'default' as const },
   { key: 'trash', label: '回收站', type: 'default' as const },
 ]
 
@@ -101,7 +103,13 @@ async function fetchDeleted(params: any) { return (await getDeletedCompanies(par
 
 function handleAction(key: string) {
   if (key === 'add') { dialogMode.value = 'add'; editRow.value = null; dialogVisible.value = true }
+  else if (key === 'export') { handleExport() }
   else if (key === 'trash') { trashVisible.value = true }
+}
+
+async function handleExport() {
+  const data = await exportCompanies({})
+  downloadBlob(data)
 }
 
 function handleEdit(row: any) { dialogMode.value = 'edit'; editRow.value = row; dialogVisible.value = true }

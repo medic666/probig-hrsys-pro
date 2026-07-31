@@ -18,8 +18,15 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   async function fetchConfigs() {
-    const data = (await request.get('/system/configs')) as Record<string, string>
-    setConfigs(data || {})
+    const data = (await request.get('/system-configs')) as {
+      key: string
+      value: string
+    }[]
+    const map: Record<string, string> = {}
+    for (const item of data || []) {
+      map[item.key] = item.value
+    }
+    setConfigs(map)
   }
 
   return {

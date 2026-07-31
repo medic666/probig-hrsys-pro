@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -27,6 +28,8 @@ func Login(username, password string) (string, *model.User, error) {
 		return "", nil, fmt.Errorf("用户名或密码错误")
 	}
 
+	CleanExpiredTokens()
+
 	token, err := utils.GenerateToken(user.ID, user.Username)
 	if err != nil {
 		return "", nil, fmt.Errorf("生成Token失败")
@@ -35,7 +38,7 @@ func Login(username, password string) (string, *model.User, error) {
 	return token, &user, nil
 }
 
-func ChangePassword(userID uint, oldPassword, newPassword string) error {
+func ChangePassword(ctx context.Context, userID uint, oldPassword, newPassword string) error {
 	var user model.User
 	if err := dao.DB.First(&user, userID).Error; err != nil {
 		return errors.New("用户不存在")
@@ -47,30 +50,30 @@ func ChangePassword(userID uint, oldPassword, newPassword string) error {
 		}
 	}
 
-	return setUserPassword(&user, newPassword)
+	return setUserPassword(ctx, &user, newPassword)
 }
 
-func ResetPassword(userID uint) (string, error) {
+func ResetPassword(ctx context.Context, userID uint) (string, error) {
 	var user model.User
 	if err := dao.DB.First(&user, userID).Error; err != nil {
 		return "", errors.New("用户不存在")
 	}
 
 	newPwd := DefaultPassword
-	if err := setUserPassword(&user, newPwd); err != nil {
+	if err := setUserPassword(ctx, &user, newPwd); err != nil {
 		return "", err
 	}
 	return newPwd, nil
 }
 
-func setUserPassword(user *model.User, password string) error {
+func setUserPassword(ctx context.Context, user *model.User, password string) error {
 	hash, err := utils.HashPassword(password)
 	if err != nil {
 		return err
 	}
 	user.Password = hash
 	user.IsFirstLogin = false
-	return dao.DB.Save(user).Error
+	return dao.DBFromContext(ctx).Save(user).Error
 }
 
 func GetUserPermissions(userID uint) ([]string, []map[string]interface{}, error) {

@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { downloadBlob, type BlobResult } from '@/utils/download'
 
 export function uploadFile(file: File) {
   const formData = new FormData()
@@ -16,11 +17,7 @@ export function disassociateFile(id: number) {
 }
 export function downloadFile(fileId: number, fileName?: string) {
   return request.get(`/files/${fileId}/download`, { responseType: 'blob' }).then((res) => {
-    const blob = res as unknown as Blob
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = fileName || 'download'; a.click()
-    URL.revokeObjectURL(url)
+    downloadBlob(res as unknown as BlobResult, fileName || 'download')
   })
 }
 export function getFiles(params: any) { return request.get('/files', { params }) }

@@ -97,6 +97,7 @@ import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getPositionEvents, getPositionEvent, createPositionEvent, updatePositionEvent, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
+import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
 const dialogVisible = ref(false)
@@ -168,11 +169,8 @@ function handleAction(key: string) {
 }
 
 async function handleExport() {
-  const data = await exportPositionEvents({}) as any
-  const url = URL.createObjectURL(data as Blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'position_events.xlsx'; a.click()
-  URL.revokeObjectURL(url)
+  const data = await exportPositionEvents({})
+  downloadBlob(data)
 }
 
 async function handleEdit(row: any) {

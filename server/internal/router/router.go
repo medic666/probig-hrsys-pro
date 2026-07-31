@@ -1,6 +1,9 @@
 package router
 
 import (
+	"strings"
+
+	"probig/server/internal/config"
 	"probig/server/internal/handler"
 	"probig/server/internal/middleware"
 
@@ -12,17 +15,9 @@ func SetupRouter() *gin.Engine {
 
 	r.Use(middleware.Recovery())
 	r.Use(gin.Logger())
+	r.Use(middleware.CORS(splitOrigins(config.AppConfig.Server.CorsOrigins)))
 
 	r.GET("/api/health", handler.Health)
-
-	test := r.Group("/api/test")
-	{
-		test.GET("/pagination", handler.TestPagination)
-		test.GET("/names", handler.TestNames)
-		test.POST("/form-submit", handler.TestFormSubmit)
-		test.GET("/trash-list", handler.TestTrashList)
-		test.POST("/trash-restore", handler.TestTrashRestore)
-	}
 
 	auth := r.Group("/api/auth")
 	{
@@ -158,6 +153,7 @@ func SetupRouter() *gin.Engine {
 	attendanceMonthly.Use(middleware.AuthRequired())
 	{
 		attendanceMonthly.GET("", middleware.RequirePermission("attendance.read"), handler.GetMonthlyList)
+		attendanceMonthly.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportAttendanceMonthly)
 		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.write"), handler.CalculateMonthly)
 	}
 
@@ -223,6 +219,7 @@ func SetupRouter() *gin.Engine {
 	audit.Use(middleware.AuthRequired())
 	{
 		audit.GET("", middleware.RequirePermission("audit.read"), handler.GetAuditLogs)
+		audit.GET("/export", middleware.RequirePermission("audit.export"), handler.ExportAuditLogs)
 		audit.GET("/:id", middleware.RequirePermission("audit.read"), handler.GetAuditLogDetail)
 	}
 
@@ -234,4 +231,12 @@ func SetupRouter() *gin.Engine {
 	}
 
 	return r
+}
+
+
+func splitOrigins(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, ",")
 }

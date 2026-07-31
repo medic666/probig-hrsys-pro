@@ -1,16 +1,20 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"probig/server/internal/config"
 	"probig/server/internal/dao"
-	"probig/server/internal/model"
 	"probig/server/internal/router"
 	"probig/server/internal/service"
 
@@ -60,14 +64,30 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%d", config.AppConfig.Server.Port)
-	log.Printf("服务启动在 http://localhost%s", addr)
-	if err := r.Run(addr); err != nil {
-		log.Fatalf("服务启动失败: %v", err)
+	srv := &http.Server{Addr: addr, Handler: r}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Printf("服务启动在 http://localhost%s", addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("服务启动失败: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("收到退出信号，正在优雅关闭...")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("优雅关闭失败: %v", err)
 	}
+	log.Println("服务已退出")
 }
 
 func initSystem(db *gorm.DB) error {
-	if err := autoMigrate(db); err != nil {
+	if err := dao.RunMigrations(db); err != nil {
 		return fmt.Errorf("数据库迁移失败: %w", err)
 	}
 
@@ -120,48 +140,4 @@ func serveEmbeddedFile(c *gin.Context) {
 		}
 	}
 	c.Data(http.StatusOK, contentType, data)
-}
-
-func autoMigrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(
-		&model.User{},
-		&model.Role{},
-		&model.Permission{},
-		&model.UserRole{},
-		&model.RolePermission{},
-		&model.AuditLog{},
-		&model.SysConfig{},
-		&model.Person{},
-		&model.PersonPhone{},
-		&model.PersonEmail{},
-		&model.PersonBankCard{},
-		&model.Company{},
-		&model.File{},
-		&model.FileRelation{},
-		&model.PositionEvent{},
-		&model.PositionSnapshot{},
-		&model.AttendanceDaily{},
-		&model.AttendanceEventDetail{},
-		&model.AttendanceDailyProjection{},
-		&model.AttendanceCalculationMonthly{},
-		&model.AnnualLeaveAccountEvent{},
-		&model.AnnualLeaveBalanceSnapshot{},
-		&model.LeaveInLieuBalanceSnapshot{},
-		&model.SysBatch{},
-		&model.SalaryEvent{},
-		&model.SalarySummary{},
-		&model.SalarySummaryVersion{},
-	); err != nil {
-		return err
-	}
-
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_id_card ON persons(id_card) WHERE deleted_at IS NULL AND id_card != ''")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_credit_code ON companies(credit_code) WHERE deleted_at IS NULL AND credit_code != ''")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_position_events_person_seq ON position_events(person_id, seq) WHERE deleted_at IS NULL")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_daily_person_date ON attendance_daily(person_id, event_date) WHERE deleted_at IS NULL")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_summaries_person_month ON salary_summaries(person_id, belong_month)")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_annual_leave_events_person_seq ON annual_leave_account_events(person_id, seq) WHERE deleted_at IS NULL")
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_salary_events_person_seq ON salary_events(person_id, seq) WHERE deleted_at IS NULL")
-
-	return nil
 }

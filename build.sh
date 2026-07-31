@@ -15,12 +15,16 @@ if [ ! -d "node_modules" ]; then
   bun install
 fi
 bunx vue-tsc --noEmit
+bun run test
+bunx eslint . --ext .vue,.ts,.tsx
 bunx vite build
 echo "  前端构建完成 -> server/cmd/server/static/"
 
 echo ""
-echo "[2/3] 编译 Go 二进制..."
+echo "[2/3] 后端检查与编译..."
 cd "$PROJECT_ROOT/server"
+go vet ./...
+go test ./...
 go build -o dist/probig-server ./cmd/server/
 echo "  Go 编译完成 -> server/dist/probig-server"
 

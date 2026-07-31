@@ -19,7 +19,8 @@ import (
 
 func GetFiles(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetFileList(pageReq.PageNum, pageReq.PageSize, c.Query("name"))
+	list, total, err := service.GetFileList(pageReq.PageNum, pageReq.PageSize,
+		c.Query("name"), c.Query("mime_type"), c.Query("date_start"), c.Query("date_end"))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -29,7 +30,7 @@ func GetFiles(c *gin.Context) {
 
 func DeleteFile(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.DeleteFileByID(uint(id)); err != nil {
+	if err := service.DeleteFileByID(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -38,7 +39,7 @@ func DeleteFile(c *gin.Context) {
 
 func RestoreFile(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := service.RestoreFileByID(uint(id)); err != nil {
+	if err := service.RestoreFileByID(c.Request.Context(), uint(id)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
@@ -59,6 +60,17 @@ func UploadFile(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil { utils.BadRequest(c, "请选择文件"); return }
 	defer file.Close()
+
+	maxSizeMB := service.GetFileMaxSizeMB()
+	if header.Size > maxSizeMB*1024*1024 {
+		utils.BadRequest(c, fmt.Sprintf("文件大小超过限制（最大 %dMB）", maxSizeMB))
+		return
+	}
+	if service.IsBlockedFileExt(filepath.Ext(header.Filename)) {
+		utils.BadRequest(c, "不允许上传该类型文件")
+		return
+	}
+
 	uploadDir := config.ResolvePath(config.AppConfig.FileStorage.Path); os.MkdirAll(uploadDir, 0755)
 	ext := filepath.Ext(header.Filename)
 	saveName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
@@ -76,14 +88,14 @@ func UploadFile(c *gin.Context) {
 	}
 
 	f := model.File{Name: saveName, OriginalName: header.Filename, Path: savePath, Size: size, MimeType: header.Header.Get("Content-Type"), MD5: md5hash}
-	dao.DB.Create(&f)
+	dao.DBFromContext(c.Request.Context()).Create(&f)
 	utils.Success(c, gin.H{"id": f.ID, "name": f.OriginalName, "size": f.Size, "mime_type": f.MimeType, "duplicate": false})
 }
 
 func DownloadFile(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var f model.File
-	if err := dao.DB.Unscoped().First(&f, id).Error; err != nil { c.String(404, "文件不存在"); return }
+	f, err := service.GetFileUnscoped(uint(id))
+	if err != nil { c.String(404, "文件不存在"); return }
 	c.File(f.Path)
 }
 
@@ -96,17 +108,18 @@ type associateReq struct {
 func AssociateFile(c *gin.Context) {
 	var req associateReq
 	if err := c.ShouldBindJSON(&req); err != nil { utils.BadRequest(c, "参数错误"); return }
-	var count int64
-	dao.DB.Model(&model.FileRelation{}).Where("file_id = ? AND target_type = ? AND target_id = ?", req.FileID, req.TargetType, req.TargetID).Count(&count)
-	if count > 0 { utils.SuccessWithMsg(c, "已存在关联", nil); return }
-	dao.DB.Create(&model.FileRelation{FileID: req.FileID, TargetType: req.TargetType, TargetID: req.TargetID})
+	if service.IsFileAssociated(req.FileID, req.TargetType, req.TargetID) {
+		utils.SuccessWithMsg(c, "已存在关联", nil)
+		return
+	}
+	dao.DBFromContext(c.Request.Context()).Create(&model.FileRelation{FileID: req.FileID, TargetType: req.TargetType, TargetID: req.TargetID})
 	utils.SuccessWithMsg(c, "关联成功", nil)
 }
 
 func DisassociateFile(c *gin.Context) {
 	var req struct{ ID uint `json:"id" binding:"required"` }
 	if err := c.ShouldBindJSON(&req); err != nil { utils.BadRequest(c, "参数错误"); return }
-	dao.DB.Delete(&model.FileRelation{}, req.ID)
+	dao.DBFromContext(c.Request.Context()).Delete(&model.FileRelation{}, req.ID)
 	utils.SuccessWithMsg(c, "解除关联成功", nil)
 }
 
@@ -127,7 +140,7 @@ func GetFileAssociations(c *gin.Context) {
 
 func PermanentDeleteFile(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	usedCount, err := service.PermanentDeleteFile(uint(id))
+	usedCount, err := service.PermanentDeleteFile(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -140,7 +153,7 @@ func PermanentDeleteFile(c *gin.Context) {
 }
 
 func CleanOrphanFiles(c *gin.Context) {
-	count, err := service.CleanOrphanFiles()
+	count, err := service.CleanOrphanFiles(c.Request.Context())
 	if err != nil { utils.Error(c, err.Error()); return }
 	utils.SuccessWithMsg(c, fmt.Sprintf("已清理 %d 个孤儿文件", count), gin.H{"count": count})
 }

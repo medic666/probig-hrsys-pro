@@ -5,6 +5,7 @@ import (
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
+	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,11 @@ func AuthRequired() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if service.IsTokenBlacklisted(token) {
+			utils.Unauthorized(c, "未登录或Token已过期")
+			c.Abort()
+			return
+		}
 
 		var user model.User
 		if err := dao.DB.First(&user, claims.UserID).Error; err != nil {
@@ -40,10 +46,11 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
+		info := dao.AuditInfo{OperatorID: user.ID, OperatorName: user.Username, IP: c.ClientIP()}
+		c.Request = c.Request.WithContext(dao.WithAuditContext(c.Request.Context(), info))
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
 		c.Set("user", &user)
-		dao.SetAuditOperator(user.ID, user.Username)
 		c.Next()
 	}
 }
@@ -57,15 +64,7 @@ func RequirePermission(permKey string) gin.HandlerFunc {
 			return
 		}
 
-		var permissions []model.Permission
-		dao.DB.Table("permissions").
-			Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-			Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
-			Where("user_roles.user_id = ?", userID).
-			Find(&permissions)
-
-		for _, p := range permissions {
-			key := p.Module + "." + p.Action
+		for _, key := range service.GetUserPermissionKeys(userID.(uint)) {
 			if key == permKey {
 				c.Next()
 				return

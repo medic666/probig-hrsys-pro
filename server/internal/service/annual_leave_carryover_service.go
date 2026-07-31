@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -12,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func ExecuteCarryover(month string, operatorID uint) (map[string]interface{}, error) {
+func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operatorName string) (map[string]interface{}, error) {
 	monthStart, err := time.Parse("2006-01", month)
 	if err != nil {
 		return nil, fmt.Errorf("月份格式错误")
@@ -38,18 +40,26 @@ func ExecuteCarryover(month string, operatorID uint) (map[string]interface{}, er
 		return nil, fmt.Errorf("当月无符合条件的在职人员")
 	}
 
-	batchNo := "ALC-" + monthStart.Format("20060102") + "-" + strconv.FormatInt(time.Now().Unix(), 10)
+	batchNo := "ALC-" + monthStart.Format("20060102") + "-" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	batch := model.SysBatch{
 		BatchNo:        batchNo,
 		BusinessType:   "annual_leave_carryover",
 		BusinessPeriod: nextMonthStart.Format("2006-01"),
 		OperatorID:     operatorID,
+		OperatorName:   operatorName,
 		Status:         1,
 		TotalCount:     len(eligiblePersonIDs),
 	}
-	if err := dao.DB.Create(&batch).Error; err != nil {
+	if err := dao.DBFromContext(ctx).Create(&batch).Error; err != nil {
 		return nil, err
 	}
+
+	// 识别历史同周期批次（幂等冲销的载体）：事件将被删除并重建，批次记录本身不保留
+	var oldBatchIDs []uint
+	dao.DBFromContext(ctx).Model(&model.SysBatch{}).
+		Where("business_type = ? AND business_period = ? AND id != ?",
+			"annual_leave_carryover", nextMonthStart.Format("2006-01"), batch.ID).
+		Pluck("id", &oldBatchIDs)
 
 	yearlyHours := getYearlyAnnualLeaveHours()
 
@@ -58,8 +68,14 @@ func ExecuteCarryover(month string, operatorID uint) (map[string]interface{}, er
 	now := time.Now()
 
 	for personID := range eligiblePersonIDs {
-		err := utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
-			tx.Where("person_id = ? AND source_type = ? AND batch_id = ?", personID, "system_period", batch.ID).Delete(&model.AnnualLeaveAccountEvent{})
+		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+			// 冲销历史同周期批次的系统事件，事件源删除由 GORM 审计自动留痕
+			if len(oldBatchIDs) > 0 {
+				if err := tx.Where("person_id = ? AND source_type = ? AND batch_id IN ?",
+					personID, "system_period", oldBatchIDs).Delete(&model.AnnualLeaveAccountEvent{}).Error; err != nil {
+					return err
+				}
+			}
 
 			balance := calculatePersonAnnualBalance(tx, personID)
 
@@ -115,7 +131,23 @@ func ExecuteCarryover(month string, operatorID uint) (map[string]interface{}, er
 	if fail > 0 {
 		updates["status"] = 4
 	}
-	dao.DB.Model(&batch).Updates(updates)
+	dao.DBFromContext(ctx).Model(&batch).Updates(updates)
+
+	// 冲销完成的历史批次记录不再保留
+	if len(oldBatchIDs) > 0 {
+		if err := dao.DBFromContext(ctx).Where("id IN ?", oldBatchIDs).Delete(&model.SysBatch{}).Error; err != nil {
+			return nil, err
+		}
+	}
+
+	// 结转审计
+	if fail == 0 {
+		summaryJSON, _ := json.Marshal(map[string]interface{}{
+			"batch_no": batchNo, "business_period": nextMonthStart.Format("2006-01"),
+			"success": success, "total": len(eligiblePersonIDs),
+		})
+		dao.WriteBusinessAudit(ctx, "结转", "annual_leave_carryover", batch.ID, batchNo, "", string(summaryJSON))
+	}
 
 	return map[string]interface{}{
 		"batch_no": batchNo,
@@ -139,8 +171,8 @@ func calculatePersonAnnualBalance(tx *gorm.DB, personID uint) float64 {
 
 	var attendEvents []model.AttendanceEventDetail
 	tx.Table("attendance_event_details").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id").
-		Where("attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
+		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
+		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
 		Select("attendance_event_details.hours").
 		Scan(&attendEvents)
 
@@ -159,9 +191,9 @@ func calculatePersonAnnualBalance(tx *gorm.DB, personID uint) float64 {
 	return balance
 }
 
-func CancelCarryover(batchID uint) error {
+func CancelCarryover(ctx context.Context, batchID uint) error {
 	var batch model.SysBatch
-	if err := dao.DB.First(&batch, batchID).Error; err != nil {
+	if err := dao.DBFromContext(ctx).First(&batch, batchID).Error; err != nil {
 		return fmt.Errorf("批次不存在")
 	}
 	if batch.Status != 2 {
@@ -169,20 +201,29 @@ func CancelCarryover(batchID uint) error {
 	}
 
 	var events []model.AnnualLeaveAccountEvent
-	dao.DB.Where("batch_id = ?", batchID).Find(&events)
-
-	for _, e := range events {
-		dao.DB.Delete(&e)
-		if err := RebuildAnnualLeaveBalance(dao.DB, e.PersonID); err != nil {
+	if err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		if err := tx.Where("batch_id = ?", batchID).Find(&events).Error; err != nil {
 			return err
 		}
+		for _, e := range events {
+			if err := tx.Delete(&e).Error; err != nil {
+				return err
+			}
+			if err := RebuildAnnualLeaveBalance(tx, e.PersonID); err != nil {
+				return err
+			}
+		}
+		// 批次记录一并清除，事件源变动已由审计留痕
+		if err := tx.Delete(&model.SysBatch{}, batchID).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
-
-	now := time.Now()
-	dao.DB.Model(&batch).Updates(map[string]interface{}{
-		"status":      3,
-		"canceled_at": now,
-	})
+	// 反结账审计（事务提交后写入）
+	dao.WriteBusinessAudit(ctx, "反结账", "annual_leave_carryover", batchID, batch.BatchNo,
+		"", fmt.Sprintf("冲销系统事件 %d 条", len(events)))
 	return nil
 }
 
@@ -201,6 +242,13 @@ func getYearlyAnnualLeaveHours() float64 {
 func GetBatchEvents(batchID uint) ([]map[string]interface{}, error) {
 	var events []model.AnnualLeaveAccountEvent
 	dao.DB.Where("batch_id = ?", batchID).Find(&events)
+
+	ids := make([]uint, len(events))
+	for i, e := range events {
+		ids[i] = e.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
 	var result []map[string]interface{}
 	for _, e := range events {
 		item := map[string]interface{}{
@@ -210,9 +258,7 @@ func GetBatchEvents(batchID uint) ([]map[string]interface{}, error) {
 			"hours":          e.Hours,
 			"effective_date": e.EffectiveDate,
 		}
-		var personName string
-		dao.DB.Table("persons").Select("name").Where("id = ?", e.PersonID).Scan(&personName)
-		item["person_name"] = personName
+		item["person_name"] = nameMap[e.PersonID]
 		result = append(result, item)
 	}
 	return result, nil

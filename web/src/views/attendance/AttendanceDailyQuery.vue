@@ -44,14 +44,12 @@ const columns = [
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
+  { prop:'date', label:'日期范围', type:'date-range' as const },
 ]
 
 async function fetchPersonOptions(k?: string) { const l=(await getAllPersons()) as any[]||[]; return k?l.filter((p:any)=>p.name.includes(k)):l }
 async function fetchDaily(p: any) {
-  const d = (await getDailyProjections(p)) as any
-  const persons=(await getAllPersons()) as any[]||[]
-  const nm: Record<number,string>={}; persons.forEach((x:any)=>nm[x.id]=x.name)
-  return { list: (d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})), total: d.total||0 }
+  return (await getDailyProjections(p)) as any
 }
 
 async function showEvents(row: any) { dailyEvents.value = (await getEventsByDate(row.person_id, row.work_date)) as any[]||[]; eventsVisible.value=true }

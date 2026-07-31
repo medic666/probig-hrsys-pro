@@ -44,7 +44,16 @@ const columns=[
   {prop:'md5',label:'MD5',width:'120'},{prop:'assoc_count',label:'关联数',width:'70'},
   {prop:'created_at',label:'上传时间',width:'160'},
 ]
-const searchFields=[{prop:'name',label:'文件名',type:'input' as const,placeholder:'模糊搜索'}]
+const searchFields=[
+  {prop:'name',label:'文件名',type:'input' as const,placeholder:'模糊搜索'},
+  {prop:'mime_type',label:'类型',type:'select' as const,options:[
+    {label:'图片',value:'image/'},{label:'PDF',value:'application/pdf'},
+    {label:'Excel',value:'application/vnd.openxmlformats-officedocument.spreadsheetml'},
+    {label:'Word',value:'application/vnd.openxmlformats-officedocument.wordprocessingml'},
+    {label:'纯文本',value:'text/'},
+  ]},
+  {prop:'date',label:'上传时间',type:'date-range' as const},
+]
 const actions=[{key:'upload',label:'上传文件',type:'primary' as const},{key:'trash',label:'回收站',type:'default' as const}]
 const tc=[{prop:'id',label:'ID',width:'60'},{prop:'original_name',label:'文件名'},{prop:'md5',label:'MD5',width:'120'}]
 

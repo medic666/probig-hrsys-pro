@@ -11,7 +11,7 @@
       <el-table-column prop="business_period" label="业务周期" width="100"/>
       <el-table-column prop="person_names" label="处理人员" />
       <el-table-column prop="total_count" label="人数" width="70"/>
-      <el-table-column prop="status" label="状态" width="90"><template #default="{row}">{{ {2:'已生效',3:'已冲销',4:'失败'}[row.status]||row.status }}</template></el-table-column>
+      <el-table-column prop="status" label="状态" width="90"><template #default="{row}">{{ {1:'待执行',2:'已生效',4:'失败'}[row.status]||row.status }}</template></el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="160"/>
       <el-table-column label="操作" width="140">
         <template #default="{row}">

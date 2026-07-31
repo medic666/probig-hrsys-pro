@@ -25,7 +25,7 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 		Status:   daily.Status,
 		PunchTime: daily.PunchTime,
 		Remark:   daily.Remark,
-		LastCalcAt: utils.DateOnlyFromTime(time.Now()),
+		LastCalcAt: time.Now(),
 	}
 
 	if daily.Status == "pending" {
@@ -33,7 +33,10 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 	}
 
 	var details []model.AttendanceEventDetail
-	tx.Where("daily_id = ?", daily.ID).Find(&details)
+	details, err := GetDetailsByDailyID(tx, daily.ID)
+	if err != nil {
+		return err
+	}
 
 	var workHours, overtimeWorkday, overtimeHoliday float64
 	var hasPersonalLeave bool

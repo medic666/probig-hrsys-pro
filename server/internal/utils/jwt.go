@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
 	"probig/server/internal/config"
@@ -15,6 +18,15 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// randomJTI 随机 token 标识，保证同一秒内生成的 token 互不相同（登出黑名单依赖此唯一性）
+func randomJTI() string {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
+		return strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	return hex.EncodeToString(b)
+}
+
 func GenerateToken(userID uint, username string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
@@ -23,6 +35,7 @@ func GenerateToken(userID uint, username string) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "probig",
+			ID:        randomJTI(),
 		},
 	}
 

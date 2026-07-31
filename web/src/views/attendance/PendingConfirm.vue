@@ -36,7 +36,7 @@
             <el-input-number v-if="$r.sub_type==='迟到'||$r.sub_type==='早退'" v-model="$r.minutes" :min="0" size="small" @change="v=>detailChanged(idx,'minutes',v)"/>
           </template>
         </el-table-column>
-        <el-table-column label="备注" minWidth="120">
+        <el-table-column label="备注" min-width="120">
           <template #default="{row:$r, $index:idx}">
             <el-input v-model="$r.remark" size="small" @change="v=>detailChanged(idx,'remark',v)"/>
           </template>
@@ -71,9 +71,7 @@ const searchFields=[{prop:'person_id',label:'人员',type:'person-select' as con
 
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchPending(p:any){
-  const d=(await getPendingDailies(p)) as any
-  const persons=(await getAllPersons()) as any[]||[];const nm:Record<number,string>={};persons.forEach((x:any)=>nm[x.id]=x.name)
-  return {list:(d.list||[]).map((r:any)=>({...r,person_name:nm[r.person_id]||'-'})),total:d.total||0}
+  return (await getPendingDailies(p)) as any
 }
 function detailChanged(_idx:number, _field:string, _val:any){/* reactive binding */}
 

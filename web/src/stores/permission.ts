@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import request from '@/utils/request'
-
 export const usePermissionStore = defineStore('permission', () => {
   const permissions = ref<string[]>([])
   const menus = ref<any[]>([])
@@ -23,15 +21,6 @@ export const usePermissionStore = defineStore('permission', () => {
     menus.value = []
   }
 
-  async function fetchPermissions() {
-    const data = (await request.get('/user/permissions')) as {
-      permissions: string[]
-      menus: any[]
-    }
-    setPermissions(data?.permissions || [])
-    setMenus(data?.menus || [])
-  }
-
   return {
     permissions,
     menus,
@@ -39,6 +28,5 @@ export const usePermissionStore = defineStore('permission', () => {
     setMenus,
     hasPermission,
     clearPermissions,
-    fetchPermissions,
   }
 })

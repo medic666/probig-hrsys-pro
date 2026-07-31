@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
@@ -69,7 +70,7 @@ func TestCalculateMonthlyAttendance_Basic(t *testing.T) {
 		})
 		RebuildDailyProjection(db, 1, utils.DateOnlyFromTime(workD))
 
-		result, err := CalculateMonthlyAttendance(1, "2026-06")
+		result, err := CalculateMonthlyAttendance(context.Background(), 1, "2026-06")
 		if err != nil {
 			t.Fatalf("CalculateMonthlyAttendance: %v", err)
 		}
@@ -87,7 +88,7 @@ func TestCalculateMonthlyAttendance_Basic(t *testing.T) {
 
 func TestIsAttendanceMonthlyStale_NotStale(t *testing.T) {
 	withTestDB(t, func(db *gorm.DB) {
-		now := utils.DateOnlyFromTime(time.Now())
+		now := time.Now()
 		calc := model.AttendanceCalculationMonthly{
 			PersonID: 1, BelongMonth: "2026-06", LastCalcAt: now,
 		}

@@ -22,6 +22,7 @@ func seedDefaultConfigs(db *gorm.DB) error {
 		{Key: "attendance.full_attendance_bonus", Value: "10", Name: "全勤奖日标准", Desc: "全勤奖每日标准金额", ValueType: "number"},
 		{Key: "attendance.high_temp_months", Value: `["06","07","08","09"]`, Name: "高温补贴发放月份", Desc: "高温补贴发放月份列表", ValueType: "select", OptionValue: `["06","07","08","09"]`},
 		{Key: "annual_leave.yearly_hours", Value: "40", Name: "年假年度额度", Desc: "每年标准年假小时数", ValueType: "number"},
+		{Key: "file.max_size_mb", Value: "50", Name: "文件大小上限(MB)", Desc: "单个上传文件的大小上限", ValueType: "number"},
 	}
 
 	for _, d := range defaults {

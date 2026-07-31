@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"strings"
+
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
@@ -37,6 +39,11 @@ func AuthLogin(c *gin.Context) {
 }
 
 func AuthLogout(c *gin.Context) {
+	authHeader := c.GetHeader("Authorization")
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if claims, err := utils.ParseToken(token); err == nil {
+		service.BlacklistToken(token, claims.ExpiresAt.Time)
+	}
 	utils.SuccessWithMsg(c, "已退出登录", nil)
 }
 
@@ -53,7 +60,7 @@ func AuthChangePassword(c *gin.Context) {
 	}
 
 	userID := c.GetUint("userID")
-	if err := service.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
+	if err := service.ChangePassword(c.Request.Context(), userID, req.OldPassword, req.NewPassword); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

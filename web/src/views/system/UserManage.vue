@@ -73,15 +73,17 @@ import {
   restoreUser,
 } from '@/api/user'
 import { getAllRoles } from '@/api/role'
+import { getAllPersons } from '@/api/person'
 
 interface FormField {
   prop: string
   label: string
-  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch'
+  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch' | 'person-select'
   options?: { label: string; value: any }[]
   placeholder?: string
   span?: number
   defaultValue?: any
+  fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
 }
 
 const tableRef = ref()
@@ -120,6 +122,7 @@ const actions = [
 const formFields: FormField[] = [
   { prop: 'username', label: '用户名', type: 'input', placeholder: '请输入用户名' },
   { prop: 'password', label: '密码', type: 'input', placeholder: '新增时必填，编辑时留空', defaultValue: '' },
+  { prop: 'person_id', label: '关联人员', type: 'person-select', fetchApi: fetchPersonOpts },
   { prop: 'is_active', label: '启用', type: 'switch', defaultValue: true },
 ]
 
@@ -136,6 +139,11 @@ const trashColumns = [
 async function fetchUsers(params: any) {
   const data = (await getUsers(params)) as any
   return data
+}
+
+async function fetchPersonOpts(keyword?: string) {
+  const list = (await getAllPersons()) as { id: number; name: string }[]
+  return keyword ? list.filter((p) => p.name.includes(keyword)) : list
 }
 
 async function fetchDeletedUsers(params: any) {

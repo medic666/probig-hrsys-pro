@@ -33,6 +33,9 @@ export function getEventsByDate(personId: number, date: string) {
 export function getMonthlyList(params: any) {
   return request.get('/attendance-monthly', { params })
 }
+export function exportAttendanceMonthly(params: any) {
+  return request.get('/attendance-monthly/export', { params, responseType: 'blob' })
+}
 export function calculateMonthly(data: any) {
   return request.post('/attendance-monthly/calculate', data)
 }
@@ -47,6 +50,6 @@ export function dingTalkPreview(file: File) {
   fd.append('file', file)
   return request.post('/attendance-events/import-dingtalk/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
-export function dingTalkExecute(month: string, mappings: any[]) {
-  return request.post('/attendance-events/import-dingtalk/execute', { month, mappings })
+export function dingTalkExecute(month: string, filePath: string, mappings: any[]) {
+  return request.post('/attendance-events/import-dingtalk/execute', { month, file_path: filePath, mappings })
 }

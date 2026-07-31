@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -38,6 +39,14 @@ func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[
 	offset := (pageNum - 1) * pageSize
 	tx.Preload("Roles").Offset(offset).Limit(pageSize).Order("id DESC").Find(&users)
 
+	var ids []uint
+	for _, user := range users {
+		if user.PersonID != nil {
+			ids = append(ids, *user.PersonID)
+		}
+	}
+	nameMap := PersonNameMap(ids)
+
 	var result []map[string]interface{}
 	for _, user := range users {
 		item := map[string]interface{}{
@@ -61,9 +70,7 @@ func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[
 		item["role_ids"] = roleIDs
 
 		if user.PersonID != nil {
-			var personName string
-			dao.DB.Table("persons").Select("name").Where("id = ?", *user.PersonID).Scan(&personName)
-			item["person_name"] = personName
+			item["person_name"] = nameMap[*user.PersonID]
 		}
 
 		result = append(result, item)
@@ -72,7 +79,7 @@ func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[
 	return result, total, nil
 }
 
-func CreateUser(req CreateUserReq) (*model.User, error) {
+func CreateUser(ctx context.Context, req CreateUserReq) (*model.User, error) {
 	var count int64
 	dao.DB.Model(&model.User{}).Where("username = ?", req.Username).Count(&count)
 	if count > 0 {
@@ -102,7 +109,7 @@ func CreateUser(req CreateUserReq) (*model.User, error) {
 	return &user, nil
 }
 
-func UpdateUser(id uint, req UpdateUserReq) error {
+func UpdateUser(ctx context.Context, id uint, req UpdateUserReq) error {
 	var user model.User
 	if err := dao.DB.First(&user, id).Error; err != nil {
 		return errors.New("用户不存在")
@@ -127,10 +134,10 @@ func UpdateUser(id uint, req UpdateUserReq) error {
 		updates["is_active"] = *req.IsActive
 	}
 
-	return dao.DB.Model(&user).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&user).Updates(updates).Error
 }
 
-func DeleteUser(id, operatorID uint) error {
+func DeleteUser(ctx context.Context, id, operatorID uint) error {
 	if id == 1 {
 		return errors.New("不能删除超级管理员账号")
 	}
@@ -141,14 +148,22 @@ func DeleteUser(id, operatorID uint) error {
 	if err := dao.DB.First(&user, id).Error; err != nil {
 		return errors.New("用户不存在")
 	}
-	return dao.DB.Delete(&user).Error
+	if err := dao.DBFromContext(ctx).Delete(&user).Error; err != nil {
+		return err
+	}
+	InvalidateUserPermissionCache(id)
+	return nil
 }
 
-func RestoreUser(id uint) error {
-	return dao.RestoreEntity[model.User](dao.DB, id)
+func RestoreUser(ctx context.Context, id uint) error {
+	if err := dao.RestoreEntity[model.User](dao.DBFromContext(ctx), id); err != nil {
+		return err
+	}
+	InvalidateUserPermissionCache(id)
+	return nil
 }
 
-func AssignUserRoles(userID uint, roleIDs []uint) error {
+func AssignUserRoles(ctx context.Context, userID uint, roleIDs []uint) error {
 	if userID == 1 {
 		var defaultRole model.Role
 		if err := dao.DB.Where("is_default = ?", true).First(&defaultRole).Error; err != nil {
@@ -166,12 +181,13 @@ func AssignUserRoles(userID uint, roleIDs []uint) error {
 		}
 	}
 
-	dao.DB.Where("user_id = ?", userID).Delete(&model.UserRole{})
+	dao.DBFromContext(ctx).Where("user_id = ?", userID).Delete(&model.UserRole{})
 
 	for _, roleID := range roleIDs {
 		ur := model.UserRole{UserID: userID, RoleID: roleID}
-		dao.DB.Create(&ur)
+		dao.DBFromContext(ctx).Create(&ur)
 	}
+	InvalidateUserPermissionCache(userID)
 	return nil
 }
 

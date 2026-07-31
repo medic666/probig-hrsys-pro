@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"probig/server/internal/dao"
@@ -10,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreatePositionEvent(event *model.PositionEvent) error {
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+func CreatePositionEvent(ctx context.Context, event *model.PositionEvent) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.PositionEvent{}).Where("person_id = ?", event.PersonID).
 			Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq)
@@ -24,35 +25,13 @@ func CreatePositionEvent(event *model.PositionEvent) error {
 	})
 }
 
-func UpdatePositionEvent(id uint, event *model.PositionEvent) error {
+func UpdatePositionEvent(ctx context.Context, id uint, updates map[string]interface{}) error {
 	var existing model.PositionEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("职务事件不存在")
 	}
 
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
-		updates := map[string]interface{}{
-			"event_type":      event.EventType,
-			"remark":          event.Remark,
-			"effective_date":  event.EffectiveDate,
-			"entry_date":      event.EntryDate,
-			"leave_date":      event.LeaveDate,
-			"attendance_group":    event.AttendanceGroup,
-			"has_annual_leave":    event.HasAnnualLeave,
-			"has_attendance_bonus": event.HasAttendanceBonus,
-			"base_salary":        event.BaseSalary,
-			"performance_salary": event.PerformanceSalary,
-			"salary_days":        event.SalaryDays,
-			"post_allowance":      event.PostAllowance,
-			"meal_allowance":      event.MealAllowance,
-			"housing_allowance":   event.HousingAllowance,
-			"transport_allowance": event.TransportAllowance,
-			"high_temp_allowance": event.HighTempAllowance,
-			"insurance_compensation": event.InsuranceCompensation,
-			"fund_compensation":      event.FundCompensation,
-			"social_security_deduct": event.SocialSecurityDeduct,
-			"housing_fund_deduct":    event.HousingFundDeduct,
-		}
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Model(&existing).Updates(updates).Error; err != nil {
 			return err
 		}
@@ -60,12 +39,12 @@ func UpdatePositionEvent(id uint, event *model.PositionEvent) error {
 	})
 }
 
-func DeletePositionEvent(id uint) error {
+func DeletePositionEvent(ctx context.Context, id uint) error {
 	var event model.PositionEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
 		}
@@ -73,12 +52,12 @@ func DeletePositionEvent(id uint) error {
 	})
 }
 
-func RestorePositionEvent(id uint) error {
+func RestorePositionEvent(ctx context.Context, id uint) error {
 	var event model.PositionEvent
 	if err := dao.DB.Unscoped().First(&event, id).Error; err != nil {
 		return err
 	}
-	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
@@ -116,6 +95,12 @@ func GetPositionEventList(pageNum, pageSize int, personID uint, startDate, endDa
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("person_id ASC, effective_date DESC, seq DESC").Find(&events)
 
+	ids := make([]uint, len(events))
+	for i, e := range events {
+		ids[i] = e.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
 	var result []map[string]interface{}
 	for _, e := range events {
 		item := map[string]interface{}{
@@ -127,9 +112,7 @@ func GetPositionEventList(pageNum, pageSize int, personID uint, startDate, endDa
 			"effective_date": e.EffectiveDate,
 			"created_at":     e.CreatedAt,
 		}
-		var personName string
-		dao.DB.Table("persons").Select("name").Where("id = ?", e.PersonID).Scan(&personName)
-		item["person_name"] = personName
+		item["person_name"] = nameMap[e.PersonID]
 
 		changedFields := collectChangedFields(e)
 		item["changed_fields"] = changedFields

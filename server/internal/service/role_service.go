@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"probig/server/internal/dao"
@@ -31,7 +32,7 @@ func GetAllRoles() ([]model.Role, error) {
 	return roles, nil
 }
 
-func CreateRole(name, remark string) (*model.Role, error) {
+func CreateRole(ctx context.Context, name, remark string) (*model.Role, error) {
 	var count int64
 	dao.DB.Model(&model.Role{}).Where("name = ?", name).Count(&count)
 	if count > 0 {
@@ -45,7 +46,7 @@ func CreateRole(name, remark string) (*model.Role, error) {
 	return &role, nil
 }
 
-func UpdateRole(id uint, name, remark string) error {
+func UpdateRole(ctx context.Context, id uint, name, remark string) error {
 	var role model.Role
 	if err := dao.DB.First(&role, id).Error; err != nil {
 		return errors.New("角色不存在")
@@ -67,10 +68,10 @@ func UpdateRole(id uint, name, remark string) error {
 	if remark != "" {
 		updates["remark"] = remark
 	}
-	return dao.DB.Model(&role).Updates(updates).Error
+	return dao.DBFromContext(ctx).Model(&role).Updates(updates).Error
 }
 
-func DeleteRole(id uint) error {
+func DeleteRole(ctx context.Context, id uint) error {
 	var role model.Role
 	if err := dao.DB.First(&role, id).Error; err != nil {
 		return errors.New("角色不存在")
@@ -78,11 +79,15 @@ func DeleteRole(id uint) error {
 	if role.IsDefault {
 		return errors.New("默认角色不可删除")
 	}
-	return dao.DB.Delete(&role).Error
+	if err := dao.DBFromContext(ctx).Delete(&role).Error; err != nil {
+		return err
+	}
+	InvalidateRolePermissionCache(id)
+	return nil
 }
 
-func RestoreRole(id uint) error {
-	return dao.RestoreEntity[model.Role](dao.DB, id)
+func RestoreRole(ctx context.Context, id uint) error {
+	return dao.RestoreEntity[model.Role](dao.DBFromContext(ctx), id)
 }
 
 func GetDeletedRoleList(pageNum, pageSize int) ([]model.Role, int64, error) {
@@ -97,18 +102,19 @@ func GetDeletedRoleList(pageNum, pageSize int) ([]model.Role, int64, error) {
 	return roles, total, nil
 }
 
-func AssignRolePermissions(roleID uint, permIDs []uint) error {
+func AssignRolePermissions(ctx context.Context, roleID uint, permIDs []uint) error {
 	var role model.Role
 	if err := dao.DB.First(&role, roleID).Error; err != nil {
 		return errors.New("角色不存在")
 	}
 
-	dao.DB.Where("role_id = ?", roleID).Delete(&model.RolePermission{})
+	dao.DBFromContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{})
 
 	for _, permID := range permIDs {
 		rp := model.RolePermission{RoleID: roleID, PermissionID: permID}
-		dao.DB.Create(&rp)
+		dao.DBFromContext(ctx).Create(&rp)
 	}
+	InvalidateRolePermissionCache(roleID)
 	return nil
 }
 

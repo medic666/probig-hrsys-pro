@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,14 +11,18 @@ import (
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
 	"probig/server/internal/utils"
+
+	"gorm.io/gorm"
 )
 
 var ErrAttendanceNotCalculated = errors.New("未完成月度考勤核算，请先进行考勤核算")
 
-func CalculateSalary(personID uint, month string, operatorID uint, operatorName string) error {
-	var calc model.AttendanceCalculationMonthly
-	err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc).Error
-	if err != nil {
+func CalculateSalary(ctx context.Context, personID uint, month string, operatorID uint, operatorName string) error {
+	var oldJSON, newJSON, personName string
+	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		var calc model.AttendanceCalculationMonthly
+		err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc).Error
+		if err != nil {
 		return fmt.Errorf("%w", ErrAttendanceNotCalculated)
 	}
 
@@ -27,7 +32,7 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 	monthEndD := utils.DateOnlyFromTime(monthEnd)
 
 	var snapshots []model.PositionSnapshot
-	dao.DB.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+	tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 		personID, monthEndD, monthStartD).Find(&snapshots)
 
 	if len(snapshots) == 0 {
@@ -81,35 +86,30 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 	isFullMonth := activeDays == totalCalendarDays
 	attendanceDays := calc.TotalWorkHours / getWorkHoursPerDay()
 
-	subsidyDiv := activeDays
+	// 非全月（入职/离职月）：补贴与绩效统一按实际出勤比例折算
+	// 全月在职：wXxx/activeDays 直取定额；入职/离职月：(wXxx/activeDays) × (attendanceDays/salaryDays)
+	subsidyRatio := 1.0
 	if !isFullMonth {
-		subsidyDiv = salaryDays
+		subsidyRatio = attendanceDays / salaryDays
 	}
 
-	perfDiv := activeDays
-	perfRatio := 1.0
-	if !isFullMonth {
-		perfDiv = salaryDays
-		perfRatio = attendanceDays / salaryDays
-	}
-
-	post := utils.RoundTwoDecimal(wPost / subsidyDiv)
-	meal := utils.RoundTwoDecimal(wMeal / subsidyDiv)
-	housing := utils.RoundTwoDecimal(wHousing / subsidyDiv)
-	transport := utils.RoundTwoDecimal(wTransport / subsidyDiv)
-	highTemp := utils.RoundTwoDecimal(wHighTemp / subsidyDiv)
+	post := utils.RoundTwoDecimal(wPost / activeDays * subsidyRatio)
+	meal := utils.RoundTwoDecimal(wMeal / activeDays * subsidyRatio)
+	housing := utils.RoundTwoDecimal(wHousing / activeDays * subsidyRatio)
+	transport := utils.RoundTwoDecimal(wTransport / activeDays * subsidyRatio)
+	highTemp := utils.RoundTwoDecimal(wHighTemp / activeDays * subsidyRatio)
 	if !isHighTempMonth(month) {
 		highTemp = 0
 	}
-	insComp := utils.RoundTwoDecimal(wInsComp / subsidyDiv)
-	fundComp := utils.RoundTwoDecimal(wFundComp / subsidyDiv)
+	insComp := utils.RoundTwoDecimal(wInsComp / activeDays * subsidyRatio)
+	fundComp := utils.RoundTwoDecimal(wFundComp / activeDays * subsidyRatio)
 	ssDeduct := utils.RoundTwoDecimal(wSSDeduct / activeDays)
 	hfDeduct := utils.RoundTwoDecimal(wHFDeduct / activeDays)
 
 	var perfCoeff float64 = 1
 	var salesCommission, rewardPunishment, borrowingRepayment, taxDeduct float64
 	var salaryEvents []model.SalaryEvent
-	dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).Order("seq DESC").Find(&salaryEvents)
+	tx.Where("person_id = ? AND belong_month = ?", personID, month).Order("seq DESC").Find(&salaryEvents)
 
 	maxCoeffSeq := 0
 	for _, e := range salaryEvents {
@@ -130,10 +130,10 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		}
 	}
 
-	perfSalary := utils.RoundTwoDecimal(wPerfBase / perfDiv * perfRatio * perfCoeff)
+	perfSalary := utils.RoundTwoDecimal(wPerfBase / activeDays * subsidyRatio * perfCoeff)
 
 	var carryoverDeductHours float64
-	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).
+	tx.Model(&model.AnnualLeaveAccountEvent{}).
 		Where("person_id = ? AND event_type = ? AND effective_date >= ? AND effective_date <= ?",
 			personID, "carryover_deduct", monthStartD, monthEndD).
 		Select("COALESCE(SUM(hours), 0)").Scan(&carryoverDeductHours)
@@ -187,11 +187,11 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		HousingFundDeduct:             hfDeduct,
 		TaxDeduct:                     taxDeduct,
 		FinalSalary:                   finalSalary,
-		LastCalcAt:                    utils.DateOnlyFromTime(time.Now()),
+		LastCalcAt: time.Now(),
 	}
 
 	var maxVersion int
-	dao.DB.Model(&model.SalarySummaryVersion{}).
+	tx.Model(&model.SalarySummaryVersion{}).
 		Where("person_id = ? AND belong_month = ?", personID, month).
 		Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
 
@@ -231,18 +231,42 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		TaxDeduct:                     taxDeduct,
 		FinalSalary:                   finalSalary,
 	}
-	dao.DB.Create(&version)
+	if err := tx.Create(&version).Error; err != nil {
+		return err
+	}
 
-	dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.SalarySummary{})
-	dao.DB.Create(&summary)
+	// 核算前旧汇总快照（审计 before）
+	oldJSON = ""
+	var oldSummary model.SalarySummary
+	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldSummary).Error; err == nil {
+		if b, err := json.Marshal(oldSummary); err == nil {
+			oldJSON = string(b)
+		}
+	}
 
+	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.SalarySummary{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Create(&summary).Error; err != nil {
+		return err
+	}
+
+	b, _ := json.Marshal(summary); newJSON = string(b)
+	tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
+	return nil
+	})
+	if err != nil {
+		return err
+	}
+	// 核算审计（每人一条），事务提交后写入，避免与业务事务的 SQLite 写锁竞争
+	dao.WriteBusinessAudit(ctx, "核算", "salary_summaries", personID, personName, oldJSON, newJSON)
 	return nil
 }
 
-func CalculateSalaryBatch(month string, personIDs []uint, operatorID uint, operatorName string) (int, int, int, error) {
+func CalculateSalaryBatch(ctx context.Context, month string, personIDs []uint, operatorID uint, operatorName string) (int, int, int, error) {
 	success, fail, skip := 0, 0, 0
 	for _, pid := range personIDs {
-		err := CalculateSalary(pid, month, operatorID, operatorName)
+		err := CalculateSalary(ctx, pid, month, operatorID, operatorName)
 		if err != nil {
 			if errors.Is(err, ErrAttendanceNotCalculated) {
 				skip++
@@ -278,37 +302,51 @@ func IsSalarySummaryStale(summary *model.SalarySummary) string {
 	monthStartD := utils.DateOnlyFromTime(monthStart)
 	monthEndD := utils.DateOnlyFromTime(monthEnd)
 
-	var calcLastCalcAt utils.DateOnly
+	var calcTimes []*time.Time
 	dao.DB.Model(&model.AttendanceCalculationMonthly{}).
 		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
-		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&calcLastCalcAt)
-	if calcLastCalcAt.Time().After(summary.LastCalcAt.Time()) {
+		Pluck("last_calc_at", &calcTimes)
+	if latestTime(calcTimes).After(summary.LastCalcAt) {
 		return "data_changed"
 	}
 
-	var maxSnapLastCalc utils.DateOnly
+	var snapTimes []*time.Time
 	dao.DB.Model(&model.PositionSnapshot{}).
 		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 			summary.PersonID, monthEndD, monthStartD).
-		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&maxSnapLastCalc)
-	if maxSnapLastCalc.Time().After(summary.LastCalcAt.Time()) {
+		Pluck("last_calc_at", &snapTimes)
+	if latestTime(snapTimes).After(summary.LastCalcAt) {
 		return "data_changed"
 	}
 
-	var salaryEventMaxTime *time.Time
+	// 工资事件：行级 max(updated_at, deleted_at) 再聚合取最大（软删除时间纳入检测）
+	var evUpds, evDels []*time.Time
 	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
 		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
-		Select("COALESCE(MAX(updated_at), MAX(deleted_at))").Scan(&salaryEventMaxTime)
-	if salaryEventMaxTime != nil && salaryEventMaxTime.After(summary.LastCalcAt.Time()) {
+		Pluck("updated_at", &evUpds)
+	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
+		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
+		Pluck("deleted_at", &evDels)
+	if t := latestTime(evUpds); t.After(summary.LastCalcAt) {
+		return "data_changed"
+	}
+	if t := latestTime(evDels); t.After(summary.LastCalcAt) {
 		return "data_changed"
 	}
 
-	var alEventMaxTime *time.Time
+	var alUpds, alDels []*time.Time
 	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
 		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
 			summary.PersonID, monthStartD, monthEndD).
-		Select("COALESCE(MAX(updated_at), MAX(deleted_at))").Scan(&alEventMaxTime)
-	if alEventMaxTime != nil && alEventMaxTime.After(summary.LastCalcAt.Time()) {
+		Pluck("updated_at", &alUpds)
+	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
+		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
+			summary.PersonID, monthStartD, monthEndD).
+		Pluck("deleted_at", &alDels)
+	if t := latestTime(alUpds); t.After(summary.LastCalcAt) {
+		return "data_changed"
+	}
+	if t := latestTime(alDels); t.After(summary.LastCalcAt) {
 		return "data_changed"
 	}
 

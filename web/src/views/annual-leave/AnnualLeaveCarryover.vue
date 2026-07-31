@@ -27,7 +27,9 @@
         <el-table-column prop="event_type" label="类型" width="120">
           <template #default="{row}">{{ {grant:'配发',carryover_deduct:'抵扣'}[row.event_type]||row.event_type }}</template>
         </el-table-column>
-        <el-table-column prop="hours" label="时长(小时)" width="100" />
+        <el-table-column prop="hours" label="时长(天)" width="100">
+          <template #default="{ row: r }">{{ hoursToDays(r.hours).toFixed(2) }}</template>
+        </el-table-column>
       </el-table>
     </el-dialog>
   </div>
@@ -38,6 +40,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { executeCarryover, cancelCarryover, getCarryoverBatches } from '@/api/annual-leave'
 import request from '@/utils/request'
+import { hoursToDays } from '@/utils'
 
 const cv=ref(false); const cm=ref(''); const s=ref(false); const batches=ref<any[]>([]); const bl=ref(false)
 const ev=ref(false); const batchEvents=ref<any[]>([])

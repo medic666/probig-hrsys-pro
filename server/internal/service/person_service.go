@@ -5,6 +5,9 @@ import (
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
+	"probig/server/internal/utils"
+
+	"gorm.io/gorm"
 )
 
 func GetPersonList(pageNum, pageSize int, name, idCard string, personID string) ([]model.Person, int64, error) {
@@ -83,13 +86,20 @@ func DeletePerson(id uint) error {
 	if err := dao.DB.First(&person, id).Error; err != nil {
 		return err
 	}
-	if err := dao.DB.Delete(&person).Error; err != nil {
-		return err
-	}
-	dao.DB.Where("person_id = ?", id).Delete(&model.PersonPhone{})
-	dao.DB.Where("person_id = ?", id).Delete(&model.PersonEmail{})
-	dao.DB.Where("person_id = ?", id).Delete(&model.PersonBankCard{})
-	return nil
+	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		if err := tx.Delete(&person).Error; err != nil {
+			return err
+		}
+		tx.Where("person_id = ?", id).Delete(&model.PersonPhone{})
+		tx.Where("person_id = ?", id).Delete(&model.PersonEmail{})
+		tx.Where("person_id = ?", id).Delete(&model.PersonBankCard{})
+		tx.Where("person_id = ?", id).Delete(&model.PositionEvent{})
+		tx.Where("person_id = ?", id).Delete(&model.AttendanceEvent{})
+		tx.Where("person_id = ?", id).Delete(&model.AnnualLeaveAccountEvent{})
+		tx.Where("person_id = ?", id).Delete(&model.SalaryEvent{})
+		tx.Where("target_type = ? AND target_id = ?", "person", id).Delete(&model.FileRelation{})
+		return nil
+	})
 }
 
 func RestorePerson(id uint) error {
@@ -104,7 +114,20 @@ func RestorePerson(id uint) error {
 			return errors.New("身份证号已被占用，无法恢复")
 		}
 	}
-	return dao.DB.Unscoped().Model(&person).Update("deleted_at", nil).Error
+	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Model(&person).Update("deleted_at", nil).Error; err != nil {
+			return err
+		}
+		tx.Unscoped().Model(&model.PersonPhone{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.PersonEmail{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.PersonBankCard{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.PositionEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.AttendanceEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.SalaryEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.FileRelation{}).Where("target_type = ? AND target_id = ?", "person", id).Update("deleted_at", nil)
+		return nil
+	})
 }
 
 func GetDeletedPersons(pageNum, pageSize int) ([]model.Person, int64, error) {

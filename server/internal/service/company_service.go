@@ -5,6 +5,9 @@ import (
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
+	"probig/server/internal/utils"
+
+	"gorm.io/gorm"
 )
 
 func GetCompanyList(pageNum, pageSize int, name, creditCode string, id string) ([]model.Company, int64, error) {
@@ -73,7 +76,13 @@ func DeleteCompany(id uint) error {
 	if err := dao.DB.First(&c, id).Error; err != nil {
 		return err
 	}
-	return dao.DB.Delete(&c).Error
+	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		if err := tx.Delete(&c).Error; err != nil {
+			return err
+		}
+		tx.Where("target_type = ? AND target_id = ?", "company", id).Delete(&model.FileRelation{})
+		return nil
+	})
 }
 
 func RestoreCompany(id uint) error {
@@ -88,7 +97,13 @@ func RestoreCompany(id uint) error {
 			return errors.New("统一社会信用代码已被占用，无法恢复")
 		}
 	}
-	return dao.DB.Unscoped().Model(&c).Update("deleted_at", nil).Error
+	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Model(&c).Update("deleted_at", nil).Error; err != nil {
+			return err
+		}
+		tx.Unscoped().Model(&model.FileRelation{}).Where("target_type = ? AND target_id = ?", "company", id).Update("deleted_at", nil)
+		return nil
+	})
 }
 
 func GetDeletedCompanies(pageNum, pageSize int) ([]model.Company, int64, error) {

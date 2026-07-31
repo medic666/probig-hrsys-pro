@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -21,7 +22,15 @@ func GetSalarySummaries(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	var result []map[string]interface{}
+	for i := range list {
+		data, _ := json.Marshal(list[i])
+		var item map[string]interface{}
+		json.Unmarshal(data, &item)
+		item["status"] = service.IsSalarySummaryStale(&list[i])
+		result = append(result, item)
+	}
+	utils.Success(c, utils.NewPageResult(result, total, pageReq))
 }
 
 type calcSalaryReq struct {
@@ -121,4 +130,15 @@ func ExportSalarySummaries(c *gin.Context) {
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Header("Content-Disposition", "attachment; filename=salary_"+time.Now().Format("20060102")+".xlsx")
 	f.Write(c.Writer)
+}
+
+func GetSalaryTrace(c *gin.Context) {
+	personID, _ := strconv.ParseUint(c.Param("personId"), 10, 64)
+	month := c.Param("month")
+	trace, err := service.GetSalaryTrace(uint(personID), month)
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, trace)
 }

@@ -2,12 +2,14 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 func GetAttendanceEvents(c *gin.Context) {
@@ -147,4 +149,30 @@ func isValidSubType(eventType, subType string) bool {
 		}
 	}
 	return false
+}
+
+func ExportAttendanceEvents(c *gin.Context) {
+	list, _, _ := service.GetAttendanceEventList(1, 10000, 0, c.Query("date_start"), c.Query("date_end"), c.Query("event_type"), c.Query("sub_type"))
+	f := excelize.NewFile()
+	defer f.Close()
+	sheet := "考勤事件"
+	f.SetSheetName("Sheet1", sheet)
+	headers := []string{"人员", "日期", "事件类型", "子类型", "时长", "打卡时间", "备注"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for i, e := range list {
+		row := i + 2
+		f.SetCellValue(sheet, cellName(1, row), e["person_name"])
+		f.SetCellValue(sheet, cellName(2, row), e["event_date"])
+		f.SetCellValue(sheet, cellName(3, row), e["event_type"])
+		f.SetCellValue(sheet, cellName(4, row), e["sub_type"])
+		f.SetCellValue(sheet, cellName(5, row), e["hours"])
+		f.SetCellValue(sheet, cellName(6, row), e["punch_time"])
+		f.SetCellValue(sheet, cellName(7, row), e["remark"])
+	}
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=attendance_events_"+time.Now().Format("20060102")+".xlsx")
+	f.Write(c.Writer)
 }

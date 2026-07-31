@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"probig/server/internal/dao"
@@ -35,10 +34,8 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		return fmt.Errorf("当月无在职记录")
 	}
 
-	var totalDays float64
+	var activeDays float64
 	var wPerfBase, wPost, wMeal, wHousing, wTransport, wHighTemp, wInsComp, wFundComp, wSSDeduct, wHFDeduct float64
-	salaryDays := 0
-	isActive := false
 
 	for _, s := range snapshots {
 		segStart := s.EffectiveStartDate.Time()
@@ -55,7 +52,10 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		if segDays <= 0 {
 			continue
 		}
-		totalDays += segDays
+		if !s.IsActive {
+			continue
+		}
+		activeDays += segDays
 		wPerfBase += s.PerformanceSalary * segDays
 		wPost += s.PostAllowance * segDays
 		wMeal += s.MealAllowance * segDays
@@ -66,34 +66,37 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		wFundComp += s.FundCompensation * segDays
 		wSSDeduct += s.SocialSecurityDeduct * segDays
 		wHFDeduct += s.HousingFundDeduct * segDays
-		if s.IsActive {
-			isActive = true
-		}
-		salaryDays = s.SalaryDays
 	}
 
-	if totalDays == 0 {
+	if activeDays == 0 {
 		return fmt.Errorf("当月无在职记录")
 	}
 
-	allowanceRatio := 1.0
-	if !isActive {
-		allowanceRatio = totalDays / float64(salaryDays)
+	if calc.SalaryDays == 0 {
+		return fmt.Errorf("计薪天数为0")
 	}
 
-	perfBase := wPerfBase / totalDays
-	post := utils.RoundTwoDecimal(wPost / totalDays * allowanceRatio)
-	meal := utils.RoundTwoDecimal(wMeal / totalDays * allowanceRatio)
-	housing := utils.RoundTwoDecimal(wHousing / totalDays * allowanceRatio)
-	transport := utils.RoundTwoDecimal(wTransport / totalDays * allowanceRatio)
-	highTemp := utils.RoundTwoDecimal(wHighTemp / totalDays * allowanceRatio)
+	salaryDays := float64(calc.SalaryDays)
+	totalCalendarDays := monthEnd.Sub(monthStart).Hours()/24 + 1
+	isFullMonth := activeDays == totalCalendarDays
+
+	allowanceDiv := activeDays
+	if !isFullMonth {
+		allowanceDiv = salaryDays
+	}
+
+	post := utils.RoundTwoDecimal(wPost / allowanceDiv)
+	meal := utils.RoundTwoDecimal(wMeal / allowanceDiv)
+	housing := utils.RoundTwoDecimal(wHousing / allowanceDiv)
+	transport := utils.RoundTwoDecimal(wTransport / allowanceDiv)
+	highTemp := utils.RoundTwoDecimal(wHighTemp / allowanceDiv)
 	if !isHighTempMonth(month) {
 		highTemp = 0
 	}
-	insComp := utils.RoundTwoDecimal(wInsComp / totalDays * allowanceRatio)
-	fundComp := utils.RoundTwoDecimal(wFundComp / totalDays * allowanceRatio)
-	ssDeduct := utils.RoundTwoDecimal(wSSDeduct / totalDays)
-	hfDeduct := utils.RoundTwoDecimal(wHFDeduct / totalDays)
+	insComp := utils.RoundTwoDecimal(wInsComp / allowanceDiv)
+	fundComp := utils.RoundTwoDecimal(wFundComp / allowanceDiv)
+	ssDeduct := utils.RoundTwoDecimal(wSSDeduct / activeDays)
+	hfDeduct := utils.RoundTwoDecimal(wHFDeduct / activeDays)
 
 	var perfCoeff float64 = 1
 	var salesCommission, rewardPunishment, borrowingRepayment, taxDeduct float64
@@ -119,7 +122,7 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		}
 	}
 
-	perfSalary := utils.RoundTwoDecimal(perfBase * perfCoeff * allowanceRatio)
+	perfSalary := utils.RoundTwoDecimal(wPerfBase / allowanceDiv * perfCoeff)
 
 	var carryoverDeductHours float64
 	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).
@@ -130,8 +133,8 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 	workHoursPerDay := getWorkHoursPerDay()
 	holidayRatio := getOvertimeHolidayRatio()
 	carryoverSalary := 0.0
-	if salaryDays > 0 {
-		carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / float64(salaryDays) / workHoursPerDay * holidayRatio)
+	if calc.SalaryDays > 0 {
+		carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / float64(calc.SalaryDays) / workHoursPerDay * holidayRatio)
 	}
 
 	salesCommission = utils.RoundTwoDecimal(salesCommission)
@@ -150,7 +153,7 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 	summary := model.SalarySummary{
 		PersonID:                      personID,
 		BelongMonth:                   month,
-		SalaryDays:                    salaryDays,
+		SalaryDays:                    calc.SalaryDays,
 		WeightedBaseSalary:            calc.WeightedBaseSalary,
 		TotalWorkHours:                calc.TotalWorkHours,
 		TotalOvertimeWorkdayHours:     calc.TotalOvertimeWorkdayHours,
@@ -193,7 +196,7 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		CalcBatchNo:                   batchNo,
 		OperatorID:                    operatorID,
 		OperatorName:                  operatorName,
-		SalaryDays:                    salaryDays,
+		SalaryDays:                    calc.SalaryDays,
 		WeightedBaseSalary:            calc.WeightedBaseSalary,
 		TotalWorkHours:                calc.TotalWorkHours,
 		TotalOvertimeWorkdayHours:     calc.TotalOvertimeWorkdayHours,
@@ -261,6 +264,49 @@ func GetSalarySummaries(month string, personID uint, pageNum, pageSize int) ([]m
 	return list, total, err
 }
 
+func IsSalarySummaryStale(summary *model.SalarySummary) string {
+	monthStart, _ := utils.MonthStart(summary.BelongMonth)
+	monthEnd, _ := utils.MonthEnd(summary.BelongMonth)
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthEnd)
+
+	var calcLastCalcAt utils.DateOnly
+	dao.DB.Model(&model.AttendanceCalculationMonthly{}).
+		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
+		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&calcLastCalcAt)
+	if calcLastCalcAt.Time().After(summary.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	var maxSnapLastCalc utils.DateOnly
+	dao.DB.Model(&model.PositionSnapshot{}).
+		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+			summary.PersonID, monthEndD, monthStartD).
+		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&maxSnapLastCalc)
+	if maxSnapLastCalc.Time().After(summary.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	var salaryEventMaxTime *time.Time
+	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
+		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
+		Select("COALESCE(MAX(updated_at), MAX(deleted_at))").Scan(&salaryEventMaxTime)
+	if salaryEventMaxTime != nil && salaryEventMaxTime.After(summary.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	var alEventMaxTime *time.Time
+	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
+		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
+			summary.PersonID, monthStartD, monthEndD).
+		Select("COALESCE(MAX(updated_at), MAX(deleted_at))").Scan(&alEventMaxTime)
+	if alEventMaxTime != nil && alEventMaxTime.After(summary.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	return "calculated"
+}
+
 func GetSalaryVersions(personID uint, month string) ([]model.SalarySummaryVersion, error) {
 	var versions []model.SalarySummaryVersion
 	err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).
@@ -292,6 +338,56 @@ func isHighTempMonth(month string) bool {
 	return false
 }
 
-func containsMonth(jsonList string, m string) bool {
-	return len(jsonList) > len(m) && (strings.Contains(jsonList, m))
+type SalaryTrace struct {
+	Summary            model.SalarySummary               `json:"summary"`
+	AttendanceCalc     model.AttendanceCalculationMonthly `json:"attendance_calc"`
+	DailyProjections   []model.AttendanceDailyProjection  `json:"daily_projections"`
+	AttendanceEvents   []model.AttendanceEvent            `json:"attendance_events"`
+	PositionSnapshots  []model.PositionSnapshot           `json:"position_snapshots"`
+	SalaryEvents       []model.SalaryEvent                `json:"salary_events"`
+	AnnualLeaveCarryover []model.AnnualLeaveAccountEvent  `json:"annual_leave_carryover"`
+}
+
+func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
+	monthStart, _ := time.Parse("2006-01", month)
+	monthEnd := monthStart.AddDate(0, 1, -1)
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthEnd)
+
+	var summary model.SalarySummary
+	if err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).First(&summary).Error; err != nil {
+		return nil, fmt.Errorf("工资汇总不存在")
+	}
+
+	var calc model.AttendanceCalculationMonthly
+	dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc)
+
+	var dailyProjections []model.AttendanceDailyProjection
+	dao.DB.Where("person_id = ? AND work_date >= ? AND work_date <= ?",
+		personID, monthStartD, monthEndD).Order("work_date ASC").Find(&dailyProjections)
+
+	var attendanceEvents []model.AttendanceEvent
+	dao.DB.Where("person_id = ? AND event_date >= ? AND event_date <= ?",
+		personID, monthStartD, monthEndD).Order("event_date ASC, seq ASC").Find(&attendanceEvents)
+
+	var snapshots []model.PositionSnapshot
+	dao.DB.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+		personID, monthEndD, monthStartD).Order("effective_start_date ASC").Find(&snapshots)
+
+	var salaryEvents []model.SalaryEvent
+	dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).Order("seq ASC").Find(&salaryEvents)
+
+	var alCarryover []model.AnnualLeaveAccountEvent
+	dao.DB.Where("person_id = ? AND event_type = ? AND effective_date >= ? AND effective_date <= ?",
+		personID, "carryover_deduct", monthStartD, monthEndD).Find(&alCarryover)
+
+	return &SalaryTrace{
+		Summary:              summary,
+		AttendanceCalc:       calc,
+		DailyProjections:     dailyProjections,
+		AttendanceEvents:     attendanceEvents,
+		PositionSnapshots:    snapshots,
+		SalaryEvents:         salaryEvents,
+		AnnualLeaveCarryover: alCarryover,
+	}, nil
 }

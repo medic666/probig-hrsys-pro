@@ -43,6 +43,7 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
 		c.Set("user", &user)
+		dao.SetAuditOperator(user.ID, user.Username)
 		c.Next()
 	}
 }

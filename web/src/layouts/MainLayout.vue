@@ -67,6 +67,7 @@
         </el-main>
       </el-container>
     </el-container>
+    <ChangePasswordDialog v-model:visible="showPwdDialog" />
   </div>
 </template>
 
@@ -88,12 +89,14 @@ import {
   Setting,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
 const isCollapsed = ref(false)
+const showPwdDialog = ref(false)
 
 const activeMenu = computed(() => route.path)
 
@@ -130,7 +133,7 @@ function handleCommand(command: string) {
       ElMessage.info('个人信息功能将在后续阶段实现')
       break
     case 'changePassword':
-      ElMessage.info('修改密码功能将在阶段四实现')
+      showPwdDialog.value = true
       break
     case 'logout':
       userStore.clearUser()

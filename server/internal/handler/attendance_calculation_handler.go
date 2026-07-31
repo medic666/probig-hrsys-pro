@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -20,7 +21,15 @@ func GetMonthlyList(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	var result []map[string]interface{}
+	for i := range list {
+		data, _ := json.Marshal(list[i])
+		var item map[string]interface{}
+		json.Unmarshal(data, &item)
+		item["status"] = service.IsAttendanceMonthlyStale(&list[i])
+		result = append(result, item)
+	}
+	utils.Success(c, utils.NewPageResult(result, total, pageReq))
 }
 
 type calculateReq struct {

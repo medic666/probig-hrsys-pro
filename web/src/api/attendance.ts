@@ -3,6 +3,9 @@ import request from '@/utils/request'
 export function getAttendanceEvents(params: any) {
   return request.get('/attendance-events', { params })
 }
+export function exportAttendanceEvents(params: any) {
+  return request.get('/attendance-events/export', { params, responseType: 'blob' })
+}
 export function createAttendanceEvent(data: any) {
   return request.post('/attendance-events', data)
 }

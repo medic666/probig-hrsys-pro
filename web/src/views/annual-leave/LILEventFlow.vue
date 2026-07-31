@@ -8,11 +8,12 @@
 import ProTable from '@/components/ProTable.vue'
 import { getLILEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
+import { hoursToDays } from '@/utils'
 
 const columns = [
   { prop:'id', label:'ID', width:'60' },{ prop:'person_name', label:'人员', width:'80' },
   { prop:'sub_type', label:'类型', width:'100' },{ prop:'event_date', label:'日期', width:'110' },
-  { prop:'hours', label:'时长(小时)', width:'90' },{ prop:'remark', label:'备注' },
+  { prop:'hours', label:'时长(天)', width:'90', formatter:(r:any)=>hoursToDays(r.hours).toFixed(2) },{ prop:'remark', label:'备注' },
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchOpts },

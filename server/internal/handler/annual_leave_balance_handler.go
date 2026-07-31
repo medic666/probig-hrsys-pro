@@ -136,3 +136,23 @@ func GetAllLILBalances(c *gin.Context) {
 	}
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
+
+func GetALBalanceDetail(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	detail, err := service.GetAnnualLeaveBalanceDetail(uint(id))
+	if err != nil {
+		utils.Error(c, "获取余额明细失败")
+		return
+	}
+	utils.Success(c, detail)
+}
+
+func GetLILBalanceDetail(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	detail, err := service.GetLILBalanceDetail(uint(id))
+	if err != nil {
+		utils.Error(c, "获取余额明细失败")
+		return
+	}
+	utils.Success(c, detail)
+}

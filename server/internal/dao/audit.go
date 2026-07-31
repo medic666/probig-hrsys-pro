@@ -2,11 +2,25 @@ package dao
 
 import (
 	"encoding/json"
+	"sync"
 
 	"probig/server/internal/model"
 
 	"gorm.io/gorm"
 )
+
+var auditCtx struct {
+	mu           sync.Mutex
+	operatorID   uint
+	operatorName string
+}
+
+func SetAuditOperator(id uint, name string) {
+	auditCtx.mu.Lock()
+	defer auditCtx.mu.Unlock()
+	auditCtx.operatorID = id
+	auditCtx.operatorName = name
+}
 
 func RegisterAuditHooks(db *gorm.DB) {
 	db.Callback().Create().After("gorm:after_create").Register("audit:create", func(db *gorm.DB) {
@@ -71,8 +85,8 @@ func writeAudit(db *gorm.DB, action, beforeMask, afterMask string) {
 	}
 
 	db.Session(&gorm.Session{NewDB: true}).Create(&model.AuditLog{
-		OperatorID:     1,
-		OperatorName:   "system",
+		OperatorID:     auditCtx.operatorID,
+		OperatorName:   auditCtx.operatorName,
 		TargetType:     table,
 		TargetID:       targetID,
 		TargetName:     targetName,

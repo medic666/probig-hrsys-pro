@@ -221,3 +221,58 @@ func GetAllLILBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem,
 	baseTx.Offset(offset).Limit(pageSize).Order("leave_in_lieu_balance_snapshots.person_id ASC").Scan(&list)
 	return list, total, nil
 }
+
+type ALBalanceDetail struct {
+	Grant    float64 `json:"grant"`
+	Consumed float64 `json:"consumed"`
+	Adjust   float64 `json:"adjust"`
+	Carryover float64 `json:"carryover"`
+	Balance  float64 `json:"balance"`
+}
+
+func GetAnnualLeaveBalanceDetail(personID uint) (*ALBalanceDetail, error) {
+	var accountEvents []model.AnnualLeaveAccountEvent
+	dao.DB.Where("person_id = ?", personID).Find(&accountEvents)
+
+	var attendEvents []model.AttendanceEvent
+	dao.DB.Where("person_id = ? AND event_type = ? AND sub_type = ?", personID, "休假", "年假").Find(&attendEvents)
+
+	detail := &ALBalanceDetail{}
+	for _, e := range accountEvents {
+		switch e.EventType {
+		case "grant":
+			detail.Grant += e.Hours
+		case "adjust":
+			detail.Adjust += e.Hours
+		case "carryover_deduct":
+			detail.Carryover += e.Hours
+		}
+	}
+	for _, e := range attendEvents {
+		detail.Consumed += e.Hours
+	}
+	detail.Balance = detail.Grant + detail.Adjust - detail.Carryover - detail.Consumed
+	return detail, nil
+}
+
+type LILBalanceDetail struct {
+	Makeup  float64 `json:"makeup"`
+	Consumed float64 `json:"consumed"`
+	Balance float64 `json:"balance"`
+}
+
+func GetLILBalanceDetail(personID uint) (*LILBalanceDetail, error) {
+	var events []model.AttendanceEvent
+	dao.DB.Where("person_id = ? AND sub_type IN ?", personID, []string{"补班出勤", "调休"}).Find(&events)
+
+	detail := &LILBalanceDetail{}
+	for _, e := range events {
+		if e.SubType == "补班出勤" {
+			detail.Makeup += e.Hours
+		} else {
+			detail.Consumed += e.Hours
+		}
+	}
+	detail.Balance = detail.Makeup - detail.Consumed
+	return detail, nil
+}

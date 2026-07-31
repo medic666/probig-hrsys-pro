@@ -24,12 +24,13 @@ import ProTable from '@/components/ProTable.vue'
 import { getAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import request from '@/utils/request'
+import { hoursToDays } from '@/utils'
 
 const tableRef=ref(); const dv=ref(false); const detail=ref<any>(null)
 
 const columns=[
   {prop:'person_name',label:'人员',width:'100'},
-  {prop:'balance_hours',label:'当前额度(小时)',width:'120'},
+  {prop:'balance_hours',label:'当前额度(天)',width:'120',formatter:(r:any)=>hoursToDays(r.balance_hours).toFixed(2)},
   {prop:'last_calc_at',label:'更新时间',width:'110'},
 ]
 const searchFields=[
@@ -43,11 +44,8 @@ async function fetchData(p:any){
 
 async function showDetail(r:any){
   try{
-    const events=(await getAnnualLeaveEvents({person_id:r.person_id})) as any
-    let grant=0,adjust=0,carryover=0
-    for(const e of (events.list||[])){if(e.event_type==='grant')grant+=e.hours;else if(e.event_type==='adjust')adjust+=e.hours;else if(e.event_type==='carryover_deduct')carryover+=e.hours}
-    const consumed=(grant+adjust-carryover)-r.balance_hours
-    detail.value={grant,consumed,adjust,carryover,balance:r.balance_hours};dv.value=true
+    const data = (await request.get(`/persons/${r.person_id}/annual-leave-balance-detail`)) as any
+    detail.value = data; dv.value = true
   }catch{/* */}
 }
 </script>

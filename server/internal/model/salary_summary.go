@@ -1,6 +1,9 @@
 package model
 
-import "probig/server/internal/utils"
+import (
+	"probig/server/internal/utils"
+	"time"
+)
 
 type SalarySummary struct {
 	ID                            uint           `gorm:"primarykey" json:"id"`
@@ -33,8 +36,8 @@ type SalarySummary struct {
 	TaxDeduct                     float64        `gorm:"type:decimal(10,2);default:0" json:"tax_deduct"`
 	FinalSalary                   float64        `gorm:"type:decimal(10,2);default:0" json:"final_salary"`
 	LastCalcAt                    utils.DateOnly `json:"last_calc_at"`
-	CreatedAt                     utils.DateOnly `json:"created_at"`
-	UpdatedAt                     utils.DateOnly `json:"updated_at"`
+	CreatedAt                     time.Time      `json:"created_at"`
+	UpdatedAt                     time.Time      `json:"updated_at"`
 }
 
 func (SalarySummary) TableName() string { return "salary_summaries" }

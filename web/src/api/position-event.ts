@@ -4,6 +4,10 @@ export function getPositionEvents(params: any) {
   return request.get('/position-events', { params })
 }
 
+export function exportPositionEvents(params: any) {
+  return request.get('/position-events/export', { params, responseType: 'blob' })
+}
+
 export function getPositionEvent(id: number) {
   return request.get(`/position-events/${id}`)
 }

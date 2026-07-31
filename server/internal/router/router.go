@@ -121,6 +121,7 @@ func SetupRouter() *gin.Engine {
 	positionEvents.Use(middleware.AuthRequired())
 	{
 		positionEvents.GET("", middleware.RequirePermission("position_event.read"), handler.GetPositionEvents)
+		positionEvents.GET("/export", middleware.RequirePermission("position_event.export"), handler.ExportPositionEvents)
 		positionEvents.GET("/trash", middleware.RequirePermission("position_event.read"), handler.GetDeletedPositionEvents)
 		positionEvents.GET("/:id", middleware.RequirePermission("position_event.read"), handler.GetPositionEventByID)
 		positionEvents.POST("", middleware.RequirePermission("position_event.write"), handler.CreatePositionEvent)
@@ -133,6 +134,7 @@ func SetupRouter() *gin.Engine {
 	attendanceEvents.Use(middleware.AuthRequired())
 	{
 		attendanceEvents.GET("", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEvents)
+		attendanceEvents.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportAttendanceEvents)
 		attendanceEvents.GET("/trash", middleware.RequirePermission("attendance.read"), handler.GetDeletedAttendanceEvents)
 		attendanceEvents.GET("/:id", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEventByID)
 		attendanceEvents.POST("", middleware.RequirePermission("attendance.write"), handler.CreateAttendanceEvent)
@@ -160,6 +162,7 @@ func SetupRouter() *gin.Engine {
 	annualLeave.Use(middleware.AuthRequired())
 	{
 		annualLeave.GET("", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEvents)
+		annualLeave.GET("/export", middleware.RequirePermission("annual_leave.export"), handler.ExportAnnualLeaveEvents)
 		annualLeave.GET("/trash", middleware.RequirePermission("annual_leave.read"), handler.GetDeletedAnnualLeaveEvents)
 		annualLeave.POST("", middleware.RequirePermission("annual_leave.write"), handler.CreateAnnualLeaveEvent)
 		annualLeave.PUT("/:id", middleware.RequirePermission("annual_leave.write"), handler.UpdateAnnualLeaveEvent)
@@ -172,8 +175,10 @@ func SetupRouter() *gin.Engine {
 	{
 		leaveBalance.GET("/persons/:id/annual-leave-balance", middleware.RequirePermission("annual_leave.read"), handler.GetPersonAnnualLeaveBalance)
 		leaveBalance.GET("/persons/:id/annual-leave-balance-history", middleware.RequirePermission("annual_leave.read"), handler.GetPersonAnnualLeaveHistory)
+		leaveBalance.GET("/persons/:id/annual-leave-balance-detail", middleware.RequirePermission("annual_leave.read"), handler.GetALBalanceDetail)
 		leaveBalance.GET("/persons/:id/lil-balance", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILBalance)
 		leaveBalance.GET("/persons/:id/lil-balance-history", middleware.RequirePermission("annual_leave.read"), handler.GetPersonLILHistory)
+		leaveBalance.GET("/persons/:id/lil-balance-detail", middleware.RequirePermission("annual_leave.read"), handler.GetLILBalanceDetail)
 		leaveBalance.GET("/lil-events", middleware.RequirePermission("annual_leave.read"), handler.GetLILEvents)
 		leaveBalance.GET("/annual-leave-balances", middleware.RequirePermission("annual_leave.read"), handler.GetAllALBalances)
 		leaveBalance.GET("/lil-balances", middleware.RequirePermission("annual_leave.read"), handler.GetAllLILBalances)
@@ -192,6 +197,7 @@ func SetupRouter() *gin.Engine {
 	salaryEvents.Use(middleware.AuthRequired())
 	{
 		salaryEvents.GET("", middleware.RequirePermission("salary.read"), handler.GetSalaryEvents)
+		salaryEvents.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalaryEvents)
 		salaryEvents.GET("/trash", middleware.RequirePermission("salary.read"), handler.GetDeletedSalaryEvents)
 		salaryEvents.POST("", middleware.RequirePermission("salary.write"), handler.CreateSalaryEvent)
 		salaryEvents.PUT("/:id", middleware.RequirePermission("salary.write"), handler.UpdateSalaryEvent)
@@ -206,6 +212,7 @@ func SetupRouter() *gin.Engine {
 		salarySummaries.POST("/calculate", middleware.RequirePermission("salary.write"), handler.CalculateSalarySummaries)
 		salarySummaries.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalarySummaries)
 		salarySummaries.GET("/:personId/:month/versions", middleware.RequirePermission("salary.read"), handler.GetSalaryVersions)
+		salarySummaries.GET("/:personId/:month/trace", middleware.RequirePermission("salary.read"), handler.GetSalaryTrace)
 		salarySummaries.GET("/versions/:vid", middleware.RequirePermission("salary.read"), handler.GetSalaryVersionDetail)
 	}
 

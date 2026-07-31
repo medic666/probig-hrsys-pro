@@ -23,7 +23,7 @@
             <el-option v-for="s in currentSubTypes" :key="s" :label="s" :value="s" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.event_type !== '打卡时间戳' && form.event_type !== '违纪'" label="时长(小时)" required>
+        <el-form-item v-if="form.event_type !== '打卡时间戳' && form.event_type !== '违纪'" label="时长(天)" required>
           <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
         </el-form-item>
         <el-form-item v-if="form.event_type === '打卡时间戳'" label="打卡时间" required>
@@ -52,7 +52,7 @@
         <el-form-item v-if="batchForm.event_type !== '打卡时间戳'" label="子类型">
           <el-select v-model="batchForm.sub_type" style="width:100%"><el-option v-for="s in batchSubTypes" :key="s" :label="s" :value="s" /></el-select>
         </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '打卡时间戳' && batchForm.event_type !== '违纪'" label="每日时长" required>
+        <el-form-item v-if="batchForm.event_type !== '打卡时间戳' && batchForm.event_type !== '违纪'" label="每日时长(天)" required>
           <el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" />
         </el-form-item>
         <el-form-item v-if="batchForm.event_type === '打卡时间戳'" label="打卡时间" required>
@@ -81,7 +81,8 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents } from '@/api/attendance'
+import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents } from '@/api/attendance'
+import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 
 const tableRef = ref()
@@ -118,7 +119,7 @@ function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = '
   { prop:'event_date', label:'日期', width:'110' },
   { prop:'event_type', label:'事件类型', width:'80' },
   { prop:'sub_type', label:'子类型', width:'100' },
-  { prop:'hours', label:'时长(小时)', width:'90', formatter:(r:any)=>(r.event_type==='打卡时间戳'||r.event_type==='违纪')&&r.hours===0?'-':r.hours },
+  { prop:'hours', label:'时长(天)', width:'90', formatter:(r:any)=>(r.event_type==='打卡时间戳'||r.event_type==='违纪')&&r.hours===0?'-':hoursToDays(r.hours).toFixed(2) },
   { prop:'punch_time', label:'打卡时间', width:'90' },
   { prop:'remark', label:'备注' },
 ]
@@ -130,6 +131,7 @@ const actions = [
   { key:'add', label:'新增事件', type:'primary' as const },
   { key:'batch', label:'批量新增', type:'success' as const },
   { key:'trash', label:'回收站', type:'default' as const },
+  { key:'export', label:'导出', type:'default' as const },
 ]
 const trashCols = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' },{ prop:'event_date', label:'日期' }]
 
@@ -144,6 +146,15 @@ function handleAction(key: string) {
   if (key==='add') { dialogMode.value='add'; editId.value=0; Object.assign(form,{person_id:null,event_date:'',event_type:'',sub_type:'',hours:8,punch_time:'',remark:''}); dialogVisible.value=true }
   else if (key==='batch') { Object.assign(batchForm,{person_ids:[],start_date:'',end_date:'',event_type:'',sub_type:'',hours:8,remark:''}); batchVisible.value=true }
   else if (key==='trash') { trashVisible.value=true }
+  else if (key==='export') { handleExport() }
+}
+
+async function handleExport() {
+  const data = await exportAttendanceEvents({}) as any
+  const url = URL.createObjectURL(data as Blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'attendance_events.xlsx'; a.click()
+  URL.revokeObjectURL(url)
 }
 
 async function handleEdit(row: any) {

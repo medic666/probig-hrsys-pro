@@ -3,6 +3,9 @@ import request from '@/utils/request'
 export function getAnnualLeaveEvents(params: any) {
   return request.get('/annual-leave-events', { params })
 }
+export function exportAnnualLeaveEvents(params: any) {
+  return request.get('/annual-leave-events/export', { params, responseType: 'blob' })
+}
 export function createAnnualLeaveEvent(data: any) {
   return request.post('/annual-leave-events', data)
 }

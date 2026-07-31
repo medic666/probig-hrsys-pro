@@ -95,7 +95,7 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getPositionEvents, getPositionEvent, createPositionEvent, updatePositionEvent, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents } from '@/api/position-event'
+import { getPositionEvents, getPositionEvent, createPositionEvent, updatePositionEvent, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
 
 const tableRef = ref()
@@ -136,6 +136,7 @@ const searchFields = [
 const actions = [
   { key: 'add', label: '新增事件', type: 'primary' as const },
   { key: 'trash', label: '回收站', type: 'default' as const },
+  { key: 'export', label: '导出', type: 'default' as const },
 ]
 
 const trashColumns = [
@@ -163,6 +164,15 @@ function handleAction(key: string) {
     eventForm.person_id = null
     dialogVisible.value = true
   } else if (key === 'trash') { trashVisible.value = true }
+  else if (key === 'export') { handleExport() }
+}
+
+async function handleExport() {
+  const data = await exportPositionEvents({}) as any
+  const url = URL.createObjectURL(data as Blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'position_events.xlsx'; a.click()
+  URL.revokeObjectURL(url)
 }
 
 async function handleEdit(row: any) {

@@ -2,12 +2,14 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 func GetPositionEvents(c *gin.Context) {
@@ -157,4 +159,28 @@ func GetDeletedPositionEvents(c *gin.Context) {
 		return
 	}
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+}
+
+func ExportPositionEvents(c *gin.Context) {
+	list, _, _ := service.GetPositionEventList(1, 10000, 0, c.Query("start_date"), c.Query("end_date"), c.Query("event_type"))
+	f := excelize.NewFile()
+	defer f.Close()
+	sheet := "职务事件"
+	f.SetSheetName("Sheet1", sheet)
+	headers := []string{"人员", "事件类型", "变更字段", "生效日期", "备注"}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, h)
+	}
+	for i, e := range list {
+		row := i + 2
+		f.SetCellValue(sheet, cellName(1, row), e["person_name"])
+		f.SetCellValue(sheet, cellName(2, row), e["event_type"])
+		f.SetCellValue(sheet, cellName(3, row), e["changed_fields"])
+		f.SetCellValue(sheet, cellName(4, row), e["effective_date"])
+		f.SetCellValue(sheet, cellName(5, row), e["remark"])
+	}
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=position_events_"+time.Now().Format("20060102")+".xlsx")
+	f.Write(c.Writer)
 }

@@ -1,6 +1,9 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>月度工资汇总</h2></div>
     <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchSummaries" :search-fields="searchFields" :actions="actions" @action="handleAction">
+      <template #status="{ row }">
+        <StatusTag :status="row.status || 'not_calculated'" />
+      </template>
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="showDetail(row)">明细</el-button>
         <el-button type="success" link size="small" @click="showVersions(row)">版本</el-button>
@@ -65,6 +68,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
+import StatusTag from '@/components/StatusTag.vue'
 import { getSalarySummaries, calculateSalaries, getSalaryVersions, getSalaryVersionDetail } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 
@@ -76,6 +80,7 @@ const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
   {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'performance_salary',label:'绩效工资',width:'100'},
   {prop:'attendance_bonus',label:'全勤奖',width:'80'},{prop:'final_salary',label:'实发工资',width:'110'},
+  {prop:'status',label:'状态',width:'110',slot:'status'},
   {prop:'last_calc_at',label:'核算时间',width:'110'},
 ]
 const searchFields=[

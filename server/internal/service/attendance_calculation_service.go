@@ -153,6 +153,33 @@ func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]model
 	return list, total, err
 }
 
+func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
+	monthStart, _ := utils.MonthStart(calc.BelongMonth)
+	monthEnd, _ := utils.MonthEnd(calc.BelongMonth)
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthEnd)
+
+	var maxDailyLastCalc utils.DateOnly
+	dao.DB.Model(&model.AttendanceDailyProjection{}).
+		Where("person_id = ? AND work_date >= ? AND work_date <= ?",
+			calc.PersonID, monthStartD, monthEndD).
+		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&maxDailyLastCalc)
+	if maxDailyLastCalc.Time().After(calc.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	var maxSnapLastCalc utils.DateOnly
+	dao.DB.Model(&model.PositionSnapshot{}).
+		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+			calc.PersonID, monthEndD, monthStartD).
+		Select("COALESCE(MAX(last_calc_at), '0001-01-01')").Scan(&maxSnapLastCalc)
+	if maxSnapLastCalc.Time().After(calc.LastCalcAt.Time()) {
+		return "data_changed"
+	}
+
+	return "calculated"
+}
+
 func CalculateMonthlyBatch(month string, personIDs []uint) (int, int, error) {
 	success, fail := 0, 0
 	for _, pid := range personIDs {

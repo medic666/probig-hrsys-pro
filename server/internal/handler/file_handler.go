@@ -55,50 +55,6 @@ func GetDeletedFiles(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
-func GetAuditLogs(c *gin.Context) {
-	pageReq := utils.BindPage(c)
-	list, total, err := service.GetAuditLogList(pageReq.PageNum, pageReq.PageSize,
-		c.Query("operator_name"), c.Query("action"), c.Query("target_type"), c.Query("date_start"), c.Query("date_end"))
-	if err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
-}
-
-func GetAuditLogDetail(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	log, err := service.GetAuditLogByID(uint(id))
-	if err != nil {
-		utils.Error(c, "审计记录不存在")
-		return
-	}
-	utils.Success(c, log)
-}
-
-func GetSystemConfigs(c *gin.Context) {
-	configs := service.GetAllConfigs()
-	utils.Success(c, configs)
-}
-
-type updateConfigReq struct {
-	Value string `json:"value" binding:"required"`
-}
-
-func UpdateSystemConfig(c *gin.Context) {
-	key := c.Param("key")
-	var req updateConfigReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	if err := service.SetConfig(service.GetDB(), key, req.Value); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "配置已更新", nil)
-}
-
 func UploadFile(c *gin.Context) {
 	file, header, err := c.Request.FormFile("file")
 	if err != nil { utils.BadRequest(c, "请选择文件"); return }

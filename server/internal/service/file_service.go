@@ -9,6 +9,9 @@ import (
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
+	"probig/server/internal/utils"
+
+	"gorm.io/gorm"
 )
 
 func GetFileList(pageNum, pageSize int, name string) ([]model.File, int64, error) {
@@ -29,7 +32,13 @@ func DeleteFileByID(id uint) error {
 }
 
 func RestoreFileByID(id uint) error {
-	return dao.DB.Unscoped().Model(&model.File{}).Where("id = ?", id).Update("deleted_at", nil).Error
+	return utils.WithTransaction(dao.DB, func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Model(&model.File{}).Where("id = ?", id).Update("deleted_at", nil).Error; err != nil {
+			return err
+		}
+		tx.Unscoped().Model(&model.FileRelation{}).Where("file_id = ?", id).Update("deleted_at", nil)
+		return nil
+	})
 }
 
 func GetDeletedFileList(pageNum, pageSize int) ([]model.File, int64, error) {
@@ -98,38 +107,38 @@ func resolveTargetName(targetType string, targetID uint) string {
 	switch targetType {
 	case "person":
 		var name string
-		dao.DB.Table("persons").Select("name").Where("id = ?", targetID).Scan(&name)
+		dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&name)
 		if name != "" { return "人员: " + name }
 	case "company":
 		var name string
-		dao.DB.Table("companies").Select("name").Where("id = ?", targetID).Scan(&name)
+		dao.DB.Table("companies").Select("name").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&name)
 		if name != "" { return "公司: " + name }
 	case "position_event":
 		var row struct{ PersonID uint; EventType string; EffectiveDate time.Time }
-		dao.DB.Table("position_events").Select("person_id, event_type, effective_date").Where("id = ?", targetID).Scan(&row)
+		dao.DB.Table("position_events").Select("person_id, event_type, effective_date").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
 		if row.PersonID > 0 {
-			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", row.PersonID).Scan(&pn)
 			return fmt.Sprintf("职务事件: %s 的 %s (%s)", pn, row.EventType, row.EffectiveDate.AddDate(0,0,0).Format("2006-01-02"))
 		}
 	case "attendance_event":
 		var row struct{ PersonID uint; EventType string; SubType string; EventDate time.Time }
-		dao.DB.Table("attendance_events").Select("person_id, event_type, sub_type, event_date").Where("id = ?", targetID).Scan(&row)
+		dao.DB.Table("attendance_events").Select("person_id, event_type, sub_type, event_date").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
 		if row.PersonID > 0 {
-			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", row.PersonID).Scan(&pn)
 			return fmt.Sprintf("考勤事件: %s 的 %s-%s (%s)", pn, row.EventType, row.SubType, row.EventDate.AddDate(0,0,0).Format("2006-01-02"))
 		}
 	case "annual_leave_event":
 		var row struct{ PersonID uint; EventType string; EffectiveDate time.Time }
-		dao.DB.Table("annual_leave_account_events").Select("person_id, event_type, effective_date").Where("id = ?", targetID).Scan(&row)
+		dao.DB.Table("annual_leave_account_events").Select("person_id, event_type, effective_date").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
 		if row.PersonID > 0 {
-			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", row.PersonID).Scan(&pn)
 			return fmt.Sprintf("年假事件: %s 的 %s (%s)", pn, row.EventType, row.EffectiveDate.AddDate(0,0,0).Format("2006-01-02"))
 		}
 	case "salary_event":
 		var row struct{ PersonID uint; EventType string; BelongMonth string }
-		dao.DB.Table("salary_events").Select("person_id, event_type, belong_month").Where("id = ?", targetID).Scan(&row)
+		dao.DB.Table("salary_events").Select("person_id, event_type, belong_month").Where("id = ? AND deleted_at IS NULL", targetID).Scan(&row)
 		if row.PersonID > 0 {
-			var pn string; dao.DB.Table("persons").Select("name").Where("id = ?", row.PersonID).Scan(&pn)
+			var pn string; dao.DB.Table("persons").Select("name").Where("id = ? AND deleted_at IS NULL", row.PersonID).Scan(&pn)
 			return fmt.Sprintf("工资事件: %s 的 %s (%s)", pn, row.EventType, row.BelongMonth)
 		}
 	}

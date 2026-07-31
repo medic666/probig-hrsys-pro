@@ -2,6 +2,7 @@ package model
 
 import (
 	"probig/server/internal/utils"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -16,8 +17,8 @@ type AttendanceEvent struct {
 	SubType   string         `gorm:"type:varchar(32);not null" json:"sub_type"`
 	Hours     float64        `gorm:"type:decimal(4,1);not null" json:"hours"`
 	Remark    string         `gorm:"type:varchar(256)" json:"remark"`
-	CreatedAt utils.DateOnly `json:"created_at"`
-	UpdatedAt utils.DateOnly `json:"updated_at"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

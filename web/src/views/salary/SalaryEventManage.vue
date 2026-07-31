@@ -35,7 +35,7 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents } from '@/api/salary'
+import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents, exportSalaryEvents } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 
 const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false), attachVisible=ref(false), attachFileId=ref<number|null>(null)
@@ -51,7 +51,7 @@ const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const, fetchApi:fetchPersonOpts},
   {prop:'event_type',label:'类型',type:'select' as const,options:types.map(t=>({label:t,value:t}))},
 ]
-const actions=[{key:'add',label:'新增',type:'primary' as const},{key:'trash',label:'回收站',type:'default' as const}]
+const actions=[{key:'add',label:'新增',type:'primary' as const},{key:'trash',label:'回收站',type:'default' as const},{key:'export',label:'导出',type:'default' as const}]
 const tc=[{prop:'id',label:'ID',width:'60'},{prop:'event_type',label:'类型'},{prop:'belong_month',label:'月份'}]
 
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
@@ -62,6 +62,15 @@ async function rst(id:number){return restoreSalaryEvent(id)}
 function handleAction(k:string){
   if(k==='add'){mode.value='add';eid.value=0;Object.assign(form,{person_id:null,belong_month:'',event_type:'绩效系数',amount:1,remark:''});dialogVisible.value=true}
   else if(k==='trash') tv.value=true
+  else if(k==='export') handleExport()
+}
+
+async function handleExport() {
+  const data = await exportSalaryEvents({}) as any
+  const url = URL.createObjectURL(data as Blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = 'salary_events.xlsx'; a.click()
+  URL.revokeObjectURL(url)
 }
 async function handleEdit(r:any){mode.value='edit';eid.value=r.id;Object.assign(form,{person_id:r.person_id,belong_month:r.belong_month,event_type:r.event_type,amount:r.amount,remark:r.remark||''});dialogVisible.value=true}
 async function submit(){

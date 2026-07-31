@@ -21,12 +21,13 @@ import ProTable from '@/components/ProTable.vue'
 import { getLILEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import request from '@/utils/request'
+import { hoursToDays } from '@/utils'
 
 const dv=ref(false); const detail=ref<any>(null)
 
 const columns=[
   {prop:'person_name',label:'人员',width:'100'},
-  {prop:'balance_hours',label:'当前额度(小时)',width:'120'},
+  {prop:'balance_hours',label:'当前额度(天)',width:'120',formatter:(r:any)=>hoursToDays(r.balance_hours).toFixed(2)},
 ]
 const searchFields=[{prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchOpts}]
 
@@ -36,10 +37,8 @@ async function fetchData(p:any){
 }
 async function showDetail(r:any){
   try{
-    const events=(await getLILEvents({person_id:r.person_id})) as any
-    let makeup=0,lil=0
-    for(const e of (events.list||[])){if(e.sub_type==='补班出勤')makeup+=e.hours;else lil+=e.hours}
-    detail.value={makeup,lil,balance:r.balance_hours};dv.value=true
+    const data = (await request.get(`/persons/${r.person_id}/lil-balance-detail`)) as any
+    detail.value = data; dv.value = true
   }catch{/* */}
 }
 </script>

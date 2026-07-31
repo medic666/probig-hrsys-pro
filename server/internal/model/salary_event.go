@@ -1,7 +1,7 @@
 package model
 
 import (
-	"probig/server/internal/utils"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -14,8 +14,8 @@ type SalaryEvent struct {
 	EventType    string         `gorm:"type:varchar(32);not null" json:"event_type"`
 	Amount       float64        `gorm:"type:decimal(10,2);not null" json:"amount"`
 	Remark       string         `gorm:"type:varchar(256)" json:"remark"`
-	CreatedAt    utils.DateOnly `json:"created_at"`
-	UpdatedAt    utils.DateOnly `json:"updated_at"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

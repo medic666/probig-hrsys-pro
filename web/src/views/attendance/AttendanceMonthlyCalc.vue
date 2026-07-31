@@ -2,6 +2,9 @@
   <div class="page-container">
     <div class="page-header"><h2>月度考勤核算</h2></div>
     <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchMonthly" :search-fields="searchFields" :actions="actions" @action="handleAction">
+      <template #status="{ row }">
+        <StatusTag :status="row.status || 'not_calculated'" />
+      </template>
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="showDetail(row)">查看明细</el-button>
       </template>
@@ -46,6 +49,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
+import StatusTag from '@/components/StatusTag.vue'
 import { getMonthlyList, calculateMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
@@ -55,7 +59,8 @@ const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), d
 const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
   {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'overtime_workday_salary',label:'工作日加班工资',width:'120'},
-  {prop:'overtime_holiday_salary',label:'节假日加班工资',width:'120'},{prop:'attendance_bonus',label:'全勤奖',width:'80'},
+  {prop:'overtime_holiday_salary',label:'节假日加班工资',width:'120'},  {prop:'attendance_bonus',label:'全勤奖',width:'80'},
+  {prop:'status',label:'状态',width:'110',slot:'status'},
   {prop:'last_calc_at',label:'核算时间',width:'110'},
 ]
 const searchFields=[

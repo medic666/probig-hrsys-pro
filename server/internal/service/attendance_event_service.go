@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"strconv"
 	"time"
 
 	"probig/server/internal/dao"
@@ -224,9 +223,4 @@ func GetDeletedAttendanceEvents(pageNum, pageSize int) ([]model.AttendanceEvent,
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
 	return list, total, nil
-}
-
-func Atoi(s string) int {
-	v, _ := strconv.Atoi(s)
-	return v
 }

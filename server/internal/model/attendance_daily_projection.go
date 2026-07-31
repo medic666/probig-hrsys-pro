@@ -1,6 +1,9 @@
 package model
 
-import "probig/server/internal/utils"
+import (
+	"probig/server/internal/utils"
+	"time"
+)
 
 type AttendanceDailyProjection struct {
 	ID                      uint           `gorm:"primarykey" json:"id"`
@@ -14,8 +17,8 @@ type AttendanceDailyProjection struct {
 	ViolationCount          int            `gorm:"default:0" json:"violation_count"`
 	Remark                  string         `gorm:"type:varchar(256)" json:"remark"`
 	LastCalcAt              utils.DateOnly `json:"last_calc_at"`
-	CreatedAt               utils.DateOnly `json:"created_at"`
-	UpdatedAt               utils.DateOnly `json:"updated_at"`
+	CreatedAt               time.Time      `json:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at"`
 }
 
 func (AttendanceDailyProjection) TableName() string { return "attendance_daily_projections" }

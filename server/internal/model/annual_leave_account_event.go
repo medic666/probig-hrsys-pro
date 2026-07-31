@@ -2,6 +2,7 @@ package model
 
 import (
 	"probig/server/internal/utils"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -16,8 +17,8 @@ type AnnualLeaveAccountEvent struct {
 	Hours         float64        `gorm:"type:decimal(5,1);not null" json:"hours"`
 	EffectiveDate utils.DateOnly `gorm:"type:date;not null" json:"effective_date"`
 	Remark        string         `gorm:"type:varchar(256)" json:"remark"`
-	CreatedAt     utils.DateOnly `json:"created_at"`
-	UpdatedAt     utils.DateOnly `json:"updated_at"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 }
 

@@ -79,22 +79,30 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 	salaryDays := float64(calc.SalaryDays)
 	totalCalendarDays := monthEnd.Sub(monthStart).Hours()/24 + 1
 	isFullMonth := activeDays == totalCalendarDays
+	attendanceDays := calc.TotalWorkHours / getWorkHoursPerDay()
 
-	allowanceDiv := activeDays
+	subsidyDiv := activeDays
 	if !isFullMonth {
-		allowanceDiv = salaryDays
+		subsidyDiv = salaryDays
 	}
 
-	post := utils.RoundTwoDecimal(wPost / allowanceDiv)
-	meal := utils.RoundTwoDecimal(wMeal / allowanceDiv)
-	housing := utils.RoundTwoDecimal(wHousing / allowanceDiv)
-	transport := utils.RoundTwoDecimal(wTransport / allowanceDiv)
-	highTemp := utils.RoundTwoDecimal(wHighTemp / allowanceDiv)
+	perfDiv := activeDays
+	perfRatio := 1.0
+	if !isFullMonth {
+		perfDiv = salaryDays
+		perfRatio = attendanceDays / salaryDays
+	}
+
+	post := utils.RoundTwoDecimal(wPost / subsidyDiv)
+	meal := utils.RoundTwoDecimal(wMeal / subsidyDiv)
+	housing := utils.RoundTwoDecimal(wHousing / subsidyDiv)
+	transport := utils.RoundTwoDecimal(wTransport / subsidyDiv)
+	highTemp := utils.RoundTwoDecimal(wHighTemp / subsidyDiv)
 	if !isHighTempMonth(month) {
 		highTemp = 0
 	}
-	insComp := utils.RoundTwoDecimal(wInsComp / allowanceDiv)
-	fundComp := utils.RoundTwoDecimal(wFundComp / allowanceDiv)
+	insComp := utils.RoundTwoDecimal(wInsComp / subsidyDiv)
+	fundComp := utils.RoundTwoDecimal(wFundComp / subsidyDiv)
 	ssDeduct := utils.RoundTwoDecimal(wSSDeduct / activeDays)
 	hfDeduct := utils.RoundTwoDecimal(wHFDeduct / activeDays)
 
@@ -122,7 +130,7 @@ func CalculateSalary(personID uint, month string, operatorID uint, operatorName 
 		}
 	}
 
-	perfSalary := utils.RoundTwoDecimal(wPerfBase / allowanceDiv * perfCoeff)
+	perfSalary := utils.RoundTwoDecimal(wPerfBase / perfDiv * perfRatio * perfCoeff)
 
 	var carryoverDeductHours float64
 	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).

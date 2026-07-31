@@ -36,27 +36,34 @@ func CalculateMonthlyAttendance(personID uint, month string) (*model.AttendanceC
 		segEnd := s.EffectiveEndDate.Time()
 
 		calcStart := monthStart
-		if segStart.After(calcStart) {
-			calcStart = segStart
-		}
+		if segStart.After(calcStart) { calcStart = segStart }
 		calcEnd := monthEnd
-		if segEnd.Before(calcEnd) {
-			calcEnd = segEnd
-		}
+		if segEnd.Before(calcEnd) { calcEnd = segEnd }
 
 		segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
-		if segDays <= 0 {
-			continue
+		if segDays <= 0 { continue }
+		if !s.IsActive || !s.HasAttendanceBonus {
+			hasAttendanceBonus = false
 		}
+	}
+
+	for _, s := range snapshots {
+		segStart := s.EffectiveStartDate.Time()
+		segEnd := s.EffectiveEndDate.Time()
+
+		calcStart := monthStart
+		if segStart.After(calcStart) { calcStart = segStart }
+		calcEnd := monthEnd
+		if segEnd.Before(calcEnd) { calcEnd = segEnd }
+
+		segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
+		if segDays <= 0 { continue }
+		if !s.IsActive { continue }
 
 		totalDays += segDays
 		weightedBase += s.BaseSalary * segDays
 		weightedMeal += s.MealAllowance * segDays
 		salaryDaysTotal += float64(s.SalaryDays) * segDays
-
-		if !s.IsActive || !s.HasAttendanceBonus {
-			hasAttendanceBonus = false
-		}
 	}
 
 	if totalDays == 0 {

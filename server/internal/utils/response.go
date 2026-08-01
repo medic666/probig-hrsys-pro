@@ -53,7 +53,7 @@ func BadRequest(c *gin.Context, msg string) {
 }
 
 func Unauthorized(c *gin.Context, msg string) {
-	c.JSON(http.StatusOK, Response{
+	c.JSON(http.StatusUnauthorized, Response{
 		Code: 401,
 		Msg:  msg,
 		Data: nil,
@@ -61,7 +61,7 @@ func Unauthorized(c *gin.Context, msg string) {
 }
 
 func Forbidden(c *gin.Context, msg string) {
-	c.JSON(http.StatusOK, Response{
+	c.JSON(http.StatusForbidden, Response{
 		Code: 403,
 		Msg:  msg,
 		Data: nil,

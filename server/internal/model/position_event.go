@@ -23,6 +23,10 @@ type PositionEvent struct {
 	HasAnnualLeave     *bool   `json:"has_annual_leave"`
 	HasAttendanceBonus *bool   `json:"has_attendance_bonus"`
 
+	CompanyID  *uint   `gorm:"index" json:"company_id"`
+	Department *string `gorm:"type:varchar(64)" json:"department"`
+	Position   *string `gorm:"type:varchar(64)" json:"position"`
+
 	BaseSalary        *float64 `gorm:"type:decimal(10,2)" json:"base_salary"`
 	PerformanceSalary *float64 `gorm:"type:decimal(10,2)" json:"performance_salary"`
 	SalaryDays        *int     `json:"salary_days"`

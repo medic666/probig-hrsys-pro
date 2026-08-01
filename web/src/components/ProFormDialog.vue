@@ -119,7 +119,7 @@ function initForm() {
     delete formData[key]
   }
   for (const field of props.formFields) {
-    formData[field.prop] = field.defaultValue ?? ''
+    formData[field.prop] = field.type === 'person-select' ? (field.defaultValue ?? null) : (field.defaultValue ?? '')
   }
 }
 

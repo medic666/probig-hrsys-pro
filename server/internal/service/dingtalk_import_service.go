@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,6 +19,26 @@ import (
 )
 
 var reClockTime = regexp.MustCompile(`\((\d{1,2}:\d{2}),(\d{1,2}:\d{2})\)`)
+
+var reDingTalkTemp = regexp.MustCompile(`^dingtalk_\d+\.xlsx$`)
+
+// CleanupStaleDingTalkFiles 清理 uploads 目录中超过 maxAge 的钉钉导入临时文件
+func CleanupStaleDingTalkFiles(uploadDir string, maxAge time.Duration) {
+	entries, err := os.ReadDir(uploadDir)
+	if err != nil {
+		return
+	}
+	deadline := time.Now().Add(-maxAge)
+	for _, e := range entries {
+		if e.IsDir() || !reDingTalkTemp.MatchString(e.Name()) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || info.ModTime().Before(deadline) {
+			os.Remove(filepath.Join(uploadDir, e.Name()))
+		}
+	}
+}
 
 type DingTalkPersonRow struct {
 	Name         string

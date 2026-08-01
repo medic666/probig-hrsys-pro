@@ -33,6 +33,17 @@
         </el-form-item>
 
         <el-collapse>
+          <el-collapse-item title="岗位信息">
+            <el-checkbox v-model="fieldFlags.company_id">公司组</el-checkbox>
+            <el-select v-if="fieldFlags.company_id" v-model="eventForm.company_id" placeholder="选择公司组" size="small" clearable style="margin:4px 0;width:100%">
+              <el-option v-for="c in companyList" :key="c.id" :label="c.name" :value="c.id" />
+            </el-select>
+            <el-checkbox v-model="fieldFlags.department" style="margin-left:16px">部门</el-checkbox>
+            <el-input v-if="fieldFlags.department" v-model="eventForm.department" size="small" placeholder="部门名称" style="margin:4px 0;width:100%" />
+            <el-checkbox v-model="fieldFlags.position" style="margin-left:16px">职位</el-checkbox>
+            <el-input v-if="fieldFlags.position" v-model="eventForm.position" size="small" placeholder="职位名称" style="margin:4px 0;width:100%" />
+          </el-collapse-item>
+
           <el-collapse-item title="考勤/福利">
             <el-checkbox v-model="fieldFlags.attendance_group">考勤组</el-checkbox>
             <el-input v-if="fieldFlags.attendance_group" v-model="eventForm.attendance_group" size="small" placeholder="考勤组名称" style="margin:4px 0" />
@@ -89,7 +100,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
@@ -97,6 +108,7 @@ import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getPositionEvents, getPositionEvent, createPositionEvent, updatePositionEvent, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
+import { getAllCompanies } from '@/api/company'
 import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
@@ -107,13 +119,15 @@ const saving = ref(false)
 const trashVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
+const companyList = ref<{ id: number; name: string }[]>([])
 
 const eventTypes = ['入职', '调薪调岗', '离职']
 const eventForm = reactive<Record<string, any>>({ person_id: null, event_type: '', effective_date: '', remark: '' })
 const fieldFlags = reactive<Record<string, boolean>>({})
 
 const allFields = [
-  'entry_date','leave_date','attendance_group','has_annual_leave','has_attendance_bonus',
+  'entry_date','leave_date','attendance_group','company_id','department','position',
+  'has_annual_leave','has_attendance_bonus',
   'base_salary','performance_salary','salary_days',
   'post_allowance','meal_allowance','housing_allowance','transport_allowance','high_temp_allowance',
   'insurance_compensation','fund_compensation','social_security_deduct','housing_fund_deduct',
@@ -123,6 +137,9 @@ const columns = [
   { prop: 'id', label: 'ID', width: '60' },
   { prop: 'person_name', label: '人员', width: '100' },
   { prop: 'event_type', label: '事件类型', width: '100' },
+  { prop: 'company_name', label: '公司组', width: '100', formatter: (r: any) => r.company_name || '-' },
+  { prop: 'department', label: '部门', width: '110', formatter: (r: any) => r.department || '-' },
+  { prop: 'position', label: '职位', width: '110', formatter: (r: any) => r.position || '-' },
   { prop: 'effective_date', label: '生效日期', width: '110' },
   { prop: 'remark', label: '备注', minWidth: '120' },
   { prop: 'changed_fields', label: '变更字段', formatter: (r: any) => (r.changed_fields || []).join('、') || '-' },
@@ -152,6 +169,10 @@ async function fetchPersonOptions(keyword?: string) {
   return list.filter(p => p.name.includes(keyword))
 }
 
+onMounted(async () => {
+  companyList.value = (await getAllCompanies()) as { id: number; name: string }[] || []
+})
+
 async function fetchEvents(params: any) { return (await getPositionEvents(params)) as any }
 async function fetchDeleted(params: any) { return (await getDeletedPositionEvents(params)) as any }
 async function restoreEvent(id: number) { return restorePositionEvent(id) }
@@ -163,6 +184,7 @@ function handleAction(key: string) {
     dialogMode.value = 'add'; editId.value = 0; resetFlags()
     for (const k of allFields.concat(['person_id','event_type','effective_date','remark','entry_date','leave_date'])) eventForm[k] = ''
     eventForm.person_id = null
+    eventForm.company_id = null
     dialogVisible.value = true
   } else if (key === 'trash') { trashVisible.value = true }
   else if (key === 'export') { handleExport() }

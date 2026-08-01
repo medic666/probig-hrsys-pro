@@ -3,6 +3,8 @@ package model
 import (
 	"time"
 
+	"probig/server/internal/utils"
+
 	"gorm.io/gorm"
 )
 
@@ -11,7 +13,7 @@ type Person struct {
 	Name            string         `gorm:"type:varchar(64);not null" json:"name"`
 	IDCard          string         `gorm:"type:varchar(32)" json:"id_card"`
 	Gender          int8           `gorm:"default:0" json:"gender"`
-	Birthday        *time.Time     `json:"birthday"`
+	Birthday        *utils.DateOnly `gorm:"type:date" json:"birthday"`
 	Nation          string         `gorm:"type:varchar(32)" json:"nation"`
 	NativePlace     string         `gorm:"type:varchar(128)" json:"native_place"`
 	Address         string         `gorm:"type:varchar(256)" json:"address"`
@@ -22,9 +24,10 @@ type Person struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 	DeletedAt       gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
 
-	Phones    []PersonPhone    `gorm:"foreignKey:PersonID" json:"phones,omitempty"`
-	Emails    []PersonEmail    `gorm:"foreignKey:PersonID" json:"emails,omitempty"`
-	BankCards []PersonBankCard `gorm:"foreignKey:PersonID" json:"bank_cards,omitempty"`
+	Phones            []PersonPhone            `gorm:"foreignKey:PersonID" json:"phones,omitempty"`
+	Emails            []PersonEmail            `gorm:"foreignKey:PersonID" json:"emails,omitempty"`
+	BankCards         []PersonBankCard         `gorm:"foreignKey:PersonID" json:"bank_cards,omitempty"`
+	EmergencyContacts []PersonEmergencyContact `gorm:"foreignKey:PersonID" json:"emergency_contacts,omitempty"`
 }
 
 func (Person) TableName() string { return "persons" }

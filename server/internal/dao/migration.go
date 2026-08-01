@@ -27,6 +27,7 @@ type Migration struct {
 
 var migrations = []Migration{
 	{ID: "20260731_01_init", Name: "初始表结构与索引", Func: migrateV1Init},
+	{ID: "20260801_01_person_emergency_contacts_position_fields", Name: "人员紧急联系人表 + 职务公司/部门/职位字段", Func: migrateV1EmergencyContactsAndPositionFields},
 }
 
 // RunMigrations 顺序执行未应用的迁移；新库或未迁移库（无版本记录）从头执行全部
@@ -51,6 +52,27 @@ func RunMigrations(db *gorm.DB) error {
 		}
 		if err := db.Create(&schemaMigration{MigrationID: m.ID, AppliedAt: time.Now()}).Error; err != nil {
 			return fmt.Errorf("记录迁移 %s 失败: %w", m.ID, err)
+		}
+	}
+	return nil
+}
+
+// migrateV1EmergencyContactsAndPositionFields 人员紧急联系人关联表 + 职务事件/快照补充公司、部门、职位
+func migrateV1EmergencyContactsAndPositionFields(db *gorm.DB) error {
+	if err := db.AutoMigrate(
+		&model.PersonEmergencyContact{},
+		&model.PositionEvent{}, &model.PositionSnapshot{},
+	); err != nil {
+		return err
+	}
+
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_person_emergency_contacts_person ON person_emergency_contacts(person_id)",
+		"CREATE INDEX IF NOT EXISTS idx_position_events_company ON position_events(company_id)",
+	}
+	for _, sql := range indexes {
+		if err := db.Exec(sql).Error; err != nil {
+			return err
 		}
 	}
 	return nil

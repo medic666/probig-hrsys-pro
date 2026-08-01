@@ -43,6 +43,9 @@ type positionEventReq struct {
 	AttendanceGroup     *string  `json:"attendance_group"`
 	HasAnnualLeave      *bool    `json:"has_annual_leave"`
 	HasAttendanceBonus  *bool    `json:"has_attendance_bonus"`
+	CompanyID           *uint    `json:"company_id"`
+	Department          *string  `json:"department"`
+	Position            *string  `json:"position"`
 	BaseSalary          *float64 `json:"base_salary"`
 	PerformanceSalary   *float64 `json:"performance_salary"`
 	SalaryDays          *int     `json:"salary_days"`
@@ -65,6 +68,9 @@ func reqToModel(req positionEventReq) model.PositionEvent {
 		AttendanceGroup:    req.AttendanceGroup,
 		HasAnnualLeave:     req.HasAnnualLeave,
 		HasAttendanceBonus: req.HasAttendanceBonus,
+		CompanyID:          req.CompanyID,
+		Department:         req.Department,
+		Position:           req.Position,
 		BaseSalary:         req.BaseSalary,
 		PerformanceSalary:  req.PerformanceSalary,
 		SalaryDays:         req.SalaryDays,
@@ -140,6 +146,15 @@ func UpdatePositionEvent(c *gin.Context) {
 	}
 	if req.AttendanceGroup != nil {
 		updates["attendance_group"] = *req.AttendanceGroup
+	}
+	if req.CompanyID != nil {
+		updates["company_id"] = *req.CompanyID
+	}
+	if req.Department != nil {
+		updates["department"] = *req.Department
+	}
+	if req.Position != nil {
+		updates["position"] = *req.Position
 	}
 	if req.HasAnnualLeave != nil {
 		updates["has_annual_leave"] = *req.HasAnnualLeave

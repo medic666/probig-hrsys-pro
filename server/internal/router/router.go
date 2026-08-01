@@ -17,6 +17,14 @@ func SetupRouter() *gin.Engine {
 	r.Use(gin.Logger())
 	r.Use(middleware.CORS(splitOrigins(config.AppConfig.Server.CorsOrigins)))
 
+	// API 响应禁止缓存，避免浏览器对接口响应做启发式缓存
+	r.Use(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			c.Header("Cache-Control", "no-store")
+		}
+		c.Next()
+	})
+
 	r.GET("/api/health", handler.Health)
 
 	auth := r.Group("/api/auth")
@@ -77,6 +85,9 @@ func SetupRouter() *gin.Engine {
 		persons.POST("/:id/bank-cards", middleware.RequirePermission("person.write"), handler.AddPersonBankCard)
 		persons.PUT("/:id/bank-cards/:pid", middleware.RequirePermission("person.write"), handler.UpdatePersonBankCard)
 		persons.DELETE("/:id/bank-cards/:pid", middleware.RequirePermission("person.write"), handler.DeletePersonBankCard)
+		persons.POST("/:id/emergency-contacts", middleware.RequirePermission("person.write"), handler.AddPersonEmergencyContact)
+		persons.PUT("/:id/emergency-contacts/:pid", middleware.RequirePermission("person.write"), handler.UpdatePersonEmergencyContact)
+		persons.DELETE("/:id/emergency-contacts/:pid", middleware.RequirePermission("person.write"), handler.DeletePersonEmergencyContact)
 		persons.GET("/:id/current-position", middleware.RequirePermission("person.read"), handler.GetPersonCurrentPosition)
 		persons.GET("/:id/position-history", middleware.RequirePermission("person.read"), handler.GetPersonPositionHistory)
 	}

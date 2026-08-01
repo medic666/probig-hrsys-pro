@@ -12,7 +12,7 @@ import (
 )
 
 func GetPersonList(pageNum, pageSize int, name, idCard string, personID string) ([]model.Person, int64, error) {
-	tx := dao.DB.Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards")
+	tx := dao.DB.Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts")
 	if personID != "" {
 		tx = tx.Where("id = ?", personID)
 	}
@@ -36,7 +36,7 @@ func GetPersonList(pageNum, pageSize int, name, idCard string, personID string) 
 
 func GetPersonByID(id uint) (*model.Person, error) {
 	var person model.Person
-	if err := dao.DB.Preload("Phones").Preload("Emails").Preload("BankCards").First(&person, id).Error; err != nil {
+	if err := dao.DB.Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts").First(&person, id).Error; err != nil {
 		return nil, err
 	}
 	return &person, nil
@@ -94,6 +94,7 @@ func DeletePerson(ctx context.Context, id uint) error {
 		tx.Where("person_id = ?", id).Delete(&model.PersonPhone{})
 		tx.Where("person_id = ?", id).Delete(&model.PersonEmail{})
 		tx.Where("person_id = ?", id).Delete(&model.PersonBankCard{})
+		tx.Where("person_id = ?", id).Delete(&model.PersonEmergencyContact{})
 		tx.Where("person_id = ?", id).Delete(&model.PositionEvent{})
 		tx.Where("person_id = ?", id).Delete(&model.AttendanceDaily{})
 		tx.Where("person_id = ?", id).Delete(&model.AnnualLeaveAccountEvent{})
@@ -122,6 +123,7 @@ func RestorePerson(ctx context.Context, id uint) error {
 		tx.Unscoped().Model(&model.PersonPhone{}).Where("person_id = ?", id).Update("deleted_at", nil)
 		tx.Unscoped().Model(&model.PersonEmail{}).Where("person_id = ?", id).Update("deleted_at", nil)
 		tx.Unscoped().Model(&model.PersonBankCard{}).Where("person_id = ?", id).Update("deleted_at", nil)
+		tx.Unscoped().Model(&model.PersonEmergencyContact{}).Where("person_id = ?", id).Update("deleted_at", nil)
 		tx.Unscoped().Model(&model.PositionEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
 		tx.Unscoped().Model(&model.AttendanceDaily{}).Where("person_id = ?", id).Update("deleted_at", nil)
 		tx.Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("person_id = ?", id).Update("deleted_at", nil)
@@ -201,6 +203,26 @@ func UpdatePersonBankCard(ctx context.Context, id uint, bankName, accountNumber,
 
 func DeletePersonBankCard(ctx context.Context, id uint) error {
 	return dao.DBFromContext(ctx).Delete(&model.PersonBankCard{}, id).Error
+}
+
+func AddPersonEmergencyContact(ctx context.Context, personID uint, contactName, contactPhone string, sort int) error {
+	if sort == 0 {
+		sort = 1
+	}
+	c := model.PersonEmergencyContact{PersonID: personID, ContactName: contactName, ContactPhone: contactPhone, Sort: sort}
+	return dao.DBFromContext(ctx).Create(&c).Error
+}
+
+func UpdatePersonEmergencyContact(ctx context.Context, id uint, contactName, contactPhone string, sort int) error {
+	updates := map[string]interface{}{"contact_name": contactName, "contact_phone": contactPhone}
+	if sort > 0 {
+		updates["sort"] = sort
+	}
+	return dao.DBFromContext(ctx).Model(&model.PersonEmergencyContact{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func DeletePersonEmergencyContact(ctx context.Context, id uint) error {
+	return dao.DBFromContext(ctx).Delete(&model.PersonEmergencyContact{}, id).Error
 }
 
 // PersonName 单条人员姓名查询（审计/导出等一次性场景）

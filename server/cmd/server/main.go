@@ -132,6 +132,13 @@ func serveEmbeddedFile(c *gin.Context) {
 		}
 	}
 
+	// 缓存策略：带内容哈希的构建资源可长期缓存（immutable），入口文档每次重新验证
+	if strings.HasPrefix(urlPath, "/assets/") {
+		c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		c.Header("Cache-Control", "no-cache")
+	}
+
 	contentType := "text/html; charset=utf-8"
 	for ext, ct := range contentTypeMap {
 		if strings.HasSuffix(filePath, ext) {

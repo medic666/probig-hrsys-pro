@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"probig/server/internal/config"
 	"probig/server/internal/dao"
@@ -206,14 +207,16 @@ func DingTalkPreview(c *gin.Context) {
 	defer file.Close()
 	tmpDir := config.ResolvePath(config.AppConfig.FileStorage.Path)
 	os.MkdirAll(tmpDir, 0755)
+	// 懒清理：仅删除超过 24h 的陈旧导入临时文件，保留当前预览文件供执行步骤使用
+	service.CleanupStaleDingTalkFiles(tmpDir, 24*time.Hour)
 	savePath := filepath.Join(tmpDir, fmt.Sprintf("dingtalk_%d.xlsx", time.Now().UnixNano()))
 	out, _ := os.Create(savePath)
 	io.Copy(out, file)
 	out.Close()
-	defer os.Remove(savePath)
 
 	result, err := service.DingTalkPreview(savePath)
 	if err != nil {
+		os.Remove(savePath)
 		utils.Error(c, "解析失败:"+err.Error())
 		return
 	}
@@ -232,12 +235,33 @@ func DingTalkExecute(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
+	if !isDingTalkTempPath(req.FilePath) {
+		utils.BadRequest(c, "文件路径不合法")
+		return
+	}
+	if _, err := os.Stat(req.FilePath); err != nil {
+		utils.Error(c, "上传文件已过期，请重新上传")
+		return
+	}
 	created, pending, err := service.DingTalkExecute(c.Request.Context(), req.FilePath, req.Month, req.Mappings)
 	if err != nil {
 		utils.Error(c, "导入失败:"+err.Error())
 		return
 	}
+	// 执行成功后清理本次导入临时文件
+	os.Remove(req.FilePath)
 	utils.Success(c, gin.H{"created": created, "pending": pending})
+}
+
+// isDingTalkTempPath 校验导入文件位于上传目录内且为 dingtalk_*.xlsx 临时文件
+func isDingTalkTempPath(p string) bool {
+	tmpDir := config.ResolvePath(config.AppConfig.FileStorage.Path)
+	abs, err := filepath.Abs(p)
+	if err != nil || !strings.HasPrefix(abs, filepath.Clean(tmpDir)+string(filepath.Separator)) {
+		return false
+	}
+	name := filepath.Base(abs)
+	return strings.HasPrefix(name, "dingtalk_") && strings.HasSuffix(name, ".xlsx")
 }
 
 func ExportAttendanceEvents(c *gin.Context) {

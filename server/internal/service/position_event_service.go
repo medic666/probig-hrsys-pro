@@ -101,6 +101,14 @@ func GetPositionEventList(pageNum, pageSize int, personID uint, startDate, endDa
 	}
 	nameMap := PersonNameMap(ids)
 
+	companyIDs := make([]uint, 0, len(events))
+	for _, e := range events {
+		if e.CompanyID != nil {
+			companyIDs = append(companyIDs, *e.CompanyID)
+		}
+	}
+	companyNameMap := CompanyNameMap(companyIDs)
+
 	var result []map[string]interface{}
 	for _, e := range events {
 		item := map[string]interface{}{
@@ -111,8 +119,14 @@ func GetPositionEventList(pageNum, pageSize int, personID uint, startDate, endDa
 			"remark":         e.Remark,
 			"effective_date": e.EffectiveDate,
 			"created_at":     e.CreatedAt,
+			"company_id":     e.CompanyID,
+			"department":     e.Department,
+			"position":       e.Position,
 		}
 		item["person_name"] = nameMap[e.PersonID]
+		if e.CompanyID != nil {
+			item["company_name"] = companyNameMap[*e.CompanyID]
+		}
 
 		changedFields := collectChangedFields(e)
 		item["changed_fields"] = changedFields
@@ -128,6 +142,9 @@ func collectChangedFields(e model.PositionEvent) []string {
 	if e.EntryDate != nil { fields = append(fields, "入职日期") }
 	if e.LeaveDate != nil { fields = append(fields, "离职日期") }
 	if e.AttendanceGroup != nil { fields = append(fields, "考勤组") }
+	if e.CompanyID != nil { fields = append(fields, "公司") }
+	if e.Department != nil { fields = append(fields, "部门") }
+	if e.Position != nil { fields = append(fields, "职位") }
 	if e.HasAnnualLeave != nil { fields = append(fields, "年假标识") }
 	if e.HasAttendanceBonus != nil { fields = append(fields, "全勤奖标识") }
 	if e.BaseSalary != nil { fields = append(fields, "基本工资") }

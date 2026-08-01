@@ -124,3 +124,20 @@ func GetAllCompanies() ([]model.Company, error) {
 	}
 	return list, nil
 }
+
+// CompanyNameMap 一次 IN 查询返回 id→名称 映射
+func CompanyNameMap(companyIDs []uint) map[uint]string {
+	m := make(map[uint]string)
+	if len(companyIDs) == 0 {
+		return m
+	}
+	var rows []struct {
+		ID   uint
+		Name string
+	}
+	dao.DB.Table("companies").Where("id IN ?", companyIDs).Scan(&rows)
+	for _, r := range rows {
+		m[r.ID] = r.Name
+	}
+	return m
+}

@@ -71,3 +71,15 @@ export function updatePersonBankCard(cardId: number, data: any) {
 export function deletePersonBankCard(cardId: number) {
   return request.delete(`/persons/0/bank-cards/${cardId}`)
 }
+
+export function addPersonEmergencyContact(personId: number, data: any) {
+  return request.post(`/persons/${personId}/emergency-contacts`, data)
+}
+
+export function updatePersonEmergencyContact(contactId: number, data: any) {
+  return request.put(`/persons/0/emergency-contacts/${contactId}`, data)
+}
+
+export function deletePersonEmergencyContact(contactId: number) {
+  return request.delete(`/persons/0/emergency-contacts/${contactId}`)
+}

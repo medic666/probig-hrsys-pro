@@ -18,7 +18,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import ProTable from '@/components/ProTable.vue'
-import { getLILEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'

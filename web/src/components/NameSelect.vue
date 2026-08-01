@@ -35,6 +35,7 @@ const props = withDefaults(
     remoteThreshold?: number
   }>(),
   {
+    modelValue: null,
     placeholder: '请选择',
     disabled: false,
     clearable: true,

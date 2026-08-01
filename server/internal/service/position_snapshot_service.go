@@ -32,6 +32,9 @@ func RebuildPositionSnapshots(tx *gorm.DB, personID uint) error {
 		AttendanceGroup    string
 		HasAnnualLeave     bool
 		HasAttendanceBonus bool
+		CompanyID          uint
+		Department         string
+		Position           string
 		BaseSalary         float64
 		PerformanceSalary  float64
 		SalaryDays         int
@@ -61,6 +64,18 @@ func RebuildPositionSnapshots(tx *gorm.DB, personID uint) error {
 		if e.AttendanceGroup != nil {
 			if s.AttendanceGroup != *e.AttendanceGroup { changed = true }
 			s.AttendanceGroup = *e.AttendanceGroup
+		}
+		if e.CompanyID != nil {
+			if s.CompanyID != *e.CompanyID { changed = true }
+			s.CompanyID = *e.CompanyID
+		}
+		if e.Department != nil {
+			if s.Department != *e.Department { changed = true }
+			s.Department = *e.Department
+		}
+		if e.Position != nil {
+			if s.Position != *e.Position { changed = true }
+			s.Position = *e.Position
 		}
 		if e.HasAnnualLeave != nil {
 			if s.HasAnnualLeave != *e.HasAnnualLeave { changed = true }
@@ -105,6 +120,9 @@ func RebuildPositionSnapshots(tx *gorm.DB, personID uint) error {
 			AttendanceGroup:      s.AttendanceGroup,
 			HasAnnualLeave:       s.HasAnnualLeave,
 			HasAttendanceBonus:   s.HasAttendanceBonus,
+			CompanyID:            s.CompanyID,
+			Department:           s.Department,
+			Position:             s.Position,
 			BaseSalary:           s.BaseSalary,
 			PerformanceSalary:    s.PerformanceSalary,
 			SalaryDays:           s.SalaryDays,

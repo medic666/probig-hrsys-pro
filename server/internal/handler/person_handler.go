@@ -96,7 +96,7 @@ func ExportPersons(c *gin.Context) {
 	for _, p := range list {
 		birthday := ""
 		if p.Birthday != nil {
-			birthday = p.Birthday.Format("2006-01-02")
+			birthday = p.Birthday.String()
 		}
 		rows = append(rows, []interface{}{
 			p.Name, p.IDCard, genderText(p.Gender), birthday, p.Nation,
@@ -234,6 +234,45 @@ func UpdatePersonBankCard(c *gin.Context) {
 func DeletePersonBankCard(c *gin.Context) {
 	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
 	if err := service.DeletePersonBankCard(c.Request.Context(), uint(pid)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.SuccessWithMsg(c, "删除成功", nil)
+}
+
+func AddPersonEmergencyContact(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req struct {
+		ContactName  string `json:"contact_name"`
+		ContactPhone string `json:"contact_phone"`
+		Sort         int    `json:"sort"`
+	}
+	c.ShouldBindJSON(&req)
+	if err := service.AddPersonEmergencyContact(c.Request.Context(), uint(id), req.ContactName, req.ContactPhone, req.Sort); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.SuccessWithMsg(c, "添加成功", nil)
+}
+
+func UpdatePersonEmergencyContact(c *gin.Context) {
+	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
+	var req struct {
+		ContactName  string `json:"contact_name"`
+		ContactPhone string `json:"contact_phone"`
+		Sort         int    `json:"sort"`
+	}
+	c.ShouldBindJSON(&req)
+	if err := service.UpdatePersonEmergencyContact(c.Request.Context(), uint(pid), req.ContactName, req.ContactPhone, req.Sort); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.SuccessWithMsg(c, "更新成功", nil)
+}
+
+func DeletePersonEmergencyContact(c *gin.Context) {
+	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
+	if err := service.DeletePersonEmergencyContact(c.Request.Context(), uint(pid)); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

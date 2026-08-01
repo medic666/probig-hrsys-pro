@@ -36,6 +36,9 @@
               <el-descriptions v-if="currentPosition" :column="2" border size="small">
                 <el-descriptions-item label="在职状态"><StatusTag :status="currentPosition.is_active ? 'calculated' : 'data_changed'" :text="currentPosition.is_active ? '在职' : '已离职'" /></el-descriptions-item>
                 <el-descriptions-item label="入职日期">{{ currentPosition.entry_date || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="公司组">{{ currentPosition.company_name || currentPosition.company_id || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="部门">{{ currentPosition.department || '-' }}</el-descriptions-item>
+                <el-descriptions-item label="职位">{{ currentPosition.position || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="考勤组">{{ currentPosition.attendance_group || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="基本工资">{{ currentPosition.base_salary || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="绩效工资基数">{{ currentPosition.performance_salary || '-' }}</el-descriptions-item>
@@ -106,6 +109,25 @@
             </div>
           </el-tab-pane>
 
+          <el-tab-pane label="紧急联系人" name="emergency">
+            <el-table :data="detailRow.emergency_contacts" border size="small" class="sub-table">
+              <el-table-column prop="contact_name" label="联系人" />
+              <el-table-column prop="contact_phone" label="联系电话" />
+              <el-table-column prop="sort" label="序号" width="80" />
+              <el-table-column label="操作" width="100">
+                <template #default="{ row: r }">
+                  <el-button type="danger" link size="small" @click="delEmergencyContact(r.id)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div class="sub-add">
+              <el-input v-model="newContactName" placeholder="联系人" size="small" style="width:140px" />
+              <el-input v-model="newContactPhone" placeholder="联系电话" size="small" style="width:160px" />
+              <el-input-number v-model="newContactSort" :min="1" size="small" style="width:90px" />
+              <el-button size="small" @click="addEmergencyContact">添加</el-button>
+            </div>
+          </el-tab-pane>
+
           <el-tab-pane label="附件" name="files">
             <FileAttachPanel v-if="detailRow" :target-type="'person'" :target-id="detailRow.id" />
           </el-tab-pane>
@@ -153,7 +175,7 @@ import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, getAllPersons, exportPersons } from '@/api/person'
+import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, addPersonEmergencyContact, deletePersonEmergencyContact, getAllPersons, exportPersons } from '@/api/person'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
 import { downloadBlob } from '@/utils/download'
 
@@ -175,6 +197,9 @@ const newEmail = ref('')
 const newBankName = ref('')
 const newBankAccount = ref('')
 const newBankHolder = ref('')
+const newContactName = ref('')
+const newContactPhone = ref('')
+const newContactSort = ref(1)
 
 const genderMap: Record<number, string> = { 1: '男', 2: '女' }
 const maritalMap: Record<number, string> = { 1: '已婚', 2: '未婚' }
@@ -300,6 +325,18 @@ async function addBankCard() {
 }
 async function delBankCard(id: number) {
   await deletePersonBankCard(id)
+  ElMessage.success('删除成功')
+  handleDetail({ id: detailRow.value.id })
+}
+async function addEmergencyContact() {
+  if (!newContactName.value) return
+  await addPersonEmergencyContact(detailRow.value.id, { contact_name: newContactName.value, contact_phone: newContactPhone.value, sort: newContactSort.value || 1 })
+  ElMessage.success('添加成功')
+  newContactName.value = ''; newContactPhone.value = ''; newContactSort.value = 1
+  handleDetail({ id: detailRow.value.id })
+}
+async function delEmergencyContact(id: number) {
+  await deletePersonEmergencyContact(id)
   ElMessage.success('删除成功')
   handleDetail({ id: detailRow.value.id })
 }

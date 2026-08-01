@@ -21,14 +21,14 @@
         </el-table-column>
         <el-table-column label="子类型" width="110">
           <template #default="{row:$r, $index:idx}">
-            <el-select v-if="$r.event_type!=='打卡时间戳'" v-model="$r.sub_type" size="small" @change="v=>detailChanged(idx,'sub_type',v)">
+            <el-select v-if="$r.event_type!=='违纪'" v-model="$r.sub_type" size="small" @change="v=>detailChanged(idx,'sub_type',v)">
               <el-option v-for="s in subTypeMap[$r.event_type]||[]" :key="s" :label="s" :value="s"/>
             </el-select>
           </template>
         </el-table-column>
         <el-table-column label="时长(小时)" width="100">
           <template #default="{row:$r, $index:idx}">
-            <el-input-number v-if="$r.event_type!=='打卡时间戳'&&$r.event_type!=='违纪'" v-model="$r.hours" :min="0" :precision="1" size="small" @change="v=>detailChanged(idx,'hours',v)"/>
+            <el-input-number v-if="$r.event_type!=='违纪'" v-model="$r.hours" :min="0" :precision="1" size="small" @change="v=>detailChanged(idx,'hours',v)"/>
           </template>
         </el-table-column>
         <el-table-column label="分钟" width="80">
@@ -64,7 +64,7 @@ import { getPendingDailies, confirmPendingDaily } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
 const dialogVisible=ref(false), saving=ref(false), editRow=ref<any>(null), details=ref<any[]>([])
-const eventTypes=['出勤','休假','加班','违纪','打卡时间戳']
+const eventTypes=['出勤','休假','加班','违纪']
 const subTypeMap:Record<string,string[]>={'出勤':['普通出勤','补班出勤','外勤出勤'],'休假':['调休','事假','病假','年假','法定假','福利假'],'加班':['工作日加班','节假日加班'],'违纪':['缺卡','迟到','早退']}
 const columns=[{prop:'person_name',label:'人员',width:'80'},{prop:'event_date',label:'日期',width:'110'},{prop:'punch_time',label:'打卡时间',width:'110'},{prop:'status',label:'状态',width:'80',slot:'status'}]
 const searchFields=[{prop:'person_id',label:'人员',type:'person-select' as const,fetchApi: fetchPersonOpts}]

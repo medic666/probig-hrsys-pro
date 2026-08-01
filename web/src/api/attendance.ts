@@ -12,6 +12,10 @@ export function createAttendanceEvent(data: any) {
 export function updateAttendanceEvent(id: number, data: any) {
   return request.put(`/attendance-events/${id}`, data)
 }
+
+export function saveAttendanceDetails(id: number, data: any) {
+  return request.put(`/attendance-events/${id}/details`, data)
+}
 export function deleteAttendanceEvent(id: number) {
   return request.delete(`/attendance-events/${id}`)
 }

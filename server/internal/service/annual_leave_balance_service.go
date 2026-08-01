@@ -227,7 +227,7 @@ type BalanceListItem struct {
 
 func GetAllALBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
 	baseTx := dao.DB.Model(&model.AnnualLeaveBalanceSnapshot{}).
-		Select("annual_leave_balance_snapshots.person_id, persons.name, annual_leave_balance_snapshots.balance_hours, annual_leave_balance_snapshots.last_calc_at").
+		Select("annual_leave_balance_snapshots.person_id, persons.name AS person_name, annual_leave_balance_snapshots.balance_hours, annual_leave_balance_snapshots.last_calc_at").
 		Joins("LEFT JOIN persons ON persons.id = annual_leave_balance_snapshots.person_id").
 		Where("annual_leave_balance_snapshots.effective_end_date = ? AND persons.deleted_at IS NULL", realFarFuture)
 	if personID > 0 {
@@ -243,7 +243,7 @@ func GetAllALBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, 
 
 func GetAllLILBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
 	baseTx := dao.DB.Model(&model.LeaveInLieuBalanceSnapshot{}).
-		Select("leave_in_lieu_balance_snapshots.person_id, persons.name, leave_in_lieu_balance_snapshots.balance_hours, leave_in_lieu_balance_snapshots.last_calc_at").
+		Select("leave_in_lieu_balance_snapshots.person_id, persons.name AS person_name, leave_in_lieu_balance_snapshots.balance_hours, leave_in_lieu_balance_snapshots.last_calc_at").
 		Joins("LEFT JOIN persons ON persons.id = leave_in_lieu_balance_snapshots.person_id").
 		Where("leave_in_lieu_balance_snapshots.effective_end_date = ? AND persons.deleted_at IS NULL", realFarFuture)
 	if personID > 0 {

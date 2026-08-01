@@ -1,13 +1,78 @@
 <template>
   <div class="page-container">
-    <div class="page-header"><h2>考勤事件管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
-      </template>
-    </ProTable>
+    <div class="page-header">
+      <h2>考勤事件管理</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="list">列表</el-radio-button>
+        <el-radio-button value="blocks">每日方块</el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
+        </template>
+      </ProTable>
+    </template>
+
+    <template v-else>
+      <div class="block-toolbar">
+        <el-form inline>
+          <el-form-item label="人员">
+            <NameSelect v-model="blockPersonId" :fetch-api="fetchPersonOpts" placeholder="全部人员" style="width:180px" />
+          </el-form-item>
+          <el-form-item label="日期范围">
+            <el-date-picker v-model="blockDateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:260px" />
+          </el-form-item>
+          <el-form-item label="状态">
+            <el-select v-model="blockStatus" placeholder="全部状态" clearable style="width:130px">
+              <el-option label="待确认" value="pending" />
+              <el-option label="已确认" value="confirmed" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="resetBlocks">查询</el-button>
+          </el-form-item>
+        </el-form>
+        <div class="block-actions-bar">
+          <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
+          <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
+          <el-button type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
+          <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+          <el-button size="small" @click="handleAction('export')">导出</el-button>
+        </div>
+      </div>
+
+      <div v-loading="loadingBlocks" style="min-height:120px">
+        <div v-for="group in blockGroups" :key="group.person_id" class="block-group">
+          <div class="group-header">
+            {{ group.person_name }}
+            <span class="group-count">{{ group.items.length }} 天</span>
+          </div>
+          <div class="block-grid">
+            <AttendanceDailyBlock
+              v-for="d in group.items"
+              :key="d.id"
+              :daily="d"
+              :edited="editedSet.has(d.id)"
+              @edit="openEdit"
+              @confirm="confirmDaily"
+            />
+          </div>
+        </div>
+        <el-empty v-if="!loadingBlocks && blocksData.length === 0" description="暂无数据" :image-size="60" />
+        <div v-if="blocksData.length < blocksTotal" class="load-more">
+          <el-button :loading="loadingBlocks" @click="loadBlocksMore">
+            加载更多（{{ blocksData.length }}/{{ blocksTotal }}）
+          </el-button>
+        </div>
+      </div>
+
+      <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onBlockSaved" />
+    </template>
 
     <el-dialog v-model="dialogVisible" :title="dialogMode==='add'?'新增考勤事件':'编辑考勤事件'" width="500px">
       <el-form :model="form" label-width="80px">
@@ -18,16 +83,13 @@
             <el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.event_type !== '打卡时间戳'" label="子类型" required>
+        <el-form-item v-if="form.event_type !== '违纪'" label="子类型" required>
           <el-select v-model="form.sub_type" placeholder="选择子类型" style="width:100%">
             <el-option v-for="s in currentSubTypes" :key="s" :label="s" :value="s" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.event_type !== '打卡时间戳' && form.event_type !== '违纪'" label="时长(天)" required>
+        <el-form-item v-if="form.event_type !== '违纪'" label="时长(天)" required>
           <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
-        </el-form-item>
-        <el-form-item v-if="form.event_type === '打卡时间戳'" label="打卡时间" required>
-          <el-input v-model="form.punch_time" placeholder="如 08:30" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
       </el-form>
@@ -49,14 +111,11 @@
         <el-form-item label="事件类型">
           <el-select v-model="batchForm.event_type" style="width:100%" @change="onBatchTypeChange"><el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" /></el-select>
         </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '打卡时间戳'" label="子类型">
+        <el-form-item v-if="batchForm.event_type !== '违纪'" label="子类型">
           <el-select v-model="batchForm.sub_type" style="width:100%"><el-option v-for="s in batchSubTypes" :key="s" :label="s" :value="s" /></el-select>
         </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '打卡时间戳' && batchForm.event_type !== '违纪'" label="每日时长(天)" required>
+        <el-form-item v-if="batchForm.event_type !== '违纪'" label="每日时长(天)" required>
           <el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" />
-        </el-form-item>
-        <el-form-item v-if="batchForm.event_type === '打卡时间戳'" label="打卡时间" required>
-          <el-input v-model="batchForm.punch_time" placeholder="如 08:30" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="batchForm.remark" /></el-form-item>
       </el-form>
@@ -123,13 +182,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
+import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
+import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
@@ -154,7 +215,19 @@ const previewing = ref(false)
 const importing = ref(false)
 const uploadRef = ref()
 
-const eventTypes = ['出勤','休假','加班','违纪','打卡时间戳']
+const viewMode = ref<'list'|'blocks'>('list')
+const blockPersonId = ref<number | null>(null)
+const blockDateRange = ref<[string, string] | null>(null)
+const blockStatus = ref('')
+const blocksData = ref<any[]>([])
+const blocksTotal = ref(0)
+const blocksPage = ref(1)
+const loadingBlocks = ref(false)
+const editVisible = ref(false)
+const editDailyRow = ref<any>(null)
+const editedSet = ref<Set<number>>(new Set())
+
+const eventTypes = ['出勤','休假','加班','违纪']
 const subTypeMap: Record<string,string[]> = {
   '出勤':['普通出勤','补班出勤','外勤出勤'],
   '休假':['调休','事假','病假','年假','法定假','福利假'],
@@ -168,12 +241,29 @@ const batchForm = reactive({ person_ids:[] as number[], start_date:'', end_date:
 const currentSubTypes = computed(() => subTypeMap[form.event_type] || [])
 const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
 
-function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = (form.event_type==='打卡时间戳'||form.event_type==='违纪') ? 0 : 8 }
-function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = (batchForm.event_type==='打卡时间戳'||batchForm.event_type==='违纪') ? 0 : 8 }
+const blockGroups = computed(() => {
+  const map = new Map<number, { person_id: number; person_name: string; items: any[] }>()
+  const sorted = [...blocksData.value].sort((a, b) => a.event_date.localeCompare(b.event_date))
+  for (const d of sorted) {
+    if (!map.has(d.person_id)) {
+      map.set(d.person_id, { person_id: d.person_id, person_name: d.person_name || '-', items: [] })
+    }
+    map.get(d.person_id)!.items.push(d)
+  }
+  return Array.from(map.values())
+})
+
+watch(viewMode, (v) => {
+  if (v === 'blocks' && blocksData.value.length === 0) {
+    resetBlocks()
+  }
+})
+
+function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = form.event_type==='违纪' ? 0 : 8 }
+function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = batchForm.event_type==='违纪' ? 0 : 8 }
 
 function detailSummary(r: any): string {
   const parts = (r.details || []).map((d: any) => {
-    if (d.event_type === '打卡时间戳') return `打卡 ${d.remark || ''}`
     let s = d.event_type
     if (d.sub_type) s += `-${d.sub_type}`
     if (d.event_type === '违纪') {
@@ -211,6 +301,58 @@ async function fetchPersonOpts(k?: string) { const l = await getAllPersons() as 
 async function fetchEvents(p: any) { return (await getAttendanceEvents(p)) as any }
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
+
+async function loadBlocks(page: number, append: boolean) {
+  loadingBlocks.value = true
+  try {
+    const params: any = { pageNum: page, pageSize: 100 }
+    if (blockPersonId.value) params.person_id = blockPersonId.value
+    if (blockDateRange.value && blockDateRange.value[0]) params.date_start = blockDateRange.value[0]
+    if (blockDateRange.value && blockDateRange.value[1]) params.date_end = blockDateRange.value[1]
+    if (blockStatus.value) params.status = blockStatus.value
+    const d = (await getAttendanceEvents(params)) as any
+    blocksTotal.value = d.total || 0
+    blocksData.value = append ? [...blocksData.value, ...(d.list || [])] : (d.list || [])
+  } catch {
+    if (!append) blocksData.value = []
+  } finally {
+    loadingBlocks.value = false
+  }
+}
+
+function resetBlocks() {
+  blocksPage.value = 1
+  loadBlocks(1, false)
+}
+
+function loadBlocksMore() {
+  blocksPage.value += 1
+  loadBlocks(blocksPage.value, true)
+}
+
+function openEdit(row: any) {
+  editDailyRow.value = row
+  editVisible.value = true
+}
+
+function onBlockSaved() {
+  editedSet.value.add(editDailyRow.value?.id)
+  resetBlocks()
+}
+
+async function confirmDaily(row: any) {
+  try {
+    await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 的整日事件？提交后将一次性完成全部改动。`, '确认整日', { type: 'warning' })
+  } catch { return }
+  try {
+    const d = (await getAttendanceEvents({ person_id: row.person_id, date_start: row.event_date, date_end: row.event_date, pageNum: 1, pageSize: 100 })) as any
+    const latest = (d.list || []).find((x: any) => x.id === row.id) || row
+    await confirmPendingDaily(row.id, latest.details || [])
+    ElMessage.success('确认成功')
+    editedSet.value.delete(row.id)
+    resetBlocks()
+  } catch { /* handled */ }
+}
 
 onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [] })
 
@@ -264,9 +406,7 @@ async function handleSubmit() {
   saving.value=true
   try {
     const d: any = { person_id:form.person_id, event_date:form.event_date, event_type:form.event_type, sub_type:form.sub_type }
-    if (form.event_type === '打卡时间戳') {
-      d.punch_time = form.punch_time || ''
-    } else if (form.event_type !== '违纪') {
+    if (form.event_type !== '违纪') {
       d.hours = form.hours
     }
     d.remark = form.remark || ''
@@ -294,6 +434,35 @@ function onRefresh() { tableRef.value?.refresh() }
 </script>
 <style lang="scss" scoped>
 .page-container { padding:0; background:transparent; }
-.page-header { margin-bottom:16px; h2 { font-size:18px; font-weight:600; color:#303133; } }
+.page-header { margin-bottom:16px; display:flex; align-items:center; h2 { font-size:18px; font-weight:600; color:#303133; } }
 .import-hint { color:#909399; font-size:12px; margin-top:8px; }
+.block-toolbar {
+  background: #fff;
+  border-radius: 4px;
+  padding: 12px 16px 0;
+  margin-bottom: 12px;
+  .block-actions-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+}
+.block-group {
+  margin-bottom: 16px;
+  .group-header {
+    font-weight: 600;
+    color: #303133;
+    margin-bottom: 8px;
+    .group-count { color: #909399; font-size: 12px; font-weight: 400; margin-left: 8px; }
+  }
+  .block-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+.load-more {
+  text-align: center;
+  margin-top: 12px;
+}
 </style>

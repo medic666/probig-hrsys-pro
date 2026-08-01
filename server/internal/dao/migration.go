@@ -28,6 +28,7 @@ type Migration struct {
 var migrations = []Migration{
 	{ID: "20260731_01_init", Name: "初始表结构与索引", Func: migrateV1Init},
 	{ID: "20260801_01_person_emergency_contacts_position_fields", Name: "人员紧急联系人表 + 职务公司/部门/职位字段", Func: migrateV1EmergencyContactsAndPositionFields},
+	{ID: "20260801_02_unify_punch_time", Name: "打卡时间统一到 daily.punch_time，清除打卡时间戳事件", Func: migrateV1UnifyPunchTime},
 }
 
 // RunMigrations 顺序执行未应用的迁移；新库或未迁移库（无版本记录）从头执行全部
@@ -52,6 +53,28 @@ func RunMigrations(db *gorm.DB) error {
 		}
 		if err := db.Create(&schemaMigration{MigrationID: m.ID, AppliedAt: time.Now()}).Error; err != nil {
 			return fmt.Errorf("记录迁移 %s 失败: %w", m.ID, err)
+		}
+	}
+	return nil
+}
+
+// migrateV1UnifyPunchTime 打卡时间统一到 daily.punch_time（唯一载体），清除"打卡时间戳"事件：
+// ① punch_time 为空的 daily 从打卡时间戳事件 remark 回填；② 物理删除打卡时间戳事件
+func migrateV1UnifyPunchTime(db *gorm.DB) error {
+	sqls := []string{
+		`UPDATE attendance_daily
+		 SET punch_time = (SELECT e.remark FROM attendance_event_details e
+		                   WHERE e.daily_id = attendance_daily.id
+		                     AND e.event_type = '打卡时间戳' AND e.deleted_at IS NULL
+		                   LIMIT 1)
+		 WHERE punch_time = '' AND EXISTS (SELECT 1 FROM attendance_event_details e
+		                                   WHERE e.daily_id = attendance_daily.id
+		                                     AND e.event_type = '打卡时间戳' AND e.deleted_at IS NULL)`,
+		`DELETE FROM attendance_event_details WHERE event_type = '打卡时间戳'`,
+	}
+	for _, sql := range sqls {
+		if err := db.Exec(sql).Error; err != nil {
+			return err
 		}
 	}
 	return nil

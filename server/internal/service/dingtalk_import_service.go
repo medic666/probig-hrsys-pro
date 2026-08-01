@@ -193,18 +193,16 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	}
 
 	createEvents := func() (int, int) {
-		if len(events) == 0 {
-			return 0, 0
-		}
-		if punchTime != "" {
-			events = append(events, model.AttendanceEventDetail{
-				EventType: "打卡时间戳", SubType: "", Hours: 0, Remark: punchTime,
-			})
-		}
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 			daily, err := GetOrCreateDaily(tx, personID, date, status)
 			if err != nil {
 				return err
+			}
+			// 打卡时间独立写入 daily.punch_time（唯一载体），不生成事件明细
+			if punchTime != "" {
+				if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
+					return err
+				}
 			}
 			for _, e := range events {
 				if err := CreateDetail(tx, daily.ID, e.EventType, e.SubType, e.Hours, e.Minutes, e.Remark); err != nil {

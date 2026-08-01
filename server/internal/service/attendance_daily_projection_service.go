@@ -81,7 +81,7 @@ func getSickLeaveRatio() float64 {
 	return f
 }
 
-func GetDailyProjections(personID uint, dateStart, dateEnd string, pageNum, pageSize int) ([]model.AttendanceDailyProjection, int64, error) {
+func GetDailyProjections(personID uint, dateStart, dateEnd string, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceDailyProjection{})
 	if personID > 0 {
 		tx = tx.Where("person_id = ?", personID)
@@ -97,7 +97,36 @@ func GetDailyProjections(personID uint, dateStart, dateEnd string, pageNum, page
 	var list []model.AttendanceDailyProjection
 	offset := (pageNum - 1) * pageSize
 	err := tx.Order("work_date ASC").Offset(offset).Limit(pageSize).Find(&list).Error
-	return list, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ids := make([]uint, len(list))
+	for i, p := range list {
+		ids[i] = p.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
+	result := make([]map[string]interface{}, len(list))
+	for i, p := range list {
+		item := map[string]interface{}{
+			"id":                     p.ID,
+			"person_id":              p.PersonID,
+			"person_name":            nameMap[p.PersonID],
+			"work_date":              p.WorkDate,
+			"punch_time":             p.PunchTime,
+			"work_hours":             p.WorkHours,
+			"overtime_workday_hours": p.OvertimeWorkdayHours,
+			"overtime_holiday_hours": p.OvertimeHolidayHours,
+			"has_personal_leave":     p.HasPersonalLeave,
+			"violation_count":        p.ViolationCount,
+			"remark":                 p.Remark,
+			"status":                 p.Status,
+			"last_calc_at":           p.LastCalcAt,
+		}
+		result[i] = item
+	}
+	return result, total, nil
 }
 
 func getOvertimeWorkdayRatio() float64 {

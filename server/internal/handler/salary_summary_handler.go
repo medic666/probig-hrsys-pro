@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"strconv"
 
 	"probig/server/internal/service"
@@ -18,15 +17,7 @@ func GetSalarySummaries(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	var result []map[string]interface{}
-	for i := range list {
-		data, _ := json.Marshal(list[i])
-		var item map[string]interface{}
-		json.Unmarshal(data, &item)
-		item["status"] = service.IsSalarySummaryStale(&list[i])
-		result = append(result, item)
-	}
-	utils.Success(c, utils.NewPageResult(result, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
 type calcSalaryReq struct {
@@ -87,13 +78,13 @@ func ExportSalarySummaries(c *gin.Context) {
 	var rows [][]interface{}
 	for _, s := range list {
 		rows = append(rows, []interface{}{
-			s.BelongMonth, service.PersonName(s.PersonID),
-			s.AttendanceSalary, s.OvertimeWorkdaySalary, s.OvertimeHolidaySalary,
-			s.AnnualLeaveCarryoverSalary, s.AttendanceBonus, s.PerformanceSalary,
-			s.PostAllowance, s.MealAllowance, s.HousingAllowance, s.TransportAllowance,
-			s.HighTempAllowance, s.InsuranceCompensation, s.FundCompensation,
-			s.SalesCommission, s.RewardPunishment, s.BorrowingRepayment,
-			s.SocialSecurityDeduct, s.HousingFundDeduct, s.TaxDeduct, s.FinalSalary,
+			s["belong_month"], s["person_name"],
+			s["attendance_salary"], s["overtime_workday_salary"], s["overtime_holiday_salary"],
+			s["annual_leave_carryover_salary"], s["attendance_bonus"], s["performance_salary"],
+			s["post_allowance"], s["meal_allowance"], s["housing_allowance"], s["transport_allowance"],
+			s["high_temp_allowance"], s["insurance_compensation"], s["fund_compensation"],
+			s["sales_commission"], s["reward_punishment"], s["borrowing_repayment"],
+			s["social_security_deduct"], s["housing_fund_deduct"], s["tax_deduct"], s["final_salary"],
 		})
 	}
 	writeExcel(c, "工资汇总", "salary_summaries",

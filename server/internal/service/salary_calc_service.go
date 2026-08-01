@@ -280,7 +280,7 @@ func CalculateSalaryBatch(ctx context.Context, month string, personIDs []uint, o
 	return success, fail, skip, nil
 }
 
-func GetSalarySummaries(month string, personID uint, pageNum, pageSize int) ([]model.SalarySummary, int64, error) {
+func GetSalarySummaries(month string, personID uint, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.SalarySummary{})
 	if month != "" {
 		tx = tx.Where("belong_month = ?", month)
@@ -293,7 +293,26 @@ func GetSalarySummaries(month string, personID uint, pageNum, pageSize int) ([]m
 	var list []model.SalarySummary
 	offset := (pageNum - 1) * pageSize
 	err := tx.Order("belong_month DESC, person_id ASC").Offset(offset).Limit(pageSize).Find(&list).Error
-	return list, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ids := make([]uint, len(list))
+	for i, s := range list {
+		ids[i] = s.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
+	result := make([]map[string]interface{}, len(list))
+	for i, s := range list {
+		data, _ := json.Marshal(s)
+		var item map[string]interface{}
+		json.Unmarshal(data, &item)
+		item["person_name"] = nameMap[s.PersonID]
+		item["status"] = IsSalarySummaryStale(&s)
+		result[i] = item
+	}
+	return result, total, nil
 }
 
 func IsSalarySummaryStale(summary *model.SalarySummary) string {

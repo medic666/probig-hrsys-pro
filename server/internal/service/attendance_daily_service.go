@@ -88,6 +88,21 @@ func UpdateDailyDetails(tx *gorm.DB, dailyID uint, details []model.AttendanceEve
 	return tx.Model(&model.AttendanceDaily{}).Where("id = ?", dailyID).Update("status", status).Error
 }
 
+// SaveDailyDetailsKeepStatus 暂存保存当日事件明细：更新 details 但保持原状态不变（供编辑后暂存）
+func SaveDailyDetailsKeepStatus(tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail) error {
+	if err := tx.Where("daily_id = ?", dailyID).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
+		return err
+	}
+	for _, d := range details {
+		d.ID = 0
+		d.DailyID = dailyID
+		if err := tx.Create(&d).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status string, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceDaily{}).Preload("Details")
 	if personID > 0 {

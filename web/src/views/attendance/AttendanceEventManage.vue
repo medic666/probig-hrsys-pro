@@ -171,15 +171,28 @@ const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
 function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = (form.event_type==='打卡时间戳'||form.event_type==='违纪') ? 0 : 8 }
 function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = (batchForm.event_type==='打卡时间戳'||batchForm.event_type==='违纪') ? 0 : 8 }
 
-  const columns = [
+function detailSummary(r: any): string {
+  const parts = (r.details || []).map((d: any) => {
+    if (d.event_type === '打卡时间戳') return `打卡 ${d.remark || ''}`
+    let s = d.event_type
+    if (d.sub_type) s += `-${d.sub_type}`
+    if (d.event_type === '违纪') {
+      if (d.minutes) s += ` ${d.minutes}分钟`
+    } else {
+      s += ` ${hoursToDays(d.hours || 0).toFixed(2)}天`
+    }
+    return s
+  })
+  return parts.join('；') || '-'
+}
+
+const columns = [
   { prop:'id', label:'ID', width:'60' },
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'event_date', label:'日期', width:'110' },
-  { prop:'event_type', label:'事件类型', width:'80' },
-  { prop:'sub_type', label:'子类型', width:'100' },
-  { prop:'hours', label:'时长(天)', width:'90', formatter:(r:any)=>(r.event_type==='打卡时间戳'||r.event_type==='违纪')&&r.hours===0?'-':hoursToDays(r.hours).toFixed(2) },
-  { prop:'punch_time', label:'打卡时间', width:'90' },
-  { prop:'remark', label:'备注' },
+  { prop:'status', label:'状态', width:'80', formatter:(r:any)=>({pending:'待确认',confirmed:'已确认'}[r.status]||r.status||'-') },
+  { prop:'summary', label:'事件摘要', minWidth:'220', formatter:(r:any)=>detailSummary(r) },
+  { prop:'punch_time', label:'打卡时间', width:'110', formatter:(r:any)=>r.punch_time || '-' },
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOpts },

@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"strconv"
+	"time"
 
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
@@ -18,15 +18,7 @@ func GetMonthlyList(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	var result []map[string]interface{}
-	for i := range list {
-		data, _ := json.Marshal(list[i])
-		var item map[string]interface{}
-		json.Unmarshal(data, &item)
-		item["status"] = service.IsAttendanceMonthlyStale(&list[i])
-		result = append(result, item)
-	}
-	utils.Success(c, utils.NewPageResult(result, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
 type calculateReq struct {
@@ -68,12 +60,12 @@ func ExportAttendanceMonthly(c *gin.Context) {
 	var rows [][]interface{}
 	for _, s := range list {
 		rows = append(rows, []interface{}{
-			s.BelongMonth, service.PersonName(s.PersonID), s.SalaryDays, s.WeightedBaseSalary,
-			s.TotalWorkHours, s.TotalOvertimeWorkdayHours, s.TotalOvertimeHolidayHours,
-			s.AttendanceSalary, s.OvertimeWorkdaySalary, s.OvertimeHolidaySalary,
-			s.AttendanceBonus, s.TotalViolationCount, exportBool(s.HasPersonalLeaveMonth),
-			s.LastCalcAt.Format("2006-01-02 15:04:05"),
-			map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[service.IsAttendanceMonthlyStale(&s)],
+			s["belong_month"], s["person_name"], s["salary_days"], s["weighted_base_salary"],
+			s["total_work_hours"], s["total_overtime_workday_hours"], s["total_overtime_holiday_hours"],
+			s["attendance_salary"], s["overtime_workday_salary"], s["overtime_holiday_salary"],
+			s["attendance_bonus"], s["total_violation_count"], exportBool(s["has_personal_leave_month"].(bool)),
+			s["last_calc_at"].(time.Time).Format("2006-01-02 15:04:05"),
+			map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[s["status"].(string)],
 		})
 	}
 	writeExcel(c, "月度考勤核算", "attendance_monthly",

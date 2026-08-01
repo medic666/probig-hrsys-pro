@@ -197,7 +197,7 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 	return result, err
 }
 
-func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]model.AttendanceCalculationMonthly, int64, error) {
+func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceCalculationMonthly{})
 	if month != "" {
 		tx = tx.Where("belong_month = ?", month)
@@ -210,7 +210,41 @@ func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]model
 	var list []model.AttendanceCalculationMonthly
 	offset := (pageNum - 1) * pageSize
 	err := tx.Order("person_id ASC").Offset(offset).Limit(pageSize).Find(&list).Error
-	return list, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ids := make([]uint, len(list))
+	for i, s := range list {
+		ids[i] = s.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
+	result := make([]map[string]interface{}, len(list))
+	for i, s := range list {
+		item := map[string]interface{}{
+			"id":                        s.ID,
+			"person_id":                 s.PersonID,
+			"person_name":               nameMap[s.PersonID],
+			"belong_month":              s.BelongMonth,
+			"salary_days":               s.SalaryDays,
+			"weighted_base_salary":      s.WeightedBaseSalary,
+			"weighted_meal_allowance":   s.WeightedMealAllowance,
+			"total_work_hours":          s.TotalWorkHours,
+			"total_overtime_workday_hours": s.TotalOvertimeWorkdayHours,
+			"total_overtime_holiday_hours": s.TotalOvertimeHolidayHours,
+			"attendance_salary":         s.AttendanceSalary,
+			"overtime_workday_salary":   s.OvertimeWorkdaySalary,
+			"overtime_holiday_salary":   s.OvertimeHolidaySalary,
+			"has_personal_leave_month":  s.HasPersonalLeaveMonth,
+			"total_violation_count":     s.TotalViolationCount,
+			"attendance_bonus":          s.AttendanceBonus,
+			"last_calc_at":              s.LastCalcAt,
+			"status":                    IsAttendanceMonthlyStale(&s),
+		}
+		result[i] = item
+	}
+	return result, total, nil
 }
 
 func latestTime(times []*time.Time) time.Time {

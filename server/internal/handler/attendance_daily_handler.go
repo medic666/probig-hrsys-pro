@@ -205,7 +205,9 @@ func GetPendingDailyList(c *gin.Context) {
 }
 
 type confirmDailyReq struct {
-	Details []model.AttendanceEventDetail `json:"details"`
+	Details   []model.AttendanceEventDetail `json:"details"`
+	PunchTime string                        `json:"punch_time"`
+	Remark    string                        `json:"remark"`
 }
 
 func ConfirmPendingDaily(c *gin.Context) {
@@ -216,6 +218,11 @@ func ConfirmPendingDaily(c *gin.Context) {
 		return
 	}
 	err := utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
+		// 确认时同步应用打卡时间/备注（编辑弹窗"确定"一次提交）
+		if err := tx.Model(&model.AttendanceDaily{}).Where("id = ?", id).
+			Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
+			return err
+		}
 		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details)
 	})
 	if err != nil {

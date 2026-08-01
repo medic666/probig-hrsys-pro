@@ -46,8 +46,8 @@ export function calculateMonthly(data: any) {
 export function getPendingDailies(params: any) {
   return request.get('/attendance-events/pending', { params })
 }
-export function confirmPendingDaily(id: number, details: any[]) {
-  return request.post(`/attendance-events/pending/${id}/confirm`, { details })
+export function confirmPendingDaily(id: number, details: any[], punchTime?: string, remark?: string) {
+  return request.post(`/attendance-events/pending/${id}/confirm`, { details, punch_time: punchTime || '', remark: remark || '' })
 }
 export function dingTalkPreview(file: File) {
   const fd = new FormData()

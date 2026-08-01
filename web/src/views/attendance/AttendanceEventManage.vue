@@ -3,8 +3,8 @@
     <div class="page-header">
       <h2>考勤事件管理</h2>
       <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="blocks">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
-        <el-radio-button value="blocks">每日方块</el-radio-button>
       </el-radio-group>
     </div>
 
@@ -20,23 +20,19 @@
 
     <template v-else>
       <div class="block-toolbar">
-        <el-form inline>
-          <el-form-item label="人员">
-            <NameSelect v-model="blockPersonId" :fetch-api="fetchPersonOpts" placeholder="全部人员" style="width:180px" />
-          </el-form-item>
-          <el-form-item label="日期范围">
-            <el-date-picker v-model="blockDateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" value-format="YYYY-MM-DD" style="width:260px" />
-          </el-form-item>
-          <el-form-item label="状态">
-            <el-select v-model="blockStatus" placeholder="全部状态" clearable style="width:130px">
-              <el-option label="待确认" value="pending" />
-              <el-option label="已确认" value="confirmed" />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="resetBlocks">查询</el-button>
-          </el-form-item>
-        </el-form>
+        <div class="block-nav">
+          <template v-if="blockView === 'months'">
+            <el-button link size="small" @click="blockView='cards'">← 全部人员</el-button>
+            <span class="nav-title">{{ cardPersonName }} 的最近 12 个月</span>
+          </template>
+          <template v-else-if="blockView === 'days'">
+            <el-button link size="small" @click="blockView='months'; loadMonthStats()">← {{ cardPersonName }} 的月度</el-button>
+            <span class="nav-title">{{ cardPersonName }} / {{ selectedMonth }}</span>
+          </template>
+          <template v-else>
+            <span class="nav-title">人员卡片</span>
+          </template>
+        </div>
         <div class="block-actions-bar">
           <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
           <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
@@ -47,34 +43,36 @@
       </div>
 
       <div v-loading="loadingBlocks" style="min-height:120px">
-        <div v-for="group in blockGroups" :key="group.person_id" class="block-group">
-          <div class="group-header">
-            {{ group.person_name }}
-            <span class="group-count">{{ group.items.length }} 天</span>
+        <template v-if="blockView === 'cards'">
+          <div class="block-grid">
+            <PersonCard v-for="p in personCards" :key="p.id" :person="p" @click="openPersonMonths" />
           </div>
+          <el-empty v-if="personCards.length === 0" description="暂无数据" :image-size="60" />
+        </template>
+
+        <template v-else-if="blockView === 'months'">
+          <MonthCard :months="monthStats" title="月度概览" @select="openMonthDays" />
+          <div v-loading="loadingMonths" style="min-height:80px" />
+        </template>
+
+        <template v-else>
           <div class="block-grid">
             <AttendanceDailyBlock
-              v-for="d in group.items"
+              v-for="d in blockGroups"
               :key="d.id"
               :daily="d"
-              :edited="editedSet.has(d.id)"
               @edit="openEdit"
               @confirm="confirmDaily"
             />
           </div>
-        </div>
-        <el-empty v-if="!loadingBlocks && blocksData.length === 0" description="暂无数据" :image-size="60" />
-        <div v-if="blocksData.length < blocksTotal" class="load-more">
-          <el-button :loading="loadingBlocks" @click="loadBlocksMore">
-            加载更多（{{ blocksData.length }}/{{ blocksTotal }}）
-          </el-button>
-        </div>
+          <el-empty v-if="!loadingBlocks && blockGroups.length === 0" description="该月暂无考勤数据" :image-size="60" />
+        </template>
       </div>
-
-      <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onBlockSaved" />
     </template>
 
-    <el-dialog v-model="dialogVisible" :title="dialogMode==='add'?'新增考勤事件':'编辑考勤事件'" width="500px">
+    <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onBlockSaved" />
+
+    <el-dialog v-model="dialogVisible" title="新增考勤事件" width="500px">
       <el-form :model="form" label-width="80px">
         <el-form-item label="人员" required><NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" /></el-form-item>
         <el-form-item label="日期" required><el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
@@ -190,7 +188,11 @@ import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
-import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import PersonCard from '@/components/cards/PersonCard.vue'
+import MonthCard from '@/components/cards/MonthCard.vue'
+import type { MonthStat } from '@/composables/useMonthStats'
+import { getAttendanceEvents, createAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import { getPersonCards } from '@/api/person'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
@@ -215,17 +217,18 @@ const previewing = ref(false)
 const importing = ref(false)
 const uploadRef = ref()
 
-const viewMode = ref<'list'|'blocks'>('list')
-const blockPersonId = ref<number | null>(null)
-const blockDateRange = ref<[string, string] | null>(null)
-const blockStatus = ref('')
-const blocksData = ref<any[]>([])
-const blocksTotal = ref(0)
-const blocksPage = ref(1)
+const viewMode = ref<'list'|'blocks'>('blocks')
+const blockView = ref<'cards'|'months'|'days'>('cards')
+const personCards = ref<any[]>([])
+const cardPersonId = ref<number | null>(null)
+const cardPersonName = ref('')
+const selectedMonth = ref('')
+const loadingMonths = ref(false)
+const daysData = ref<any[]>([])
 const loadingBlocks = ref(false)
 const editVisible = ref(false)
 const editDailyRow = ref<any>(null)
-const editedSet = ref<Set<number>>(new Set())
+const monthStats = ref<MonthStat[]>([])
 
 const eventTypes = ['出勤','休假','加班','违纪']
 const subTypeMap: Record<string,string[]> = {
@@ -242,21 +245,7 @@ const currentSubTypes = computed(() => subTypeMap[form.event_type] || [])
 const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
 
 const blockGroups = computed(() => {
-  const map = new Map<number, { person_id: number; person_name: string; items: any[] }>()
-  const sorted = [...blocksData.value].sort((a, b) => a.event_date.localeCompare(b.event_date))
-  for (const d of sorted) {
-    if (!map.has(d.person_id)) {
-      map.set(d.person_id, { person_id: d.person_id, person_name: d.person_name || '-', items: [] })
-    }
-    map.get(d.person_id)!.items.push(d)
-  }
-  return Array.from(map.values())
-})
-
-watch(viewMode, (v) => {
-  if (v === 'blocks' && blocksData.value.length === 0) {
-    resetBlocks()
-  }
+  return [...daysData.value].sort((a, b) => a.event_date.localeCompare(b.event_date))
 })
 
 function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = form.event_type==='违纪' ? 0 : 8 }
@@ -302,33 +291,102 @@ async function fetchEvents(p: any) { return (await getAttendanceEvents(p)) as an
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
 
-async function loadBlocks(page: number, append: boolean) {
+async function loadPersonCards() {
   loadingBlocks.value = true
   try {
-    const params: any = { pageNum: page, pageSize: 100 }
-    if (blockPersonId.value) params.person_id = blockPersonId.value
-    if (blockDateRange.value && blockDateRange.value[0]) params.date_start = blockDateRange.value[0]
-    if (blockDateRange.value && blockDateRange.value[1]) params.date_end = blockDateRange.value[1]
-    if (blockStatus.value) params.status = blockStatus.value
-    const d = (await getAttendanceEvents(params)) as any
-    blocksTotal.value = d.total || 0
-    blocksData.value = append ? [...blocksData.value, ...(d.list || [])] : (d.list || [])
+    personCards.value = (await getPersonCards()) as any[] || []
   } catch {
-    if (!append) blocksData.value = []
+    personCards.value = []
   } finally {
     loadingBlocks.value = false
   }
 }
 
-function resetBlocks() {
-  blocksPage.value = 1
-  loadBlocks(1, false)
+async function loadMonthStats() {
+  if (!cardPersonId.value) return
+  loadingMonths.value = true
+  try {
+    const params: any = { pageNum: 1, pageSize: 100, person_id: cardPersonId.value }
+    const now = new Date()
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
+    params.date_start = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`
+    params.date_end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`
+    const stats: MonthStat[] = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      stats.push({ month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, level: 'gray' })
+    }
+    const countMap = new Map<string, number>()
+    const orangeMap = new Map<string, boolean>()
+    let page = 1
+    let total = Infinity
+    while ((page - 1) * 100 < total && page <= 20) {
+      const d = (await getAttendanceEvents({ ...params, pageNum: page, pageSize: 100 })) as any
+      total = d.total || 0
+      for (const row of d.list || []) {
+        const key = String(row.event_date || '').slice(0, 7)
+        if (!key) continue
+        countMap.set(key, (countMap.get(key) || 0) + 1)
+        if (row.status === 'pending') orangeMap.set(key, true)
+      }
+      page++
+    }
+    for (const m of stats) {
+      const c = countMap.get(m.month) || 0
+      if (c > 0) {
+        m.count = c
+        m.level = orangeMap.get(m.month) ? 'orange' : 'green'
+      }
+    }
+    monthStats.value = stats
+  } catch {
+    monthStats.value = []
+  } finally {
+    loadingMonths.value = false
+  }
 }
 
-function loadBlocksMore() {
-  blocksPage.value += 1
-  loadBlocks(blocksPage.value, true)
+async function loadMonthDays() {
+  if (!cardPersonId.value || !selectedMonth.value) return
+  loadingBlocks.value = true
+  try {
+    const params: any = {
+      pageNum: 1,
+      pageSize: 100,
+      person_id: cardPersonId.value,
+      date_start: `${selectedMonth.value}-01`,
+      date_end: `${selectedMonth.value}-31`,
+    }
+    const d = (await getAttendanceEvents(params)) as any
+    daysData.value = d.list || []
+  } catch {
+    daysData.value = []
+  } finally {
+    loadingBlocks.value = false
+  }
 }
+
+function openPersonMonths(person: any) {
+  cardPersonId.value = person.id
+  cardPersonName.value = person.name
+  blockView.value = 'months'
+  loadMonthStats()
+}
+
+function openMonthDays(month: string) {
+  selectedMonth.value = month
+  blockView.value = 'days'
+  loadMonthDays()
+}
+
+watch(viewMode, (v) => {
+  if (v === 'blocks') {
+    blockView.value = 'cards'
+    if (personCards.value.length === 0) {
+      loadPersonCards()
+    }
+  }
+}, { immediate: true })
 
 function openEdit(row: any) {
   editDailyRow.value = row
@@ -336,8 +394,12 @@ function openEdit(row: any) {
 }
 
 function onBlockSaved() {
-  editedSet.value.add(editDailyRow.value?.id)
-  resetBlocks()
+  if (viewMode.value === 'blocks') {
+    loadMonthDays()
+    loadMonthStats()
+  } else {
+    tableRef.value?.refresh()
+  }
 }
 
 async function confirmDaily(row: any) {
@@ -347,10 +409,10 @@ async function confirmDaily(row: any) {
   try {
     const d = (await getAttendanceEvents({ person_id: row.person_id, date_start: row.event_date, date_end: row.event_date, pageNum: 1, pageSize: 100 })) as any
     const latest = (d.list || []).find((x: any) => x.id === row.id) || row
-    await confirmPendingDaily(row.id, latest.details || [])
+    await confirmPendingDaily(row.id, latest.details || [], latest.punch_time || '', latest.remark || '')
     ElMessage.success('确认成功')
-    editedSet.value.delete(row.id)
-    resetBlocks()
+    loadMonthDays()
+    loadMonthStats()
   } catch { /* handled */ }
 }
 
@@ -395,11 +457,8 @@ async function handleExport() {
 }
 
 async function handleEdit(row: any) {
-  dialogMode.value='edit'; editId.value=row.id
-  const d = (await getAttendanceEvents({person_id:row.person_id})) as any
-  const e = (d.list||[]).find((x:any)=>x.id===row.id) || row
-  Object.assign(form, {person_id:e.person_id,event_date:e.event_date,event_type:e.event_type,sub_type:e.sub_type,hours:e.hours||8,punch_time:e.punch_time||'',remark:e.remark||''})
-  dialogVisible.value=true
+  // 编辑统一为整日编辑（与卡片视图一致），确定即事务提交
+  openEdit(row)
 }
 
 async function handleSubmit() {
@@ -410,9 +469,8 @@ async function handleSubmit() {
       d.hours = form.hours
     }
     d.remark = form.remark || ''
-    if (dialogMode.value==='add') await createAttendanceEvent(d)
-    else await updateAttendanceEvent(editId.value, d)
-    ElMessage.success(dialogMode.value==='add'?'创建成功':'更新成功')
+    await createAttendanceEvent(d)
+    ElMessage.success('创建成功')
     dialogVisible.value=false; tableRef.value?.refresh()
   } catch { /* */ } finally { saving.value=false }
 }
@@ -441,6 +499,16 @@ function onRefresh() { tableRef.value?.refresh() }
   border-radius: 4px;
   padding: 12px 16px 0;
   margin-bottom: 12px;
+  .block-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    .nav-title {
+      font-weight: 600;
+      color: #303133;
+    }
+  }
   .block-actions-bar {
     display: flex;
     gap: 8px;
@@ -464,5 +532,10 @@ function onRefresh() { tableRef.value?.refresh() }
 .load-more {
   text-align: center;
   margin-top: 12px;
+}
+.block-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 </style>

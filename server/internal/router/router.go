@@ -69,6 +69,7 @@ func SetupRouter() *gin.Engine {
 	{
 		persons.GET("", middleware.RequirePermission("person.read"), handler.GetPersons)
 		persons.GET("/all", middleware.RequirePermission("person.read"), handler.GetAllPersonsList)
+		persons.GET("/cards", middleware.RequirePermission("person.read"), handler.GetPersonCards)
 		persons.GET("/export", middleware.RequirePermission("person.export"), handler.ExportPersons)
 		persons.GET("/trash", middleware.RequirePermission("person.read"), handler.GetDeletedPersons)
 		persons.GET("/:id", middleware.RequirePermission("person.read"), handler.GetPersonByID)

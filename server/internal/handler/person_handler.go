@@ -291,3 +291,12 @@ func GetAllPersonsList(c *gin.Context) {
 	}
 	utils.Success(c, opts)
 }
+
+func GetPersonCards(c *gin.Context) {
+	cards, err := service.GetPersonCards()
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, cards)
+}

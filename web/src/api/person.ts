@@ -8,6 +8,10 @@ export function getAllPersons() {
   return request.get('/persons/all')
 }
 
+export function getPersonCards() {
+  return request.get('/persons/cards')
+}
+
 export function getPerson(id: number) {
   return request.get(`/persons/${id}`)
 }

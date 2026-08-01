@@ -18,9 +18,35 @@ import (
 	"gorm.io/gorm"
 )
 
-var reClockTime = regexp.MustCompile(`\((\d{1,2}:\d{2}),(\d{1,2}:\d{2})\)`)
+var reClockTime = regexp.MustCompile(`\(([^()]*)\)`)
+
+// rePunchTime 打卡时间括号内容里的时间点/缺卡标记，如 08:30 / 09:15,- / -,18:07
+var rePunchTime = regexp.MustCompile(`\d{1,2}:\d{2}|-`)
 
 var reDingTalkTemp = regexp.MustCompile(`^dingtalk_\d+\.xlsx$`)
+
+// extractPunchTime 提取打卡时间：取首个括号内容；内容全为 "-" 或空则视为无打卡记录
+func extractPunchTime(cell string) string {
+	m := reClockTime.FindStringSubmatch(cell)
+	if len(m) < 2 {
+		return ""
+	}
+	content := strings.TrimSpace(m[1])
+	if content == "" || content == "-" {
+		return ""
+	}
+	has := false
+	for _, p := range rePunchTime.FindAllString(content, -1) {
+		if p != "-" {
+			has = true
+			break
+		}
+	}
+	if !has {
+		return ""
+	}
+	return content
+}
 
 // CleanupStaleDingTalkFiles 清理 uploads 目录中超过 maxAge 的钉钉导入临时文件
 func CleanupStaleDingTalkFiles(uploadDir string, maxAge time.Duration) {
@@ -172,13 +198,14 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	status := "confirmed"
 	var events []model.AttendanceEventDetail
 
-	isRest := strings.HasPrefix(cell, "休息") && !strings.Contains(cell, "加班") && !strings.Contains(cell, "打卡") && !strings.Contains(cell, "外勤")
+	hasLeave := containsAny(cell, []string{"事假", "年假", "病假", "调休"})
+	hasOT := containsAny(cell, []string{"加班"})
+	// 纯休息日：以"休息"开头且不含加班/打卡/外勤/请假，才视为休息日跳过
+	isRest := strings.HasPrefix(cell, "休息") && !hasOT && !strings.Contains(cell, "打卡") && !strings.Contains(cell, "外勤") && !hasLeave
 	if isRest {
 		return 0, 0
 	}
 
-	hasLeave := containsAny(cell, []string{"事假", "年假", "病假", "调休"})
-	hasOT := containsAny(cell, []string{"加班"})
 	isRestOT := strings.Contains(cell, "休息并打卡")
 	isRestWithOT := strings.Contains(cell, "休息") && hasOT && !isRestOT
 	isAbsent := strings.Contains(cell, "旷工")
@@ -187,10 +214,7 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	isEarly := strings.Contains(cell, "早退")
 	isMissingCard := strings.Contains(cell, "缺卡")
 
-	punchTime := ""
-	if m := reClockTime.FindStringSubmatch(cell); len(m) >= 3 {
-		punchTime = m[1] + "," + m[2]
-	}
+	punchTime := extractPunchTime(cell)
 
 	createEvents := func() (int, int) {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
@@ -198,19 +222,17 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 			if err != nil {
 				return err
 			}
-			// 打卡时间独立写入 daily.punch_time（唯一载体），不生成事件明细
-			if punchTime != "" {
-				if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
-					return err
-				}
+			// 幂等导入：已存在该日记录时先清除当日明细再写入，避免重复导入产生重复事件
+			if err := tx.Where("daily_id = ?", daily.ID).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
+				return err
+			}
+			// 打卡时间独立写入 daily.punch_time（唯一载体），不生成事件明细；
+			// 无条件覆盖：重新导入时无打卡时间（(-)）的单元格需清空旧值
+			if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
+				return err
 			}
 			for _, e := range events {
 				if err := CreateDetail(tx, daily.ID, e.EventType, e.SubType, e.Hours, e.Minutes, e.Remark); err != nil {
-					return err
-				}
-			}
-			if punchTime != "" {
-				if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
 					return err
 				}
 			}
@@ -318,23 +340,34 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 }
 
 func extractOTHours(cell string) float64 {
-	re := regexp.MustCompile(`加班[^\d]*(\d+\.?\d*)\s*小时`)
-	m := re.FindStringSubmatch(cell)
-	if len(m) >= 2 {
-		h, _ := strconv.ParseFloat(m[1], 64)
-		return h
+	// 支持 "加班04-17 12:00到04-17 13:30 1.5小时" 等带时间段的表述：关键词后跨任意字符到"数字+小时"
+	re := regexp.MustCompile(`加班.*?(\d+(?:\.\d+)?)\s*小时`)
+	var total float64
+	for _, m := range re.FindAllStringSubmatch(cell, -1) {
+		if len(m) >= 2 {
+			h, _ := strconv.ParseFloat(m[1], 64)
+			total += h
+		}
 	}
-	return 0
+	return total
 }
 
+// parseLeaveFromCell 提取请假类型与总时长：支持带时间段与同类型多段请假（如 病假3.5小时,病假4.5小时）求和
 func parseLeaveFromCell(cell string) (string, float64) {
 	leaveTypes := []string{"事假", "年假", "病假", "调休"}
 	for _, lt := range leaveTypes {
-		re := regexp.MustCompile(lt + `[^\d]*(\d+\.?\d*)\s*小时`)
-		m := re.FindStringSubmatch(cell)
-		if len(m) >= 2 {
-			h, _ := strconv.ParseFloat(m[1], 64)
-			return lt, h
+		re := regexp.MustCompile(lt + `.*?(\d+(?:\.\d+)?)\s*小时`)
+		var total float64
+		found := false
+		for _, m := range re.FindAllStringSubmatch(cell, -1) {
+			if len(m) >= 2 {
+				h, _ := strconv.ParseFloat(m[1], 64)
+				total += h
+				found = true
+			}
+		}
+		if found {
+			return lt, total
 		}
 	}
 	return "", 0

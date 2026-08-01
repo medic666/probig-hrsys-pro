@@ -61,11 +61,11 @@
         </el-table-column>
       </el-table>
       <el-button size="small" style="margin-top:8px" @click="addEvent">+ 添加事件</el-button>
-      <div class="edit-hint">保存后状态保持不变，确认操作请在方块上点击"确认"提交整日。</div>
+      <div class="edit-hint">确定后将一次性提交整日全部事件（事务提交，状态置为已确认）。</div>
     </template>
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="doSave">保存（暂存）</el-button>
+      <el-button type="primary" :loading="saving" @click="doConfirm">确定</el-button>
     </template>
   </el-dialog>
 </template>
@@ -73,7 +73,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { saveAttendanceDetails } from '@/api/attendance'
+import { confirmPendingDaily } from '@/api/attendance'
 
 const props = defineProps<{
   visible: boolean
@@ -121,15 +121,11 @@ function onTypeChange(row: any) {
   row.minutes = 0
 }
 
-async function doSave() {
+async function doConfirm() {
   saving.value = true
   try {
-    await saveAttendanceDetails(props.daily.id, {
-      details: details.value,
-      punch_time: punchTime.value,
-      remark: props.daily.remark || '',
-    })
-    ElMessage.success('已保存')
+    await confirmPendingDaily(props.daily.id, details.value, punchTime.value, props.daily.remark || '')
+    ElMessage.success('已提交确认')
     handleClose()
     emit('saved')
   } catch {

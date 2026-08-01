@@ -151,6 +151,34 @@ func GetAllPersons() ([]model.Person, error) {
 	return list, nil
 }
 
+// PersonCard 人员卡片：基本信息 + 当前职务快照（公司/部门/职位）
+type PersonCard struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	CompanyID   uint   `json:"company_id"`
+	CompanyName string `json:"company_name"`
+	Department  string `json:"department"`
+	Position    string `json:"position"`
+}
+
+// GetPersonCards 人员卡片列表：以当前职务快照（9999-12-31 结束段）关联公司/部门/职位
+func GetPersonCards() ([]PersonCard, error) {
+	var cards []PersonCard
+	err := dao.DB.Table("persons").
+		Select(`persons.id, persons.name,
+			s.company_id, c.name AS company_name, s.department, s.position`).
+		Joins(`LEFT JOIN position_snapshots s ON s.person_id = persons.id
+			AND s.effective_end_date = ? AND s.is_active = 1`, realFarFuture).
+		Joins("LEFT JOIN companies c ON c.id = s.company_id").
+		Where("persons.deleted_at IS NULL").
+		Order("persons.name").
+		Scan(&cards).Error
+	if err != nil {
+		return nil, err
+	}
+	return cards, nil
+}
+
 func AddPersonPhone(ctx context.Context, personID uint, phone, phoneType string) error {
 	if phoneType == "" {
 		phoneType = "mobile"

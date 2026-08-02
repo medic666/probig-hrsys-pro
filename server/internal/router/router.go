@@ -136,10 +136,9 @@ func SetupRouter() *gin.Engine {
 		attendanceEvents.GET("/:id", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEventByID)
 		attendanceEvents.POST("", middleware.RequirePermission("attendance.write"), handler.CreateAttendanceEvent)
 		attendanceEvents.POST("/batch", middleware.RequirePermission("attendance.write"), handler.CreateBatchAttendanceEvents)
-		attendanceEvents.POST("/pending/:id/confirm", middleware.RequirePermission("attendance.write"), handler.ConfirmPendingDaily)
+		attendanceEvents.POST("/:id/confirm", middleware.RequirePermission("attendance.write"), handler.ConfirmAttendanceDaily)
 		attendanceEvents.POST("/import-dingtalk/preview", middleware.RequirePermission("attendance.write"), handler.DingTalkPreview)
 		attendanceEvents.POST("/import-dingtalk/execute", middleware.RequirePermission("attendance.write"), handler.DingTalkExecute)
-		attendanceEvents.PUT("/:id", middleware.RequirePermission("attendance.write"), handler.UpdateAttendanceEvent)
 		attendanceEvents.DELETE("/:id", middleware.RequirePermission("attendance.delete"), handler.DeleteAttendanceEvent)
 		attendanceEvents.POST("/:id/restore", middleware.RequirePermission("attendance.write"), handler.RestoreAttendanceEvent)
 	}

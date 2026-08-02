@@ -65,7 +65,7 @@
     </el-table-column>
   </el-table>
   <el-button size="small" style="margin-top:8px" @click="addEvent">+ 添加事件</el-button>
-  <div class="hint">编辑=查看：打开即回显整日全部事件原值；保存即事务提交。{{ isConfirm ? '待确认记录保存后将置为已确认。' : '' }}</div>
+  <div class="hint">编辑=查看：打开即回显整日全部事件原值；保存即确认提交（状态置为已确认）。</div>
 
   <div class="form-footer">
     <el-button @click="$emit('cancel')">取消</el-button>
@@ -77,16 +77,15 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
-import { getAttendanceEvent, createAttendanceEvent, updateAttendanceEvent, confirmPendingDaily } from '@/api/attendance'
+import { getAttendanceEvent, createAttendanceEvent, confirmAttendanceDaily } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
-// 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）；
-// confirm=true 时保存走"确认"语义（待确认 → 已确认）
-const props = defineProps<{ id?: number | null; confirm?: boolean }>()
+// 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）。
+// 统一语义：保存即确认（事务提交整日并置为已确认）。
+const props = defineProps<{ id?: number | null }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
-const isConfirm = computed(() => props.confirm === true)
 const saving = ref(false)
 
 const eventTypes = ['出勤', '休假', '加班', '违纪']
@@ -134,10 +133,9 @@ async function doSave() {
   if (!form.event_date) { ElMessage.warning('请选择日期'); return }
   saving.value = true
   try {
-    if (isConfirm.value) {
-      await confirmPendingDaily(props.id!, details.value, form.punch_time, form.remark)
-    } else if (isEdit.value) {
-      await updateAttendanceEvent(props.id!, { punch_time: form.punch_time, remark: form.remark, details: details.value })
+    if (isEdit.value) {
+      // 保存即确认：事务提交整日并置为已确认（与卡片"确认"同一入口）
+      await confirmAttendanceDaily(props.id!, details.value, form.punch_time, form.remark)
     } else {
       await createAttendanceEvent({
         person_id: form.person_id,
@@ -147,7 +145,7 @@ async function doSave() {
         details: details.value,
       })
     }
-    ElMessage.success('保存成功')
+    ElMessage.success(isEdit.value ? '确认成功' : '创建成功')
     emit('saved')
   } catch {
     /* handled */

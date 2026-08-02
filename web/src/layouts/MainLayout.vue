@@ -180,6 +180,13 @@ function handleCommand(command: string) {
     border-right: none;
     max-height: calc(100vh - 56px);
     overflow-y: auto;
+    // 隐藏滚动条但保留滚轮/触屏滚动
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 }
 

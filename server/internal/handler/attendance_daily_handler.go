@@ -88,12 +88,6 @@ func CreateAttendanceEvent(c *gin.Context) {
 	utils.SuccessWithMsg(c, "创建成功", nil)
 }
 
-type updateDailyReq struct {
-	PunchTime string                         `json:"punch_time"`
-	Remark    string                         `json:"remark"`
-	Details   []model.AttendanceEventDetail  `json:"details"`
-}
-
 // GetAttendanceEventByID 考勤日记录完整详情（页面化"编辑=查看"取数）
 func GetAttendanceEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -114,40 +108,7 @@ func GetAttendanceEventByID(c *gin.Context) {
 	})
 }
 
-func UpdateAttendanceEvent(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req updateDailyReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	daily, err := service.GetAttendanceDailyByID(uint(id))
-	if err != nil {
-		utils.Error(c, "记录不存在")
-		return
-	}
-	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
-		oldDetails, err := service.GetDetailsByDailyID(tx, uint(id))
-		if err != nil {
-			return err
-		}
-		// 统一 upsert 语义（与确认路径同基建）：未变化明细零操作零审计
-		if err := service.SaveDailyDetailsKeepStatus(tx, uint(id), req.Details); err != nil {
-			return err
-		}
-		if err := tx.Model(&daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
-			return err
-		}
-		involved := append(oldDetails, req.Details...)
-		return service.RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, involved)
-	})
-	if err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
+// DeleteAttendanceEvent 删除考勤日记录（软删除 + 投影重建）
 func DeleteAttendanceEvent(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err := service.DeleteAttendanceDaily(c.Request.Context(), uint(id)); err != nil {
@@ -206,7 +167,7 @@ type confirmDailyReq struct {
 	Remark    string                        `json:"remark"`
 }
 
-func ConfirmPendingDaily(c *gin.Context) {
+func ConfirmAttendanceDaily(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req confirmDailyReq
 	if err := c.ShouldBindJSON(&req); err != nil {

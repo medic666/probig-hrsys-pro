@@ -26,9 +26,9 @@ async function fetchPending(p:any){
   return (await getPendingDailies(p)) as any
 }
 
-// 编辑确认 = 进入该日考勤页（confirm 模式：保存即置为已确认）
+// 编辑确认 = 进入该日考勤页（保存即确认，置为已确认）
 function editConfirm(row: any) {
-  router.push(`/attendance-events/${row.id}?confirm=1`)
+  router.push(`/attendance-events/${row.id}`)
 }
 </script>
 <style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

@@ -89,18 +89,6 @@ func UpdateDailyDetails(tx *gorm.DB, dailyID uint, details []model.AttendanceEve
 	return tx.Model(&model.AttendanceDaily{}).Where("id = ?", dailyID).Update("status", status).Error
 }
 
-// SaveDailyDetailsKeepStatus 暂存保存当日事件明细：更新 details 但保持原状态不变（供编辑后暂存）
-func SaveDailyDetailsKeepStatus(tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail) error {
-	return SyncChildRecords(tx, "daily_id", dailyID, details,
-		func(d model.AttendanceEventDetail) uint { return d.ID },
-		func(a, b model.AttendanceEventDetail) bool {
-			return a.EventType == b.EventType && a.SubType == b.SubType &&
-				a.Hours == b.Hours && a.Minutes == b.Minutes && a.Remark == b.Remark
-		},
-		func(d *model.AttendanceEventDetail) { d.DailyID = dailyID },
-	)
-}
-
 // AttendanceDailyListQuery 考勤日记录列表查询（列表与导出共用）
 type AttendanceDailyListQuery struct {
 	PageNum   int
@@ -213,27 +201,6 @@ func ConfirmDaily(ctx context.Context, tx *gorm.DB, dailyID uint, details []mode
 		return err
 	}
 	writeConfirmAudit(ctx, tx, daily, oldDetails, details)
-	return nil
-}
-
-func ConfirmDailyBatch(ctx context.Context, tx *gorm.DB, dailyIDs []uint) error {
-	for _, id := range dailyIDs {
-		var daily model.AttendanceDaily
-		if err := tx.First(&daily, id).Error; err != nil {
-			return err
-		}
-		details, err := GetDetailsByDailyID(tx, id)
-		if err != nil {
-			return err
-		}
-		if err := tx.Model(&daily).Update("status", "confirmed").Error; err != nil {
-			return err
-		}
-		if err := RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, details); err != nil {
-			return err
-		}
-		writeConfirmAudit(ctx, tx, daily, details, details)
-	}
 	return nil
 }
 

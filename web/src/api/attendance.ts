@@ -12,9 +12,6 @@ export function exportAttendanceEvents(params: any) {
 export function createAttendanceEvent(data: any) {
   return request.post('/attendance-events', data)
 }
-export function updateAttendanceEvent(id: number, data: any) {
-  return request.put(`/attendance-events/${id}`, data)
-}
 export function deleteAttendanceEvent(id: number) {
   return request.delete(`/attendance-events/${id}`)
 }
@@ -48,8 +45,9 @@ export function calculateMonthly(data: any) {
 export function getPendingDailies(params: any) {
   return request.get('/attendance-events/pending', { params })
 }
-export function confirmPendingDaily(id: number, details: any[], punchTime?: string, remark?: string) {
-  return request.post(`/attendance-events/pending/${id}/confirm`, { details, punch_time: punchTime || '', remark: remark || '' })
+// confirmAttendanceDaily 确认整日考勤（统一确认入口：卡片确认/编辑保存/待确认复核共用）
+export function confirmAttendanceDaily(id: number, details: any[], punchTime?: string, remark?: string) {
+  return request.post(`/attendance-events/${id}/confirm`, { details, punch_time: punchTime || '', remark: remark || '' })
 }
 export function dingTalkPreview(file: File) {
   const fd = new FormData()

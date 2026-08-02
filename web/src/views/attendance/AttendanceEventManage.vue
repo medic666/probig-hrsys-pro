@@ -143,7 +143,7 @@ import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import { getAttendanceEvents, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import { getAttendanceEvents, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmAttendanceDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
@@ -230,11 +230,16 @@ function openEdit(row: any) {
 }
 
 
+// 卡片"确认"：提示后直接确认生效（与编辑页保存同一确认入口，不再跳页二次操作）
 async function confirmDaily(row: any) {
   try {
-    await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 的整日事件？提交后将一次性完成全部改动。`, '确认整日', { type: 'warning' })
+    await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 的整日事件？提交后状态将置为已确认。`, '确认整日', { type: 'warning' })
   } catch { return }
-  router.push(`/attendance-events/${row.id}?confirm=1`)
+  try {
+    await confirmAttendanceDaily(row.id, row.details || [], row.punch_time || '', row.remark || '')
+    ElMessage.success('确认成功')
+    timePanelRef.value?.reload()
+  } catch { /* handled */ }
 }
 
 onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [] })

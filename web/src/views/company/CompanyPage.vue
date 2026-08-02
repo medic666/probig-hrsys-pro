@@ -38,16 +38,16 @@ const company = ref<any>(null)
 const editMode = ref(false)
 
 onMounted(async () => {
-  if (companyId) {
+  if (companyId.value != null) {
     try {
-      company.value = (await getCompany(companyId)) as any
+      company.value = (await getCompany(companyId.value)) as any
     } catch { company.value = null }
   }
 })
 
 function onEdited() {
   editMode.value = false
-  getCompany(companyId!).then((d: any) => { company.value = d }).catch(() => {})
+  getCompany(companyId.value).then((d: any) => { company.value = d }).catch(() => {})
 }
 
 </script>

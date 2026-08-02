@@ -137,19 +137,19 @@ const positionEvents = ref<any[]>([])
 
 async function loadPerson() {
   try {
-    person.value = (await getPerson(personId!)) as any
+    person.value = (await getPerson(personId.value)) as any
   } catch { person.value = null }
 }
 
 async function loadPosition() {
   positionLoading.value = true
   try {
-    currentPosition.value = (await getCurrentPosition(personId!)) as any
+    currentPosition.value = (await getCurrentPosition(personId.value)) as any
   } catch {
     currentPosition.value = null
   }
   try {
-    const d = (await getPositionEvents({ person_id: personId, pageNum: 1, pageSize: 100 })) as any
+    const d = (await getPositionEvents({ person_id: personId.value, pageNum: 1, pageSize: 100 })) as any
     positionEvents.value = d.list || []
   } catch {
     positionEvents.value = []
@@ -158,7 +158,7 @@ async function loadPosition() {
 }
 
 onMounted(() => {
-  if (personId) {
+  if (personId.value != null) {
     loadPerson()
     loadPosition()
   }

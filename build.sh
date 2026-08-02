@@ -4,7 +4,6 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 SERVER_DIST="$PROJECT_ROOT/server/dist"
 DIST_DIR="$PROJECT_ROOT/dist"
-UPX="${UPX:-$(command -v upx || echo "$HOME/bin/upx")}"
 
 echo "=== Probig 单二进制构建 ==="
 
@@ -30,14 +29,16 @@ go build -trimpath -ldflags "-s -w" -o dist/probig-server ./cmd/server/
 echo "  Go 编译完成 -> server/dist/probig-server"
 
 echo ""
-echo "[3/3] 构建生产交付文件（UPX 压缩）..."
+echo "[3/3] 构建生产交付文件..."
 mkdir -p "$DIST_DIR"
 cp "$SERVER_DIST/probig-server" "$DIST_DIR/probig-server"
-if [ -x "$UPX" ]; then
-  "$UPX" --best --lzma "$DIST_DIR/probig-server"
+
+# UPX 可选压缩：检测到即启用，未安装则优雅跳过（运行时不依赖 upx）
+if command -v upx >/dev/null 2>&1; then
+  upx --best --lzma "$DIST_DIR/probig-server"
   echo "  UPX 压缩完成"
 else
-  echo "  警告: 未找到 upx（可设置 UPX 环境变量指定路径），跳过压缩"
+  echo "  提示: 未检测到 upx，跳过压缩（安装后自动启用: sudo apt install upx-ucl / brew install upx）"
 fi
 
 echo ""

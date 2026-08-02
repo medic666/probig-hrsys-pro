@@ -25,3 +25,6 @@ dist/probig-server
 
 # 示例文件
 examples/
+
+# 本地opencode配置
+tui.json

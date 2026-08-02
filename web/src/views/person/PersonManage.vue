@@ -9,14 +9,16 @@
       </template>
     </PageHeader>
 
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAdd">新增人员</el-button>
-      <el-button size="small" @click="handleExport">导出</el-button>
-      <el-button size="small" @click="trashVisible = true">回收站</el-button>
+      <template #right>
+        <el-button size="small" @click="handleExport">导出</el-button>
+        <el-button size="small" @click="trashVisible = true">回收站</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchPersons" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchPersons" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
           <el-button type="success" link size="small" @click="openProfileEdit(row)">编辑</el-button>
@@ -28,12 +30,14 @@
     <template v-else>
       <CardGrid ref="cardGridRef" :fetch-fn="fetchCards">
         <template #default="{ item }">
-          <PersonCard :person="item" @click="handleDetail" />
+          <PersonCard :person="item" @click="handleDetail">
+            <template #badge>
+              <PersonStatusBadge :person="item" />
+            </template>
+          </PersonCard>
         </template>
       </CardGrid>
     </template>
-
-    <ProFormDialog v-model:visible="addVisible" title="新增人员" mode="add" :form-fields="personFormFields" :rules="formRules" :submit-api="submitAdd" @success="onFormSuccess" />
 
     <el-dialog v-model="detailVisible" title="人员详情" width="760px" @close="detailRow = null">
       <template v-if="detailRow">
@@ -147,7 +151,6 @@
     </el-dialog>
 
     <PersonProfileEditDialog v-model:visible="profileVisible" :person="profileEditRow" @saved="onProfileSaved" />
-    <PositionEventEditDialog v-model:visible="posEditVisible" :event="posEditRow" @saved="onPosEventSaved" />
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restorePerson" :columns="trashColumns" @restored="onTrashRestored" />
 
@@ -160,36 +163,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import PersonCard from '@/components/cards/PersonCard.vue'
+import PersonStatusBadge from '@/components/cards/PersonStatusBadge.vue'
 import CardGrid from '@/components/cards/CardGrid.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import LeaveBalanceDetail from '@/components/cards/LeaveBalanceDetail.vue'
 import PersonProfileEditDialog from '@/components/person/PersonProfileEditDialog.vue'
-import PositionEventEditDialog from '@/components/position/PositionEventEditDialog.vue'
-import { getPersons, getPerson, createPerson, deletePerson, restorePerson, getDeletedPersons, getPersonCards, exportPersons } from '@/api/person'
+import { getPersons, getPerson, deletePerson, restorePerson, getDeletedPersons, getPersonCards, exportPersons } from '@/api/person'
+import { getAllCompanies } from '@/api/company'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
 import { getPositionEvents, deletePositionEvent } from '@/api/position-event'
 import { filterPersons, type PersonScope } from '@/utils/personScope'
+import { usePageView } from '@/composables/usePageView'
 import { downloadBlob } from '@/utils/download'
 
+const router = useRouter()
 const tableRef = ref()
-const viewMode = ref<'cards' | 'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const cardGridRef = ref()
 const scope = ref<PersonScope>('active')
-const addVisible = ref(false)
 const profileVisible = ref(false)
 const profileEditRow = ref<any>(null)
-const posEditVisible = ref(false)
-const posEditRow = ref<any>(null)
 const detailVisible = ref(false)
 const detailRow = ref<any>(null)
 const activeTab = ref('info')
@@ -203,45 +206,37 @@ const posPageSize = ref(10)
 const posTotal = ref(0)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
+const companyOptions = ref<{ label: string; value: number }[]>([])
 
 const genderMap: Record<number, string> = { 1: '男', 2: '女' }
 const maritalMap: Record<number, string> = { 1: '已婚', 2: '未婚' }
 
 const columns = [
-  { prop: 'id', label: 'ID', width: '60' },
+  { prop: 'is_active', label: '在职状态', width: '90', formatter: (r: any) => (r.is_active === null ? '未入职' : r.is_active ? '在职' : '已离职') },
   { prop: 'name', label: '姓名', width: '100' },
-  { prop: 'id_card', label: '身份证号', width: '180' },
-  { prop: 'gender', label: '性别', width: '60', formatter: (r: any) => genderMap[r.gender] || '-' },
-  { prop: 'phones', label: '联系电话', formatter: (r: any) => r.phones?.[0]?.phone || '-' },
-  { prop: 'created_at', label: '创建时间', width: '160', formatter: (r: any) => new Date(r.created_at).toLocaleString('zh-CN') },
+  { prop: 'company_name', label: '公司', width: '120', formatter: (r: any) => r.company_name || '-' },
+  { prop: 'department', label: '部门', width: '110', formatter: (r: any) => r.department || '-' },
+  { prop: 'position', label: '职位', width: '110', formatter: (r: any) => r.position || '-' },
+  { prop: 'entry_date', label: '入职时间', width: '110', formatter: (r: any) => r.entry_date || '-' },
 ]
 
-const searchFields = [
-  { prop:'person_id', label:'姓名', type:'person-select' as const, fetchApi: fetchPersonOptions },
-  { prop:'id_card', label:'身份证号', type:'input' as const, placeholder:'模糊搜索' },
-]
+const searchFields = computed(() => [
+  { prop: 'company_id', label: '公司', type: 'select' as const, options: companyOptions.value },
+  { prop: 'department', label: '部门', type: 'input' as const, placeholder: '模糊搜索' },
+  {
+    prop: 'status', label: '在职状态', type: 'select' as const,
+    options: [
+      { label: '在职', value: 'active' },
+      { label: '已离职', value: 'left' },
+      { label: '未入职', value: 'not_entered' },
+    ],
+  },
+])
 
-async function fetchPersonOptions(k?: string) {
-  const list = (await getPersonCards()) as { id: number; name: string }[]
-  return k ? list.filter(p => p.name.includes(k)) : list
-}
-
-const personFormFields = [
-  { prop: 'name', label: '姓名', type: 'input' as const, placeholder: '请输入', span: 12 },
-  { prop: 'id_card', label: '身份证号', type: 'input' as const, placeholder: '请输入', span: 12 },
-  { prop: 'gender', label: '性别', type: 'select' as const, options: [{ label: '男', value: 1 }, { label: '女', value: 2 }], span: 12 },
-  { prop: 'birthday', label: '生日', type: 'date' as const, span: 12 },
-  { prop: 'nation', label: '民族', type: 'input' as const, span: 12 },
-  { prop: 'native_place', label: '籍贯', type: 'input' as const, span: 12 },
-  { prop: 'address', label: '住址', type: 'input' as const, span: 24 },
-  { prop: 'political_status', label: '政治面貌', type: 'input' as const, span: 12 },
-  { prop: 'marital_status', label: '婚姻状态', type: 'select' as const, options: [{ label: '已婚', value: 1 }, { label: '未婚', value: 2 }], span: 12 },
-  { prop: 'alias', label: '别名', type: 'input' as const, span: 12 },
-]
-
-const formRules = {
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-}
+onMounted(async () => {
+  const companies = (await getAllCompanies()) as { id: number; name: string }[]
+  companyOptions.value = companies.map((c) => ({ label: c.name, value: c.id }))
+})
 
 const trashColumns = [
   { prop: 'id', label: 'ID', width: '60' },
@@ -257,20 +252,12 @@ async function fetchCards() {
 }
 
 function handleAdd() {
-  addVisible.value = true
-}
-
-async function submitAdd(data: any) {
-  return createPerson(data)
+  openProfileEdit(null)
 }
 
 async function handleExport() {
-  // 列表视图：按当前筛选导出；卡片视图：全量（不传筛选）
-  const params: any = {}
-  if (viewMode.value === 'list') {
-    Object.assign(params, tableRef.value?.getSearchParams() || {})
-  }
-  const data = await exportPersons(params)
+  // 导出严格关联列表视图的当前筛选（导出按钮仅列表视图展示）
+  const data = await exportPersons(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 
@@ -309,8 +296,8 @@ function onProfileSaved() {
 }
 
 function editPositionEvent(row: any) {
-  posEditRow.value = row
-  posEditVisible.value = true
+  // 职务事件新增=编辑=查看统一走业务逻辑页
+  router.push(`/position-events/${row.id}`)
 }
 
 async function removePositionEvent(row: any) {
@@ -325,17 +312,11 @@ async function removePositionEvent(row: any) {
   } catch { /* handled */ }
 }
 
-function onPosEventSaved() {
-  loadPositionEvents()
-  handleDetail({ id: detailRow.value.id })
-}
-
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' }) } catch { return }
   try { await deletePerson(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh(); cardGridRef.value?.reload() } catch { /* handled */ }
 }
 
-function onFormSuccess() { tableRef.value?.refresh(); cardGridRef.value?.reload() }
 function onTrashRestored() { tableRef.value?.refresh(); cardGridRef.value?.reload() }
 </script>
 

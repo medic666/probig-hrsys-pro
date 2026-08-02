@@ -1,6 +1,6 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>待确认考勤事件</h2></div>
-    <ProTable :columns="columns" :fetch-api="fetchPending" :search-fields="searchFields" :auto-load="true">
+    <ProTable :url-driven="true" :columns="columns" :fetch-api="fetchPending" :search-fields="searchFields" :auto-load="true">
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="editRow=row;details=JSON.parse(JSON.stringify(row.details||[]));dialogVisible=true">编辑确认</el-button>
       </template>

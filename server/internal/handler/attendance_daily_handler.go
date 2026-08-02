@@ -19,16 +19,28 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetAttendanceEvents(c *gin.Context) {
+// attendanceDailyListQuery 考勤日记录列表筛选解析（列表/待确认/导出共用）
+func attendanceDailyListQuery(c *gin.Context) service.AttendanceDailyListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetAttendanceDailyList(uint(personID),
-		c.Query("date_start"), c.Query("date_end"), c.Query("status"), pageReq.PageNum, pageReq.PageSize)
+	return service.AttendanceDailyListQuery{
+		PageNum:   pageReq.PageNum,
+		PageSize:  pageReq.PageSize,
+		PersonID:  uint(personID),
+		DateStart: c.Query("date_start"),
+		DateEnd:   c.Query("date_end"),
+		Status:    c.Query("status"),
+	}
+}
+
+func GetAttendanceEvents(c *gin.Context) {
+	q := attendanceDailyListQuery(c)
+	list, total, err := service.GetAttendanceDailyList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 type createDailyReq struct {
@@ -194,14 +206,13 @@ func CreateBatchAttendanceEvents(c *gin.Context) {
 }
 
 func GetPendingDailyList(c *gin.Context) {
-	pageReq := utils.BindPage(c)
-	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetPendingDailyList(pageReq.PageNum, pageReq.PageSize, uint(personID))
+	q := attendanceDailyListQuery(c)
+	list, total, err := service.GetPendingDailyList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 type confirmDailyReq struct {
@@ -300,8 +311,26 @@ func isDingTalkTempPath(p string) bool {
 	return strings.HasPrefix(name, "dingtalk_") && strings.HasSuffix(name, ".xlsx")
 }
 
+// attendanceDailyExportFilters 考勤事件导出文件名筛选摘要
+func attendanceDailyExportFilters(q service.AttendanceDailyListQuery) []string {
+	var parts []string
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	if q.Status != "" {
+		parts = append(parts, "状态="+map[string]string{"pending": "待确认", "confirmed": "已确认"}[q.Status])
+	}
+	if p := dateRangePiece("日期", q.DateStart, q.DateEnd); p != "" {
+		parts = append(parts, p)
+	}
+	return parts
+}
+
 func ExportAttendanceEvents(c *gin.Context) {
-	list, _, _ := service.GetAttendanceDailyList(0, "", "", "", 1, 10000)
+	// 导出严格关联列表视图的当前筛选
+	q := attendanceDailyListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, _ := service.GetAttendanceDailyList(q)
 
 	var rows [][]interface{}
 	for _, e := range list {
@@ -315,25 +344,77 @@ func ExportAttendanceEvents(c *gin.Context) {
 			e["person_name"], e["event_date"], e["status"], e["punch_time"], summary,
 		})
 	}
-	writeExcel(c, "考勤事件", "attendance_events",
-		[]string{"人员", "日期", "状态", "打卡时间", "事件摘要"}, rows)
+	writeExcel(c, "考勤事件",
+		[]string{"人员", "日期", "状态", "打卡时间", "事件摘要"}, rows,
+		attendanceDailyExportFilters(q)...)
+}
+
+// dailyProjectionListQuery 日记工时投影列表筛选解析（列表与导出共用）
+func dailyProjectionListQuery(c *gin.Context) service.DailyProjectionListQuery {
+	pageReq := utils.BindPage(c)
+	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	return service.DailyProjectionListQuery{
+		PageNum:   pageReq.PageNum,
+		PageSize:  pageReq.PageSize,
+		PersonID:  uint(personID),
+		DateStart: c.Query("date_start"),
+		DateEnd:   c.Query("date_end"),
+	}
 }
 
 func GetDailyProjections(c *gin.Context) {
-	pageReq := utils.BindPage(c)
-	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetDailyProjections(uint(personID), c.Query("date_start"), c.Query("date_end"), pageReq.PageNum, pageReq.PageSize)
+	q := dailyProjectionListQuery(c)
+	list, total, err := service.GetDailyProjections(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+}
+
+// dailyProjectionExportFilters 日记工时导出文件名筛选摘要
+func dailyProjectionExportFilters(q service.DailyProjectionListQuery) []string {
+	var parts []string
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	if p := dateRangePiece("日期", q.DateStart, q.DateEnd); p != "" {
+		parts = append(parts, p)
+	}
+	return parts
+}
+
+// ExportDailyProjections 日记工时导出（严格关联列表视图的当前筛选）
+func ExportDailyProjections(c *gin.Context) {
+	q := dailyProjectionListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, err := service.GetDailyProjections(q)
+	if err != nil {
+		utils.Error(c, "导出失败")
+		return
+	}
+
+	var rows [][]interface{}
+	for _, p := range list {
+		rows = append(rows, []interface{}{
+			p["person_name"], p["work_date"], p["punch_time"], p["work_hours"],
+			p["overtime_workday_hours"], p["overtime_holiday_hours"],
+			p["violation_count"], exportBool(p["has_personal_leave"].(bool)),
+			map[string]string{"pending": "待确认", "confirmed": "已确认"}[p["status"].(string)],
+			p["remark"],
+		})
+	}
+	writeExcel(c, "日记工时",
+		[]string{"人员", "日期", "打卡时间", "记出勤工时", "工作日加班", "节假日加班", "违纪次数", "有事假", "状态", "备注"}, rows,
+		dailyProjectionExportFilters(q)...)
 }
 
 func GetEventsByPersonDate(c *gin.Context) {
 	personID, _ := strconv.ParseUint(c.Param("personId"), 10, 64)
 	date := c.Param("date")
-	list, _, _ := service.GetAttendanceDailyList(uint(personID), date, date, "", 1, 100)
+	list, _, _ := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
+		PageNum: 1, PageSize: 100, PersonID: uint(personID), DateStart: date, DateEnd: date,
+	})
 	if len(list) > 0 && list[0]["details"] != nil {
 		utils.Success(c, list[0]["details"])
 	} else {

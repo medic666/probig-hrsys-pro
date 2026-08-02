@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"probig/server/internal/model"
@@ -10,14 +11,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetCompanies(c *gin.Context) {
+// companyListQuery 公司列表筛选解析（列表与导出共用）
+func companyListQuery(c *gin.Context) service.CompanyListQuery {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetCompanyList(pageReq.PageNum, pageReq.PageSize, c.Query("name"), c.Query("credit_code"), c.Query("id"))
+	return service.CompanyListQuery{
+		PageNum:    pageReq.PageNum,
+		PageSize:   pageReq.PageSize,
+		Name:       c.Query("name"),
+		CreditCode: c.Query("credit_code"),
+		ID:         c.Query("id"),
+	}
+}
+
+func GetCompanies(c *gin.Context) {
+	q := companyListQuery(c)
+	list, total, err := service.GetCompanyList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 func GetCompanyByID(c *gin.Context) {
@@ -85,8 +98,30 @@ func GetDeletedCompanies(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
+// companyExportFilters 公司导出文件名筛选摘要
+func companyExportFilters(q service.CompanyListQuery) []string {
+	var parts []string
+	if q.ID != "" {
+		var id uint
+		fmt.Sscanf(q.ID, "%d", &id)
+		if id > 0 {
+			parts = append(parts, "公司="+service.CompanyNameMap([]uint{id})[id])
+		}
+	}
+	if q.Name != "" {
+		parts = append(parts, "名称="+q.Name)
+	}
+	if q.CreditCode != "" {
+		parts = append(parts, "信用代码="+q.CreditCode)
+	}
+	return parts
+}
+
 func ExportCompanies(c *gin.Context) {
-	list, _, err := service.GetCompanyList(1, 10000, c.Query("name"), c.Query("credit_code"), "")
+	// 导出严格关联列表视图的当前筛选
+	q := companyListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, err := service.GetCompanyList(q)
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return
@@ -98,8 +133,9 @@ func ExportCompanies(c *gin.Context) {
 			co.Name, co.CreditCode, co.Address, co.ContactPhone, co.BankName, co.BankAccount,
 		})
 	}
-	writeExcel(c, "公司列表", "companies",
-		[]string{"公司名称", "统一社会信用代码", "地址", "联系电话", "开户行", "银行账号"}, rows)
+	writeExcel(c, "公司列表",
+		[]string{"公司名称", "统一社会信用代码", "地址", "联系电话", "开户行", "银行账号"}, rows,
+		companyExportFilters(q)...)
 }
 
 func GetAllCompaniesList(c *gin.Context) {

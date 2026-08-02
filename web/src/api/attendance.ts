@@ -31,6 +31,9 @@ export function createBatchAttendanceEvents(data: any) {
 export function getDailyProjections(params: any) {
   return request.get('/attendance-daily', { params })
 }
+export function exportDailyProjections(params: any) {
+  return request.get('/attendance-daily/export', { params, responseType: 'blob' })
+}
 export function getEventsByDate(personId: number, date: string) {
   return request.get(`/attendance-daily/${personId}/${date}/events`)
 }

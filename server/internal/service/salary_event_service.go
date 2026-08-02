@@ -59,22 +59,31 @@ func GetSalaryEvent(id uint) (*model.SalaryEvent, error) {
 	return &event, nil
 }
 
-func GetSalaryEventList(pageNum, pageSize int, personID uint, belongMonth, eventType string) ([]map[string]interface{}, int64, error) {
+// SalaryEventListQuery 工资事件列表查询（列表与导出共用）
+type SalaryEventListQuery struct {
+	PageNum     int
+	PageSize    int
+	PersonID    uint
+	BelongMonth string
+	EventType   string
+}
+
+func GetSalaryEventList(q SalaryEventListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.SalaryEvent{})
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
-	if belongMonth != "" {
-		tx = tx.Where("belong_month = ?", belongMonth)
+	if q.BelongMonth != "" {
+		tx = tx.Where("belong_month = ?", q.BelongMonth)
 	}
-	if eventType != "" {
-		tx = tx.Where("event_type = ?", eventType)
+	if q.EventType != "" {
+		tx = tx.Where("event_type = ?", q.EventType)
 	}
 	var total int64
 	tx.Count(&total)
 	var events []model.SalaryEvent
-	offset := (pageNum - 1) * pageSize
-	tx.Offset(offset).Limit(pageSize).Order("belong_month DESC, seq DESC").Find(&events)
+	offset := (q.PageNum - 1) * q.PageSize
+	tx.Offset(offset).Limit(q.PageSize).Order("belong_month DESC, seq DESC").Find(&events)
 	ids := make([]uint, len(events))
 	for i, e := range events {
 		ids[i] = e.PersonID

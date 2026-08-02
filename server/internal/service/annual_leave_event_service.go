@@ -90,27 +90,37 @@ func GetAnnualLeaveEvent(id uint) (*model.AnnualLeaveAccountEvent, error) {
 	return &event, nil
 }
 
-func GetAnnualLeaveEventList(pageNum, pageSize int, personID uint, dateStart, dateEnd, eventType string) ([]map[string]interface{}, int64, error) {
+// AnnualLeaveListQuery 年假事件列表查询（列表与导出共用）
+type AnnualLeaveListQuery struct {
+	PageNum   int
+	PageSize  int
+	PersonID  uint
+	DateStart string
+	DateEnd   string
+	EventType string
+}
+
+func GetAnnualLeaveEventList(q AnnualLeaveListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AnnualLeaveAccountEvent{})
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
-	if dateStart != "" {
-		tx = tx.Where("effective_date >= ?", dateStart)
+	if q.DateStart != "" {
+		tx = tx.Where("effective_date >= ?", q.DateStart)
 	}
-	if dateEnd != "" {
-		tx = tx.Where("effective_date <= ?", dateEnd)
+	if q.DateEnd != "" {
+		tx = tx.Where("effective_date <= ?", q.DateEnd)
 	}
-	if eventType != "" {
-		tx = tx.Where("event_type = ?", eventType)
+	if q.EventType != "" {
+		tx = tx.Where("event_type = ?", q.EventType)
 	}
 
 	var events []model.AnnualLeaveAccountEvent
 	tx.Order("effective_date DESC, seq DESC").Find(&events)
 
 	var attendanceLeaves []map[string]interface{}
-	if eventType == "" || eventType == "休假" {
-		attendanceLeaves = getAnnualLeaveAttendanceEvents(personID, dateStart, dateEnd)
+	if q.EventType == "" || q.EventType == "休假" {
+		attendanceLeaves = getAnnualLeaveAttendanceEvents(q.PersonID, q.DateStart, q.DateEnd)
 	}
 
 	ids := make([]uint, 0, len(events)+len(attendanceLeaves))
@@ -142,8 +152,8 @@ func GetAnnualLeaveEventList(pageNum, pageSize int, personID uint, dateStart, da
 	})
 
 	total := int64(len(items))
-	start := (pageNum - 1) * pageSize
-	end := start + pageSize
+	start := (q.PageNum - 1) * q.PageSize
+	end := start + q.PageSize
 	if start > len(items) {
 		start = len(items)
 	}

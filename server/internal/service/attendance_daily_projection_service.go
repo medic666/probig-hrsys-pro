@@ -81,22 +81,31 @@ func getSickLeaveRatio() float64 {
 	return f
 }
 
-func GetDailyProjections(personID uint, dateStart, dateEnd string, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
+// DailyProjectionListQuery 日记工时投影列表查询（列表与导出共用）
+type DailyProjectionListQuery struct {
+	PageNum   int
+	PageSize  int
+	PersonID  uint
+	DateStart string
+	DateEnd   string
+}
+
+func GetDailyProjections(q DailyProjectionListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceDailyProjection{})
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
-	if dateStart != "" {
-		tx = tx.Where("work_date >= ?", dateStart)
+	if q.DateStart != "" {
+		tx = tx.Where("work_date >= ?", q.DateStart)
 	}
-	if dateEnd != "" {
-		tx = tx.Where("work_date <= ?", dateEnd)
+	if q.DateEnd != "" {
+		tx = tx.Where("work_date <= ?", q.DateEnd)
 	}
 	var total int64
 	tx.Count(&total)
 	var list []model.AttendanceDailyProjection
-	offset := (pageNum - 1) * pageSize
-	err := tx.Order("work_date ASC").Offset(offset).Limit(pageSize).Find(&list).Error
+	offset := (q.PageNum - 1) * q.PageSize
+	err := tx.Order("work_date ASC").Offset(offset).Limit(q.PageSize).Find(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}

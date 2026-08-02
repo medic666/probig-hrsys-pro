@@ -28,6 +28,10 @@ export function updatePersonProfile(id: number, data: any) {
   return request.put(`/persons/${id}/profile`, data)
 }
 
+export function upsertPersonProfile(data: any) {
+  return request.post('/persons/profile', data)
+}
+
 export function deletePerson(id: number) {
   return request.delete(`/persons/${id}`)
 }

@@ -11,25 +11,116 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetPersonList(pageNum, pageSize int, name, idCard string, personID string) ([]model.Person, int64, error) {
+// PersonListRow 人员列表行：基础信息 + 当前职务快照信息（公司/部门/职位/在职状态/入职离职日期）
+type PersonListRow struct {
+	model.Person
+	CompanyID   uint            `json:"company_id"`
+	CompanyName string          `json:"company_name"`
+	Department  string          `json:"department"`
+	Position    string          `json:"position"`
+	IsActive    *bool           `json:"is_active"`
+	EntryDate   *utils.DateOnly `json:"entry_date"`
+	LeaveDate   *utils.DateOnly `json:"leave_date"`
+}
+
+// PersonListQuery 人员列表查询（列表与导出共用，筛选参数单一来源）
+type PersonListQuery struct {
+	PageNum    int
+	PageSize   int
+	Name       string
+	IDCard     string
+	PersonID   string
+	CompanyID  uint
+	Department string
+	Status     string
+}
+
+func GetPersonList(q PersonListQuery) ([]PersonListRow, int64, error) {
 	tx := dao.DB.Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts")
-	if personID != "" {
-		tx = tx.Where("id = ?", personID)
+	if q.PersonID != "" {
+		tx = tx.Where("id = ?", q.PersonID)
 	}
-	if name != "" {
-		tx = tx.Where("name LIKE ?", "%"+name+"%")
+	if q.Name != "" {
+		tx = tx.Where("name LIKE ?", "%"+q.Name+"%")
 	}
-	if idCard != "" {
-		tx = tx.Where("id_card LIKE ?", "%"+idCard+"%")
+	if q.IDCard != "" {
+		tx = tx.Where("id_card LIKE ?", "%"+q.IDCard+"%")
+	}
+
+	// 当前快照段过滤：公司/部门/在职状态（未入职 = 无快照段）
+	if q.CompanyID > 0 || q.Department != "" || q.Status != "" {
+		snapTx := dao.DB.Model(&model.PositionSnapshot{}).
+			Select("person_id").
+			Where("effective_end_date = ?", realFarFuture)
+		if q.CompanyID > 0 {
+			snapTx = snapTx.Where("company_id = ?", q.CompanyID)
+		}
+		if q.Department != "" {
+			snapTx = snapTx.Where("department LIKE ?", "%"+q.Department+"%")
+		}
+		if q.Status == "active" {
+			snapTx = snapTx.Where("is_active = true")
+		}
+		if q.Status == "left" {
+			snapTx = snapTx.Where("is_active = false")
+		}
+		if q.Status == "not_entered" {
+			tx = tx.Where("id NOT IN (?)", snapTx)
+		} else {
+			tx = tx.Where("id IN (?)", snapTx)
+		}
 	}
 
 	var total int64
 	tx.Count(&total)
 
-	var list []model.Person
-	offset := (pageNum - 1) * pageSize
-	if err := tx.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list).Error; err != nil {
+	var persons []model.Person
+	offset := (q.PageNum - 1) * q.PageSize
+	if err := tx.Offset(offset).Limit(q.PageSize).Order("id DESC").Find(&persons).Error; err != nil {
 		return nil, 0, err
+	}
+
+	ids := make([]uint, len(persons))
+	for i, p := range persons {
+		ids[i] = p.ID
+	}
+
+	snapMap := make(map[uint]PersonListRow, len(ids))
+	if len(ids) > 0 {
+		var rows []struct {
+			PersonID    uint
+			CompanyID   uint
+			CompanyName string
+			Department  string
+			Position    string
+			IsActive    bool
+			EntryDate   *utils.DateOnly
+			LeaveDate   *utils.DateOnly
+		}
+		dao.DB.Table("position_snapshots s").
+			Select("s.person_id, s.company_id, s.department, s.position, s.is_active, s.entry_date, s.leave_date, c.name AS company_name").
+			Joins("LEFT JOIN companies c ON c.id = s.company_id").
+			Where("s.person_id IN ? AND s.effective_end_date = ?", ids, realFarFuture).
+			Scan(&rows)
+		for _, r := range rows {
+			active := r.IsActive
+			snapMap[r.PersonID] = PersonListRow{
+				CompanyID:   r.CompanyID,
+				CompanyName: r.CompanyName,
+				Department:  r.Department,
+				Position:    r.Position,
+				IsActive:    &active,
+				EntryDate:   r.EntryDate,
+				LeaveDate:   r.LeaveDate,
+			}
+		}
+	}
+
+	list := make([]PersonListRow, len(persons))
+	for i, p := range persons {
+		row := snapMap[p.ID]
+		row.Person = p
+		list[i] = row
 	}
 	return list, total, nil
 }
@@ -109,6 +200,94 @@ type PersonProfile struct {
 	EmergencyContacts []model.PersonEmergencyContact `json:"emergency_contacts"`
 }
 
+// syncPersonChildren 四类子表同步（复用通用 UPSERT 基建：未变化零操作零审计）
+func syncPersonChildren(tx *gorm.DB, id uint, req *PersonProfile) error {
+	syncPhones := func(tx *gorm.DB) error {
+		return SyncChildRecords(tx, "person_id", id, req.Phones,
+			func(p model.PersonPhone) uint { return p.ID },
+			func(a, b model.PersonPhone) bool { return a.PhoneType == b.PhoneType && a.Phone == b.Phone },
+			func(p *model.PersonPhone) { p.PersonID = id })
+	}
+	syncEmails := func(tx *gorm.DB) error {
+		return SyncChildRecords(tx, "person_id", id, req.Emails,
+			func(e model.PersonEmail) uint { return e.ID },
+			func(a, b model.PersonEmail) bool { return a.EmailType == b.EmailType && a.Email == b.Email },
+			func(e *model.PersonEmail) { e.PersonID = id })
+	}
+	syncBankCards := func(tx *gorm.DB) error {
+		return SyncChildRecords(tx, "person_id", id, req.BankCards,
+			func(b model.PersonBankCard) uint { return b.ID },
+			func(a, b model.PersonBankCard) bool {
+				return a.BankName == b.BankName && a.AccountNumber == b.AccountNumber && a.AccountHolder == b.AccountHolder
+			},
+			func(b *model.PersonBankCard) { b.PersonID = id })
+	}
+	syncContacts := func(tx *gorm.DB) error {
+		return SyncChildRecords(tx, "person_id", id, req.EmergencyContacts,
+			func(c model.PersonEmergencyContact) uint { return c.ID },
+			func(a, b model.PersonEmergencyContact) bool {
+				return a.ContactName == b.ContactName && a.ContactPhone == b.ContactPhone && a.Sort == b.Sort
+			},
+			func(c *model.PersonEmergencyContact) { c.PersonID = id })
+	}
+	for _, fn := range []func(*gorm.DB) error{syncPhones, syncEmails, syncBankCards, syncContacts} {
+		if err := fn(tx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UpsertPersonProfile 人员档案统一 upsert（新增=编辑同一入口）：
+// req.ID == 0 → 事务内创建人员并同步四类子表；req.ID > 0 → 更新基础字段 + 同步子表
+func UpsertPersonProfile(ctx context.Context, req *PersonProfile) (*model.Person, error) {
+	if req.Name == "" {
+		return nil, errors.New("姓名不能为空")
+	}
+	var person model.Person
+	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		if req.ID == 0 {
+			person = req.Person
+			person.ID = 0
+			if person.IDCard != "" {
+				var count int64
+				tx.Model(&model.Person{}).Where("id_card = ?", person.IDCard).Count(&count)
+				if count > 0 {
+					return errors.New("身份证号已存在")
+				}
+			}
+			if err := tx.Create(&person).Error; err != nil {
+				return err
+			}
+			req.ID = person.ID
+		} else {
+			var existing model.Person
+			if err := tx.First(&existing, req.ID).Error; err != nil {
+				return errors.New("人员不存在")
+			}
+			if req.IDCard != "" && req.IDCard != existing.IDCard {
+				var count int64
+				tx.Model(&model.Person{}).Where("id_card = ? AND id != ?", req.IDCard, req.ID).Count(&count)
+				if count > 0 {
+					return errors.New("身份证号已存在")
+				}
+			}
+			updates := buildPersonUpdates(&existing, &req.Person)
+			if len(updates) > 0 {
+				if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+					return err
+				}
+			}
+			person = existing
+		}
+		return syncPersonChildren(tx, req.ID, req)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &person, nil
+}
+
 // UpdatePersonProfile 聚合更新人员档案（事务）：基础字段 + 四类子表同步（UPSERT）
 func UpdatePersonProfile(ctx context.Context, id uint, req *PersonProfile) error {
 	if req.Name == "" {
@@ -132,41 +311,7 @@ func UpdatePersonProfile(ctx context.Context, id uint, req *PersonProfile) error
 				return err
 			}
 		}
-
-		syncPhones := func(tx *gorm.DB) error {
-			return SyncChildRecords(tx, "person_id", id, req.Phones,
-				func(p model.PersonPhone) uint { return p.ID },
-				func(a, b model.PersonPhone) bool { return a.PhoneType == b.PhoneType && a.Phone == b.Phone },
-				func(p *model.PersonPhone) { p.PersonID = id })
-		}
-		syncEmails := func(tx *gorm.DB) error {
-			return SyncChildRecords(tx, "person_id", id, req.Emails,
-				func(e model.PersonEmail) uint { return e.ID },
-				func(a, b model.PersonEmail) bool { return a.EmailType == b.EmailType && a.Email == b.Email },
-				func(e *model.PersonEmail) { e.PersonID = id })
-		}
-		syncBankCards := func(tx *gorm.DB) error {
-			return SyncChildRecords(tx, "person_id", id, req.BankCards,
-				func(b model.PersonBankCard) uint { return b.ID },
-				func(a, b model.PersonBankCard) bool {
-					return a.BankName == b.BankName && a.AccountNumber == b.AccountNumber && a.AccountHolder == b.AccountHolder
-				},
-				func(b *model.PersonBankCard) { b.PersonID = id })
-		}
-		syncContacts := func(tx *gorm.DB) error {
-			return SyncChildRecords(tx, "person_id", id, req.EmergencyContacts,
-				func(c model.PersonEmergencyContact) uint { return c.ID },
-				func(a, b model.PersonEmergencyContact) bool {
-					return a.ContactName == b.ContactName && a.ContactPhone == b.ContactPhone && a.Sort == b.Sort
-				},
-				func(c *model.PersonEmergencyContact) { c.PersonID = id })
-		}
-		for _, fn := range []func(*gorm.DB) error{syncPhones, syncEmails, syncBankCards, syncContacts} {
-			if err := fn(tx); err != nil {
-				return err
-			}
-		}
-		return nil
+		return syncPersonChildren(tx, id, req)
 	})
 }
 

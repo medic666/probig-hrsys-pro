@@ -10,7 +10,7 @@
     </PageHeader>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchData" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchData" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="openDetail(row.person_id, row.person_name)">明细</el-button>
         </template>
@@ -51,10 +51,11 @@ import { getAllPersons, getPersonCards } from '@/api/person'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'
 import { filterPersons, type PersonScope } from '@/utils/personScope'
+import { usePageView } from '@/composables/usePageView'
 
 const tableRef = ref()
 const scope = ref<PersonScope>('active')
-const viewMode = ref<'cards' | 'list'>('cards')
+const { viewMode } = usePageView('cards')
 const cardGridRef = ref()
 const balanceMap = ref<Record<number, number>>({})
 const detailVisible = ref(false)

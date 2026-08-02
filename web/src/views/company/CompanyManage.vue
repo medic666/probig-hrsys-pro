@@ -1,14 +1,22 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>公司管理</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
-    </div>
+    <PageHeader title="公司管理">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
+          <el-radio-button value="cards">卡片</el-radio-button>
+          <el-radio-button value="list">列表</el-radio-button>
+        </el-radio-group>
+      </template>
+    </PageHeader>
+    <PageToolbar :right-visible="isList">
+      <el-button type="primary" size="small" @click="handleAdd">新增公司</el-button>
+      <template #right>
+        <el-button size="small" @click="handleExport">导出</el-button>
+        <el-button size="small" @click="trashVisible = true">回收站</el-button>
+      </template>
+    </PageToolbar>
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchCompanies" :search-fields="searchFields" :actions="actions" @action="handleAction">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchCompanies" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
           <el-button type="success" link size="small" @click="handleEdit(row)">编辑</el-button>
@@ -60,11 +68,15 @@ import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import CompanyCard from '@/components/cards/CompanyCard.vue'
 import CardGrid from '@/components/cards/CardGrid.vue'
+import PageHeader from '@/components/PageHeader.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies, exportCompanies } from '@/api/company'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef = ref()
-const viewMode = ref<'cards' | 'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const cardGridRef = ref()
 const dialogVisible = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
@@ -91,12 +103,6 @@ async function fetchCompanyOptions(k?: string) {
   const list = (await getAllCompanies()) as { id: number; name: string }[] || []
   return k ? list.filter(c => c.name.includes(k)) : list
 }
-
-const actions = [
-  { key: 'add', label: '新增公司', type: 'primary' as const },
-  { key: 'export', label: '导出', type: 'default' as const },
-  { key: 'trash', label: '回收站', type: 'default' as const },
-]
 
 const companyFormFields = [
   { prop: 'name', label: '公司名称', type: 'input' as const, placeholder: '请输入', span: 12 },
@@ -125,14 +131,14 @@ async function fetchCompanyCards() {
   return { list: d.list || [], total: d.total || 0 }
 }
 
-function handleAction(key: string) {
-  if (key === 'add') { dialogMode.value = 'add'; editRow.value = null; dialogVisible.value = true }
-  else if (key === 'export') { handleExport() }
-  else if (key === 'trash') { trashVisible.value = true }
+function handleAdd() {
+  dialogMode.value = 'add'
+  editRow.value = null
+  dialogVisible.value = true
 }
 
 async function handleExport() {
-  const data = await exportCompanies({})
+  const data = await exportCompanies(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 
@@ -162,6 +168,5 @@ function onTrashRestored() { tableRef.value?.refresh() }
 
 <style lang="scss" scoped>
 .page-container { padding: 0; background: transparent; }
-.page-header { margin-bottom: 16px; display: flex; align-items: center; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
 .block-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 </style>

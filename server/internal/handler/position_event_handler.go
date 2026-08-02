@@ -10,17 +10,28 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetPositionEvents(c *gin.Context) {
+// positionEventListQuery 职务事件列表筛选解析（列表与导出共用）
+func positionEventListQuery(c *gin.Context) service.PositionEventListQuery {
 	pageReq := utils.BindPage(c)
-	personIDStr := c.Query("person_id")
-	personID, _ := strconv.ParseUint(personIDStr, 10, 64)
-	list, total, err := service.GetPositionEventList(pageReq.PageNum, pageReq.PageSize,
-		uint(personID), c.Query("start_date"), c.Query("end_date"), c.Query("event_type"))
+	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	return service.PositionEventListQuery{
+		PageNum:   pageReq.PageNum,
+		PageSize:  pageReq.PageSize,
+		PersonID:  uint(personID),
+		StartDate: c.Query("start_date"),
+		EndDate:   c.Query("end_date"),
+		EventType: c.Query("event_type"),
+	}
+}
+
+func GetPositionEvents(c *gin.Context) {
+	q := positionEventListQuery(c)
+	list, total, err := service.GetPositionEventList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 func GetPositionEventByID(c *gin.Context) {
@@ -234,8 +245,26 @@ func GetDeletedPositionEvents(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
+// positionEventExportFilters 职务事件导出文件名筛选摘要
+func positionEventExportFilters(q service.PositionEventListQuery) []string {
+	var parts []string
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	if q.EventType != "" {
+		parts = append(parts, "类型="+q.EventType)
+	}
+	if p := dateRangePiece("日期", q.StartDate, q.EndDate); p != "" {
+		parts = append(parts, p)
+	}
+	return parts
+}
+
 func ExportPositionEvents(c *gin.Context) {
-	list, _, _ := service.GetPositionEventList(1, 10000, 0, c.Query("start_date"), c.Query("end_date"), c.Query("event_type"))
+	// 导出严格关联列表视图的当前筛选
+	q := positionEventListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, _ := service.GetPositionEventList(q)
 
 	var rows [][]interface{}
 	for _, e := range list {
@@ -243,6 +272,7 @@ func ExportPositionEvents(c *gin.Context) {
 			e["person_name"], e["event_type"], e["changed_fields"], e["effective_date"], e["remark"],
 		})
 	}
-	writeExcel(c, "职务事件", "position_events",
-		[]string{"人员", "事件类型", "变更字段", "生效日期", "备注"}, rows)
+	writeExcel(c, "职务事件",
+		[]string{"人员", "事件类型", "变更字段", "生效日期", "备注"}, rows,
+		positionEventExportFilters(q)...)
 }

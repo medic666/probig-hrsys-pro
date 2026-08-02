@@ -4,7 +4,8 @@
       <h2>角色管理</h2>
     </div>
     <ProTable
-      ref="tableRef"
+ref="tableRef"
+      :url-driven="true"
       :columns="columns"
       :fetch-api="fetchRoles"
       :search-fields="searchFields"

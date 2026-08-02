@@ -8,13 +8,15 @@
       </el-radio-group>
       </template>
     </PageHeader>
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchMonthly" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchMonthly" :search-fields="searchFields">
         <template #status="{ row }">
           <StatusTag :status="row.status || 'not_calculated'" />
         </template>
@@ -31,29 +33,9 @@
         status-field="status"
         :pending-values="['data_changed']"
         :has-day-level="false"
-      >
-        <template #month-list="{ items }">
-          <el-descriptions v-if="items.length > 0" :column="3" border size="small" style="max-width:860px">
-            <el-descriptions-item label="月份">{{ items[0].belong_month }}</el-descriptions-item>
-            <el-descriptions-item label="状态">
-              <StatusTag :status="items[0].status || 'not_calculated'" />
-            </el-descriptions-item>
-            <el-descriptions-item label="计薪天数">{{ items[0].salary_days }}</el-descriptions-item>
-            <el-descriptions-item label="加权基本工资">{{ items[0].weighted_base_salary }}</el-descriptions-item>
-            <el-descriptions-item label="加权餐补">{{ items[0].weighted_meal_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="记出勤(天)">{{ hoursToDays(items[0].total_work_hours).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="工作日加班(天)">{{ hoursToDays(items[0].total_overtime_workday_hours).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="节假日加班(天)">{{ hoursToDays(items[0].total_overtime_holiday_hours).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="出勤工资">{{ items[0].attendance_salary }}</el-descriptions-item>
-            <el-descriptions-item label="工作日加班工资">{{ items[0].overtime_workday_salary }}</el-descriptions-item>
-            <el-descriptions-item label="节假日加班工资">{{ items[0].overtime_holiday_salary }}</el-descriptions-item>
-            <el-descriptions-item label="全勤奖">{{ items[0].attendance_bonus }}</el-descriptions-item>
-            <el-descriptions-item label="违纪次数">{{ items[0].total_violation_count }}</el-descriptions-item>
-            <el-descriptions-item label="有事假">{{ items[0].has_personal_leave_month ? '是' : '否' }}</el-descriptions-item>
-            <el-descriptions-item label="核算时间">{{ formatDateTime(items[0].last_calc_at) }}</el-descriptions-item>
-          </el-descriptions>
-        </template>
-      </TimeCardPanel>
+        :url-driven="true"
+        :detail-route="monthDetailRoute"
+      />
     </template>
 
     <el-dialog v-model="calcVisible" title="批量核算" width="450px">
@@ -104,9 +86,11 @@ import { getAllPersons } from '@/api/person'
 import { formatDateTime, hoursToDays } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
 const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
-const viewMode=ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 
 const columns=[
@@ -127,13 +111,17 @@ async function fetchMonthly(p:any){
   return (await getMonthlyList(p)) as any
 }
 
+// 月份点击 → 业务逻辑页（URL 携带人员+月份，返回后可恢复层级）
+function monthDetailRoute(person: { id: number; name: string }, month: string) {
+  return `/attendance-monthly/${person.id}/${month}?name=${encodeURIComponent(person.name)}`
+}
+
 function handleAction(k:string){
   if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}
   else if(k==='export'){handleExport()}
 }
 async function handleExport(){
-  const params: any = {}
-  if (calcMonth.value) params.month = calcMonth.value
+  const params = tableRef.value?.getSearchParams() || {}
   const d = (await getMonthlyList(params)) as any
   const changedCount = (d.list || []).filter((r:any)=>r.status==='data_changed').length
   if (changedCount > 0) {

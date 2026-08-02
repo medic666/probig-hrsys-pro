@@ -1,6 +1,9 @@
 <template>
   <div class="page-header">
-    <h2>{{ title }}</h2>
+    <div class="page-header-left">
+      <slot name="back" />
+      <h2>{{ title }}</h2>
+    </div>
     <div class="page-header-actions">
       <slot name="actions" />
     </div>
@@ -15,17 +18,23 @@ defineProps<{ title: string }>()
 .page-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
 
-  h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #303133;
-    margin: 0;
+  .page-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #303133;
+      margin: 0;
+    }
   }
 
   .page-header-actions {
-    margin-left: 16px;
     display: flex;
     align-items: center;
     gap: 8px;

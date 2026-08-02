@@ -52,8 +52,10 @@ func GetPersonLILHistory(c *gin.Context) {
 func GetLILEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, _, err := service.GetAttendanceDailyList(uint(personID),
-		c.Query("date_start"), c.Query("date_end"), "", pageReq.PageNum, pageReq.PageSize)
+	list, _, err := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
+		PageNum: pageReq.PageNum, PageSize: pageReq.PageSize,
+		PersonID: uint(personID), DateStart: c.Query("date_start"), DateEnd: c.Query("date_end"),
+	})
 	if err != nil {
 		utils.Error(c, err.Error())
 		return

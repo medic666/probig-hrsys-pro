@@ -9,14 +9,16 @@
       </template>
     </PageHeader>
 
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
-      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -30,14 +32,15 @@
         ref="timePanelRef"
         :fetch-fn="(p: any) => getPositionEvents(p)"
         date-field="effective_date"
+        :url-driven="true"
       >
-        <template #day="{ date, items }">
-          <DayCard :date="date" :events="items" @event-click="handleEdit" />
+        <template #day="{ items }">
+          <div class="ev-grid">
+            <PositionEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEdit" />
+          </div>
         </template>
       </TimeCardPanel>
     </template>
-
-    <PositionEventEditDialog v-model:visible="dialogVisible" :event="editEvent" @saved="onEventSaved" />
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restoreEvent" :columns="trashColumns" @restored="onRefresh" />
 
@@ -49,24 +52,25 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import DayCard from '@/components/cards/DayCard.vue'
+import PositionEventCard from '@/components/position/PositionEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import PositionEventEditDialog from '@/components/position/PositionEventEditDialog.vue'
 import { getPositionEvents, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
+const router = useRouter()
 const tableRef = ref()
-const viewMode = ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const timePanelRef = ref()
-const dialogVisible = ref(false)
-const editEvent = ref<any>(null)
 const trashVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
@@ -74,21 +78,17 @@ const attachFileId = ref<number | null>(null)
 const eventTypes = ['入职', '调薪调岗', '离职']
 
 const columns = [
-  { prop: 'id', label: 'ID', width: '60' },
   { prop: 'person_name', label: '人员', width: '100' },
   { prop: 'event_type', label: '事件类型', width: '100' },
-  { prop: 'company_name', label: '公司组', width: '100', formatter: (r: any) => r.company_name || '-' },
-  { prop: 'department', label: '部门', width: '110', formatter: (r: any) => r.department || '-' },
-  { prop: 'position', label: '职位', width: '110', formatter: (r: any) => r.position || '-' },
+  { prop: 'changed_fields', label: '变更字段', minWidth: '240', formatter: (r: any) => (r.changed_fields || []).join('、') || '-' },
   { prop: 'effective_date', label: '生效日期', width: '110' },
   { prop: 'remark', label: '备注', minWidth: '120' },
-  { prop: 'changed_fields', label: '变更字段', formatter: (r: any) => (r.changed_fields || []).join('、') || '-' },
-  { prop: 'created_at', label: '创建时间', width: '160', formatter: (r: any) => new Date(r.created_at).toLocaleString('zh-CN') },
 ]
 
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
   { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t => ({ label: t, value: t })) },
+  { prop:'date', label:'生效日期', type:'date-range' as const, startKey: 'start_date', endKey: 'end_date' },
 ]
 
 const trashColumns = [
@@ -109,25 +109,19 @@ async function restoreEvent(id: number) { return restorePositionEvent(id) }
 
 function handleAction(key: string) {
   if (key === 'add') {
-    editEvent.value = null
-    dialogVisible.value = true
+    // 新增=编辑=查看统一走业务逻辑页
+    router.push('/position-events/create')
   } else if (key === 'trash') { trashVisible.value = true }
   else if (key === 'export') { handleExport() }
 }
 
 async function handleExport() {
-  const data = await exportPositionEvents({})
+  const data = await exportPositionEvents(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 
-async function handleEdit(row: any) {
-  editEvent.value = row
-  dialogVisible.value = true
-}
-
-function onEventSaved() {
-  tableRef.value?.refresh()
-  timePanelRef.value?.reload()
+function handleEdit(row: any) {
+  router.push(`/position-events/${row.id}`)
 }
 
 async function handleDelete(row: any) {
@@ -141,4 +135,9 @@ function onRefresh() { tableRef.value?.refresh() }
 <style lang="scss" scoped>
 .page-container { padding: 0; background: transparent; }
 
+.ev-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 </style>

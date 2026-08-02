@@ -9,15 +9,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetSalarySummaries(c *gin.Context) {
+// salarySummaryListQuery 工资汇总列表筛选解析（列表与导出共用）
+func salarySummaryListQuery(c *gin.Context) service.SalarySummaryListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetSalarySummaries(c.Query("month"), uint(personID), pageReq.PageNum, pageReq.PageSize)
+	return service.SalarySummaryListQuery{
+		PageNum:  pageReq.PageNum,
+		PageSize: pageReq.PageSize,
+		Month:    c.Query("month"),
+		PersonID: uint(personID),
+	}
+}
+
+func GetSalarySummaries(c *gin.Context) {
+	q := salarySummaryListQuery(c)
+	list, total, err := service.GetSalarySummaries(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 type calcSalaryReq struct {
@@ -72,8 +83,23 @@ func GetSalaryVersionDetail(c *gin.Context) {
 	utils.Success(c, version)
 }
 
+// salarySummaryExportFilters 工资汇总导出文件名筛选摘要
+func salarySummaryExportFilters(q service.SalarySummaryListQuery) []string {
+	var parts []string
+	if q.Month != "" {
+		parts = append(parts, "月份="+q.Month)
+	}
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	return parts
+}
+
 func ExportSalarySummaries(c *gin.Context) {
-	list, _, _ := service.GetSalarySummaries(c.Query("month"), 0, 1, 10000)
+	// 导出严格关联列表视图的当前筛选
+	q := salarySummaryListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, _ := service.GetSalarySummaries(q)
 
 	var rows [][]interface{}
 	for _, s := range list {
@@ -87,10 +113,11 @@ func ExportSalarySummaries(c *gin.Context) {
 			s["social_security_deduct"], s["housing_fund_deduct"], s["tax_deduct"], s["final_salary"],
 		})
 	}
-	writeExcel(c, "工资汇总", "salary_summaries",
+	writeExcel(c, "月度工资汇总",
 		[]string{"月份", "人员", "出勤工资", "工作日加班工资", "节假日加班工资", "年假结转工资", "全勤奖",
 			"绩效工资", "职位津贴", "餐补", "房补", "交通补贴", "高温补贴", "保险补偿", "公积金补偿",
-			"提成", "奖惩", "借款还款", "社保代扣", "公积金代扣", "个税代扣", "实发工资"}, rows)
+			"提成", "奖惩", "借款还款", "社保代扣", "公积金代扣", "个税代扣", "实发工资"}, rows,
+		salarySummaryExportFilters(q)...)
 }
 
 func GetSalaryTrace(c *gin.Context) {

@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import type { Component } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import NameSelect from '@/components/NameSelect.vue'
 
 export interface TableColumn {
@@ -117,6 +118,9 @@ export interface SearchField {
   options?: { label: string; value: any }[]
   placeholder?: string
   fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
+  // 数组型字段（date-range）的后端参数名；缺省为 `${prop}Start`/`${prop}End`
+  startKey?: string
+  endKey?: string
 }
 
 export interface ActionButton {
@@ -137,6 +141,9 @@ const props = withDefaults(
     showSelection?: boolean
     pageSizes?: number[]
     autoLoad?: boolean
+    // URL 驱动：筛选与分页状态同步路由 query（view/卡片钻取等其它键保留休眠），
+    // 导航往返、视图切换后完整恢复
+    urlDriven?: boolean
   }>(),
   {
     searchFields: () => [],
@@ -146,6 +153,7 @@ const props = withDefaults(
     showSelection: false,
     pageSizes: () => [10, 20, 50, 100],
     autoLoad: true,
+    urlDriven: false,
   },
 )
 
@@ -182,6 +190,63 @@ function initSearchForm() {
   }
 }
 
+function fieldKeys(key: string) {
+  const field = props.searchFields.find((f) => f.prop === key)
+  return {
+    startKey: field?.startKey || `${key}Start`,
+    endKey: field?.endKey || `${key}End`,
+  }
+}
+
+const route = useRoute()
+const router = useRouter()
+
+// writeUrl 将当前筛选与分页合并写入路由 query（urlDriven 模式，保留其它键休眠）
+function writeUrl() {
+  if (!props.urlDriven) return
+  const query: Record<string, any> = { ...route.query }
+  query.pageNum = currentPageNum.value
+  query.pageSize = currentPageSize.value
+  for (const key of Object.keys(searchForm)) {
+    const val = searchForm[key]
+    if (val === '' || val === null || val === undefined) {
+      delete query[key]
+      continue
+    }
+    if (Array.isArray(val)) {
+      const { startKey, endKey } = fieldKeys(key)
+      if (val[0]) query[startKey] = val[0]
+      else delete query[startKey]
+      if (val[1]) query[endKey] = val[1]
+      else delete query[endKey]
+    } else {
+      query[key] = val
+    }
+  }
+  router.replace({ query })
+}
+
+// readUrl 从路由 query 恢复筛选与分页
+function readUrl() {
+  if (!props.urlDriven) return
+  const q = route.query as Record<string, any>
+  const pn = Number(q.pageNum)
+  if (pn > 0) currentPageNum.value = pn
+  const ps = Number(q.pageSize)
+  if (ps > 0) currentPageSize.value = ps
+  for (const field of props.searchFields) {
+    if (field.type === 'date-range') {
+      const sk = field.startKey || `${field.prop}Start`
+      const ek = field.endKey || `${field.prop}End`
+      if (q[sk] || q[ek]) {
+        searchForm[field.prop] = [q[sk] || '', q[ek] || '']
+      }
+    } else if (q[field.prop] !== undefined) {
+      searchForm[field.prop] = q[field.prop]
+    }
+  }
+}
+
 async function loadData() {
   loading.value = true
   try {
@@ -193,8 +258,9 @@ async function loadData() {
       const val = searchForm[key]
       if (val !== '' && val !== null && val !== undefined) {
         if (Array.isArray(val)) {
-          params[`${key}Start`] = val[0] || ''
-          params[`${key}End`] = val[1] || ''
+          const { startKey, endKey } = fieldKeys(key)
+          params[startKey] = val[0] || ''
+          params[endKey] = val[1] || ''
         } else {
           params[key] = val
         }
@@ -203,6 +269,7 @@ async function loadData() {
     const result = await props.fetchApi(params)
     tableData.value = result.list || []
     total.value = result.total || 0
+    writeUrl()
   } catch {
     tableData.value = []
     total.value = 0
@@ -262,8 +329,9 @@ function getSearchParams() {
     const val = searchForm[key]
     if (val !== '' && val !== null && val !== undefined) {
       if (Array.isArray(val)) {
-        params[`${key}Start`] = val[0] || ''
-        params[`${key}End`] = val[1] || ''
+        const { startKey, endKey } = fieldKeys(key)
+        params[startKey] = val[0] || ''
+        params[endKey] = val[1] || ''
       } else {
         params[key] = val
       }
@@ -278,6 +346,7 @@ defineExpose({ refresh, clearSelection, getSelected, getSearchParams })
 
 onMounted(() => {
   initSearchForm()
+  readUrl()
   if (props.autoLoad) {
     loadData()
   }

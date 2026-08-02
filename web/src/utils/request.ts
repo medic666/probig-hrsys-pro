@@ -23,8 +23,15 @@ instance.interceptors.response.use(
   (response) => {
     if (response.config.responseType === 'blob') {
       const disposition = response.headers['content-disposition'] || ''
-      const match = disposition.match(/filename=([^;]+)/)
-      const filename = match ? decodeURIComponent(match[1].trim()) : ''
+      let filename = ''
+      // RFC 5987：优先 filename*=UTF-8''<urlencoded>，回退 filename=
+      const star = disposition.match(/filename\*=UTF-8''([^;]+)/i)
+      if (star) {
+        filename = decodeURIComponent(star[1].trim())
+      } else {
+        const match = disposition.match(/filename=([^;]+)/)
+        if (match) filename = decodeURIComponent(match[1].trim())
+      }
       return { blob: response.data, filename }
     }
     const { data } = response

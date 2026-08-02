@@ -8,14 +8,16 @@
       </el-radio-group>
       </template>
     </PageHeader>
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('add')">新增</el-button>
-      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -81,8 +83,10 @@ import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEven
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false), attachVisible=ref(false), attachFileId=ref<number|null>(null)
-const viewMode=ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 const types=['绩效系数','提成','奖惩','借款还款','个税扣除']
 const form=reactive({person_id:null as any,belong_month:'',event_type:'绩效系数',amount:1,remark:''})
@@ -110,7 +114,7 @@ function handleAction(k:string){
 }
 
 async function handleExport() {
-  const data = await exportSalaryEvents({})
+  const data = await exportSalaryEvents(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 async function handleEdit(r:any){mode.value='edit';eid.value=r.id;Object.assign(form,{person_id:r.person_id,belong_month:r.belong_month,event_type:r.event_type,amount:r.amount,remark:r.remark||''});dialogVisible.value=true}

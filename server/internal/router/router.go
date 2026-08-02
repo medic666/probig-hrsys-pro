@@ -76,6 +76,7 @@ func SetupRouter() *gin.Engine {
 		persons.POST("", middleware.RequirePermission("person.write"), handler.CreatePerson)
 		persons.PUT("/:id", middleware.RequirePermission("person.write"), handler.UpdatePerson)
 		persons.PUT("/:id/profile", middleware.RequirePermission("person.write"), handler.UpdatePersonProfile)
+		persons.POST("/profile", middleware.RequirePermission("person.write"), handler.UpsertPersonProfile)
 		persons.DELETE("/:id", middleware.RequirePermission("person.delete"), handler.DeletePerson)
 		persons.POST("/:id/restore", middleware.RequirePermission("person.write"), handler.RestorePerson)
 		persons.POST("/:id/phones", middleware.RequirePermission("person.write"), handler.AddPersonPhone)
@@ -160,6 +161,7 @@ func SetupRouter() *gin.Engine {
 	attendanceDaily.Use(middleware.AuthRequired())
 	{
 		attendanceDaily.GET("", middleware.RequirePermission("attendance.read"), handler.GetDailyProjections)
+		attendanceDaily.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportDailyProjections)
 		attendanceDaily.GET("/:personId/:date/events", middleware.RequirePermission("attendance.read"), handler.GetEventsByPersonDate)
 	}
 

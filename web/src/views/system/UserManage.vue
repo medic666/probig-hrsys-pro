@@ -4,7 +4,8 @@
       <h2>用户管理</h2>
     </div>
     <ProTable
-      ref="tableRef"
+ref="tableRef"
+      :url-driven="true"
       :columns="columns"
       :fetch-api="fetchUsers"
       :search-fields="searchFields"

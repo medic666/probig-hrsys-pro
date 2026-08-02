@@ -8,14 +8,16 @@
       </el-radio-group>
       </template>
     </PageHeader>
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('add')">新增</el-button>
-      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button v-if="row.source_type === 'manual'" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button v-if="row.source_type === 'manual'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -73,8 +75,10 @@ import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef = ref()
-const viewMode = ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const timePanelRef = ref(); const dialogVisible = ref(false); const mode = ref<'add'|'edit'>('add'); const eid = ref(0); const s = ref(false); const tv = ref(false)
 const editVisible = ref(false)
 const editDailyRow = ref<any>(null)
@@ -92,7 +96,7 @@ const columns = [
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi:fetchPersonOpts },
-  { prop:'date', label:'时间范围', type:'date-range' as const },
+  { prop:'date', label:'时间范围', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 const tc = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' }]
 
@@ -108,7 +112,7 @@ function handleAction(k:string){
 }
 
 async function handleExport() {
-  const data = await exportAnnualLeaveEvents({})
+  const data = await exportAnnualLeaveEvents(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 async function handleEdit(r:any){ mode.value='edit';eid.value=r.id;Object.assign(form,{person_id:r.person_id,event_type:r.event_type,hours:r.hours,effective_date:r.effective_date,remark:r.remark||''});dialogVisible.value=true }

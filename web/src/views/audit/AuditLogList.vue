@@ -1,6 +1,6 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>审计日志</h2></div>
-    <ProTable :columns="columns" :fetch-api="fetchLogs" :search-fields="searchFields" :actions="actions" @action="handleAction">
+    <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchLogs" :search-fields="searchFields" :actions="actions" @action="handleAction">
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="showDetail(row)">详情</el-button>
       </template>
@@ -33,7 +33,7 @@ import ProTable from '@/components/ProTable.vue'
 import { getAuditLogs, getAuditLogDetail, exportAuditLogs } from '@/api/audit'
 import { downloadBlob } from '@/utils/download'
 
-const dv=ref(false), detail=ref<any>(null)
+const tableRef=ref(), dv=ref(false), detail=ref<any>(null)
 
 const techFields=['id','ID','created_at','updated_at','deleted_at','last_calc_at','seq','DeletedAt','CreatedAt','UpdatedAt','LastCalcAt','path','Path']
 
@@ -58,7 +58,7 @@ const searchFields=[
   {prop:'operator_name',label:'操作人',type:'input' as const,placeholder:'模糊搜索'},
   {prop:'action',label:'操作类型',type:'select' as const,options:['新增','修改','删除','恢复','核算','确认','结转','反结账','配置修改'].map(t=>({label:t,value:t}))},
   {prop:'target_type',label:'对象类型',type:'select' as const,options:Object.entries(targetTypeNames).map(([v,l])=>({label:l,value:v}))},
-  {prop:'date',label:'时间范围',type:'date-range' as const},
+  {prop:'date',label:'时间范围',type:'date-range' as const,startKey:'date_start',endKey:'date_end'},
 ]
 const actions=[{key:'export',label:'导出',type:'default' as const}]
 
@@ -67,7 +67,9 @@ async function fetchLogs(p:any){
   return { list:(d.list||[]).map((r:any)=>({...r,target_type:targetTypeName(r.target_type)})), total:d.total||0 }
 }
 
-async function handleAction(k:string){ if(k==='export'){ const data = await exportAuditLogs({}); downloadBlob(data) } }
+async function handleAction(k:string){
+  if(k==='export'){ const data = await exportAuditLogs(tableRef.value?.getSearchParams() || {}); downloadBlob(data) }
+}
 async function showDetail(r:any){
   const d=(await getAuditLogDetail(r.id)) as any
   const beforeObj=parseSnapshot(d.before_snapshot)

@@ -54,7 +54,7 @@ func TestAnnualLeaveEventListMergesAttendance(t *testing.T) {
 		seedAttendanceLeave(t, db, 80, "2026-06-10", 8)
 
 		// 全量合并：total=3，按日期倒序
-		list, total, err := GetAnnualLeaveEventList(1, 10, 0, "", "", "")
+		list, total, err := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10})
 		if err != nil {
 			t.Fatalf("list: %v", err)
 		}
@@ -81,34 +81,34 @@ func TestAnnualLeaveEventListMergesAttendance(t *testing.T) {
 		}
 
 		// 分页：pageSize=2 只返回前两条
-		list2, total2, _ := GetAnnualLeaveEventList(1, 2, 0, "", "", "")
+		list2, total2, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 2})
 		if total2 != 3 || len(list2) != 2 {
 			t.Fatalf("pagination: total=%d len=%d, want 3/2", total2, len(list2))
 		}
 
 		// 人员过滤
-		_, total3, _ := GetAnnualLeaveEventList(1, 10, 80, "", "", "")
+		_, total3, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10, PersonID: 80})
 		if total3 != 3 {
 			t.Errorf("person filter: total=%d, want 3", total3)
 		}
-		_, total4, _ := GetAnnualLeaveEventList(1, 10, 999, "", "", "")
+		_, total4, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10, PersonID: 999})
 		if total4 != 0 {
 			t.Errorf("person filter none: total=%d, want 0", total4)
 		}
 
 		// 类型过滤：grant 只回 account 段
-		_, total5, _ := GetAnnualLeaveEventList(1, 10, 0, "", "", "grant")
+		_, total5, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10, EventType: "grant"})
 		if total5 != 1 {
 			t.Errorf("type filter grant: total=%d, want 1", total5)
 		}
 		// 类型过滤：休假 只回 attendance 段
-		_, total6, _ := GetAnnualLeaveEventList(1, 10, 0, "", "", "休假")
+		_, total6, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10, EventType: "休假"})
 		if total6 != 1 {
 			t.Errorf("type filter 休假: total=%d, want 1", total6)
 		}
 
 		// 日期范围过滤
-		_, total7, _ := GetAnnualLeaveEventList(1, 10, 0, "2026-06-01", "2026-06-30", "")
+		_, total7, _ := GetAnnualLeaveEventList(AnnualLeaveListQuery{PageNum: 1, PageSize: 10, DateStart: "2026-06-01", DateEnd: "2026-06-30"})
 		if total7 != 1 {
 			t.Errorf("date range filter: total=%d, want 1", total7)
 		}

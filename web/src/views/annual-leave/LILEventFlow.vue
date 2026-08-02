@@ -14,7 +14,7 @@
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" />
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" />
     </template>
 
     <template v-else>
@@ -70,8 +70,10 @@ import { createAttendanceEvent } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef = ref()
-const viewMode = ref<'cards' | 'list'>('cards')
+const { viewMode } = usePageView('cards')
 const timePanelRef = ref()
 const dialogVisible = ref(false)
 const saving = ref(false)

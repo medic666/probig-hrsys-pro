@@ -10,16 +10,27 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetSalaryEvents(c *gin.Context) {
+// salaryEventListQuery 工资事件列表筛选解析（列表与导出共用）
+func salaryEventListQuery(c *gin.Context) service.SalaryEventListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetSalaryEventList(pageReq.PageNum, pageReq.PageSize,
-		uint(personID), c.Query("belong_month"), c.Query("event_type"))
+	return service.SalaryEventListQuery{
+		PageNum:     pageReq.PageNum,
+		PageSize:    pageReq.PageSize,
+		PersonID:    uint(personID),
+		BelongMonth: c.Query("belong_month"),
+		EventType:   c.Query("event_type"),
+	}
+}
+
+func GetSalaryEvents(c *gin.Context) {
+	q := salaryEventListQuery(c)
+	list, total, err := service.GetSalaryEventList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 func CreateSalaryEvent(c *gin.Context) {
@@ -81,8 +92,26 @@ func GetDeletedSalaryEvents(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, total, pageReq))
 }
 
+// salaryEventExportFilters 工资事件导出文件名筛选摘要
+func salaryEventExportFilters(q service.SalaryEventListQuery) []string {
+	var parts []string
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	if q.BelongMonth != "" {
+		parts = append(parts, "月份="+q.BelongMonth)
+	}
+	if q.EventType != "" {
+		parts = append(parts, "类型="+q.EventType)
+	}
+	return parts
+}
+
 func ExportSalaryEvents(c *gin.Context) {
-	list, _, _ := service.GetSalaryEventList(1, 10000, 0, c.Query("belong_month"), c.Query("event_type"))
+	// 导出严格关联列表视图的当前筛选
+	q := salaryEventListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, _ := service.GetSalaryEventList(q)
 
 	var rows [][]interface{}
 	for _, e := range list {
@@ -90,6 +119,7 @@ func ExportSalaryEvents(c *gin.Context) {
 			e["person_name"], e["belong_month"], e["event_type"], e["amount"], e["remark"],
 		})
 	}
-	writeExcel(c, "工资事件", "salary_events",
-		[]string{"人员", "归属月份", "类型", "值", "备注"}, rows)
+	writeExcel(c, "工资事件",
+		[]string{"人员", "归属月份", "类型", "值", "备注"}, rows,
+		salaryEventExportFilters(q)...)
 }

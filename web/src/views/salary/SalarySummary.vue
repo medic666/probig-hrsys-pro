@@ -8,13 +8,15 @@
       </el-radio-group>
       </template>
     </PageHeader>
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchSummaries" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchSummaries" :search-fields="searchFields">
         <template #status="{ row }">
           <StatusTag :status="row.status || 'not_calculated'" />
         </template>
@@ -269,9 +271,11 @@ import { getAllPersons } from '@/api/person'
 import { formatDateTime, hoursToDays } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
 const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
-const viewMode=ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 const versionVisible=ref(false), versions=ref<any[]>([]), verDetailVisible=ref(false), verDetail=ref<any>(null)
 const traceVisible=ref(false), traceData=ref<any>(null), traceTab=ref('summary')
@@ -330,7 +334,7 @@ function handleAction(k:string){
   else if(k==='export'){handleExport()}
 }
 async function handleExport(){
-  const data = await exportSalarySummaries({})
+  const data = await exportSalarySummaries(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 async function doCalc(){

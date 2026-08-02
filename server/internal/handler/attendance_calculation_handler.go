@@ -10,15 +10,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetMonthlyList(c *gin.Context) {
+// monthlyListQuery 月度考勤核算列表筛选解析（列表与导出共用）
+func monthlyListQuery(c *gin.Context) service.MonthlyListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetMonthlyList(c.Query("month"), uint(personID), pageReq.PageNum, pageReq.PageSize)
+	return service.MonthlyListQuery{
+		PageNum:  pageReq.PageNum,
+		PageSize: pageReq.PageSize,
+		Month:    c.Query("month"),
+		PersonID: uint(personID),
+	}
+}
+
+func GetMonthlyList(c *gin.Context) {
+	q := monthlyListQuery(c)
+	list, total, err := service.GetMonthlyList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
 type calculateReq struct {
@@ -49,9 +60,23 @@ func CalculateMonthly(c *gin.Context) {
 	utils.SuccessWithMsg(c, "核算完成", gin.H{"success": success, "fail": fail})
 }
 
+// monthlyExportFilters 月度考勤核算导出文件名筛选摘要
+func monthlyExportFilters(q service.MonthlyListQuery) []string {
+	var parts []string
+	if q.Month != "" {
+		parts = append(parts, "月份="+q.Month)
+	}
+	if q.PersonID > 0 {
+		parts = append(parts, "人员="+service.PersonName(q.PersonID))
+	}
+	return parts
+}
+
 func ExportAttendanceMonthly(c *gin.Context) {
-	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, _, err := service.GetMonthlyList(c.Query("month"), uint(personID), 1, 10000)
+	// 导出严格关联列表视图的当前筛选
+	q := monthlyListQuery(c)
+	q.PageNum, q.PageSize = 1, 10000
+	list, _, err := service.GetMonthlyList(q)
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return
@@ -68,7 +93,8 @@ func ExportAttendanceMonthly(c *gin.Context) {
 			map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[s["status"].(string)],
 		})
 	}
-	writeExcel(c, "月度考勤核算", "attendance_monthly",
+	writeExcel(c, "月度考勤核算",
 		[]string{"月份", "人员", "计薪天数", "加权基本工资", "记出勤工时", "工作日加班工时", "节假日加班工时",
-			"出勤工资", "工作日加班工资", "节假日加班工资", "全勤奖", "违纪次数", "有事假", "核算时间", "状态"}, rows)
+			"出勤工资", "工作日加班工资", "节假日加班工资", "全勤奖", "违纪次数", "有事假", "核算时间", "状态"}, rows,
+		monthlyExportFilters(q)...)
 }

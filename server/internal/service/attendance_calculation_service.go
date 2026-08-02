@@ -197,19 +197,27 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 	return result, err
 }
 
-func GetMonthlyList(month string, personID uint, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
+// MonthlyListQuery 月度考勤核算列表查询（列表与导出共用）
+type MonthlyListQuery struct {
+	PageNum  int
+	PageSize int
+	Month    string
+	PersonID uint
+}
+
+func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceCalculationMonthly{})
-	if month != "" {
-		tx = tx.Where("belong_month = ?", month)
+	if q.Month != "" {
+		tx = tx.Where("belong_month = ?", q.Month)
 	}
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
 	var total int64
 	tx.Count(&total)
 	var list []model.AttendanceCalculationMonthly
-	offset := (pageNum - 1) * pageSize
-	err := tx.Order("person_id ASC").Offset(offset).Limit(pageSize).Find(&list).Error
+	offset := (q.PageNum - 1) * q.PageSize
+	err := tx.Order("person_id ASC").Offset(offset).Limit(q.PageSize).Find(&list).Error
 	if err != nil {
 		return nil, 0, err
 	}

@@ -11,22 +11,31 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetCompanyList(pageNum, pageSize int, name, creditCode string, id string) ([]model.Company, int64, error) {
+// CompanyListQuery 公司列表查询（列表与导出共用）
+type CompanyListQuery struct {
+	PageNum    int
+	PageSize   int
+	Name       string
+	CreditCode string
+	ID         string
+}
+
+func GetCompanyList(q CompanyListQuery) ([]model.Company, int64, error) {
 	tx := dao.DB.Model(&model.Company{})
-	if id != "" {
-		tx = tx.Where("id = ?", id)
+	if q.ID != "" {
+		tx = tx.Where("id = ?", q.ID)
 	}
-	if name != "" {
-		tx = tx.Where("name LIKE ?", "%"+name+"%")
+	if q.Name != "" {
+		tx = tx.Where("name LIKE ?", "%"+q.Name+"%")
 	}
-	if creditCode != "" {
-		tx = tx.Where("credit_code LIKE ?", "%"+creditCode+"%")
+	if q.CreditCode != "" {
+		tx = tx.Where("credit_code LIKE ?", "%"+q.CreditCode+"%")
 	}
 	var total int64
 	tx.Count(&total)
 	var list []model.Company
-	offset := (pageNum - 1) * pageSize
-	tx.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list)
+	offset := (q.PageNum - 1) * q.PageSize
+	tx.Offset(offset).Limit(q.PageSize).Order("id DESC").Find(&list)
 	return list, total, nil
 }
 

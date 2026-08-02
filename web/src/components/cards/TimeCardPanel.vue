@@ -1,14 +1,9 @@
 <template>
   <div class="time-card-panel">
     <div v-if="level !== 'cards'" class="panel-nav">
-      <template v-if="level === 'months'">
-        <el-button link size="small" @click="backToCards">← 全部人员</el-button>
-        <span class="nav-title">{{ personName }} 的最近 12 个月</span>
-      </template>
-      <template v-else-if="level === 'days'">
-        <el-button link size="small" @click="backToMonths">← {{ personName }} 的月度</el-button>
-        <span class="nav-title">{{ personName }} / {{ selectedMonth }}</span>
-      </template>
+      <PageBackButton v-if="level === 'months'" @click="backToCards" />
+      <PageBackButton v-else-if="level === 'days'" @click="backToMonths" />
+      <span class="nav-title">{{ level === 'months' ? `${personName} 的最近 12 个月` : `${personName} / ${selectedMonth}` }}</span>
     </div>
 
     <PersonScopeSwitch v-if="level === 'cards'" v-model="scope" />
@@ -43,9 +38,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import MonthCard from '@/components/cards/MonthCard.vue'
 import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
+import PageBackButton from '@/components/PageBackButton.vue'
 import { getPersonCards } from '@/api/person'
 import { useMonthStats } from '@/composables/useMonthStats'
 import { filterPersons, type PersonScope } from '@/utils/personScope'
@@ -58,6 +55,11 @@ const props = withDefaults(
     hasDayLevel?: boolean
     statusField?: string
     pendingValues?: string[]
+    // URL 驱动模式：卡片→月份→日期层级状态同步到路由 query（?person=&name=&month=），
+    // 返回/刷新后层级可恢复；后续模块逐个启用即完成推广
+    urlDriven?: boolean
+    // 月份点击跳转的业务逻辑页路由生成器（优先级高于内部日期层），如 `/module/:personId/:month`
+    detailRoute?: (person: { id: number; name: string }, month: string) => string
   }>(),
   {
     dateField: '',
@@ -65,6 +67,8 @@ const props = withDefaults(
     hasDayLevel: true,
     statusField: 'status',
     pendingValues: () => [],
+    urlDriven: false,
+    detailRoute: undefined,
   },
 )
 
@@ -90,6 +94,28 @@ const monthStatsLoader = useMonthStats({
 })
 const monthStats = monthStatsLoader.months
 
+const route = useRoute()
+const router = useRouter()
+
+// syncUrl 将当前层级状态合并写入路由 query（urlDriven 模式，保留其它视图的休眠状态）
+function syncUrl() {
+  if (!props.urlDriven) return
+  const query: Record<string, any> = { ...route.query }
+  if (personId.value) {
+    query.person = String(personId.value)
+    query.name = personName.value
+  } else {
+    delete query.person
+    delete query.name
+  }
+  if (selectedMonth.value && !props.detailRoute) {
+    query.month = selectedMonth.value
+  } else {
+    delete query.month
+  }
+  router.replace({ query })
+}
+
 async function loadPersonCards() {
   loading.value = true
   try {
@@ -105,16 +131,23 @@ function openPerson(person: any) {
   personId.value = person.id
   personName.value = person.name
   level.value = 'months'
+  syncUrl()
   loadMonthStats()
 }
 
 function backToCards() {
   level.value = 'cards'
+  personId.value = null
+  personName.value = ''
+  selectedMonth.value = ''
+  syncUrl()
   loadPersonCards()
 }
 
 function backToMonths() {
   level.value = 'months'
+  selectedMonth.value = ''
+  syncUrl()
   loadMonthStats()
 }
 
@@ -127,12 +160,19 @@ async function loadMonthStats() {
 
 function openMonth(month: string) {
   selectedMonth.value = month
+  if (props.detailRoute) {
+    // 月份点击直接进入业务逻辑页（URL 携带人员+月份）
+    syncUrl()
+    router.push(props.detailRoute({ id: personId.value!, name: personName.value }, month))
+    return
+  }
   level.value = 'days'
   if (props.hasDayLevel) {
     loadDays()
   } else {
     loadMonthItems()
   }
+  syncUrl()
 }
 
 async function fetchAll(params: any): Promise<any[]> {
@@ -208,6 +248,26 @@ function reload() {
 
 onMounted(() => {
   loadPersonCards()
+  if (props.urlDriven) {
+    // URL 恢复层级：?person=5&month=2026-06 → 直接进入对应层级
+    const qp = route.query
+    if (qp.person) {
+      personId.value = Number(qp.person)
+      personName.value = String(qp.name || '')
+      if (qp.month && !props.detailRoute) {
+        selectedMonth.value = String(qp.month)
+        level.value = 'days'
+        if (props.hasDayLevel) {
+          loadDays()
+        } else {
+          loadMonthItems()
+        }
+      } else {
+        level.value = 'months'
+        loadMonthStats()
+      }
+    }
+  }
 })
 
 defineExpose({ reload })

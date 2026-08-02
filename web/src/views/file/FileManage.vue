@@ -1,6 +1,6 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>文件管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchFiles" :search-fields="searchFields" :actions="actions" @action="handleAction">
+    <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchFiles" :search-fields="searchFields" :actions="actions" @action="handleAction">
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="showAssociations(row)">关联({{ row.assoc_count||0 }})</el-button>
         <el-button type="success" link size="small" @click="downloadFile(row.id, row.original_name)">下载</el-button>
@@ -52,7 +52,7 @@ const searchFields=[
     {label:'Word',value:'application/vnd.openxmlformats-officedocument.wordprocessingml'},
     {label:'纯文本',value:'text/'},
   ]},
-  {prop:'date',label:'上传时间',type:'date-range' as const},
+  {prop:'date',label:'上传时间',type:'date-range' as const,startKey:'date_start',endKey:'date_end'},
 ]
 const actions=[{key:'upload',label:'上传文件',type:'primary' as const},{key:'trash',label:'回收站',type:'default' as const}]
 const tc=[{prop:'id',label:'ID',width:'60'},{prop:'original_name',label:'文件名'},{prop:'md5',label:'MD5',width:'120'}]

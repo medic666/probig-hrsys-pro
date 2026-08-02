@@ -73,27 +73,37 @@ func GetPositionEvent(id uint) (*model.PositionEvent, error) {
 	return &event, nil
 }
 
-func GetPositionEventList(pageNum, pageSize int, personID uint, startDate, endDate, eventType string) ([]map[string]interface{}, int64, error) {
+// PositionEventListQuery 职务事件列表查询（列表与导出共用）
+type PositionEventListQuery struct {
+	PageNum    int
+	PageSize   int
+	PersonID   uint
+	StartDate  string
+	EndDate    string
+	EventType  string
+}
+
+func GetPositionEventList(q PositionEventListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.PositionEvent{})
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
-	if startDate != "" {
-		tx = tx.Where("effective_date >= ?", startDate)
+	if q.StartDate != "" {
+		tx = tx.Where("effective_date >= ?", q.StartDate)
 	}
-	if endDate != "" {
-		tx = tx.Where("effective_date <= ?", endDate)
+	if q.EndDate != "" {
+		tx = tx.Where("effective_date <= ?", q.EndDate)
 	}
-	if eventType != "" {
-		tx = tx.Where("event_type = ?", eventType)
+	if q.EventType != "" {
+		tx = tx.Where("event_type = ?", q.EventType)
 	}
 
 	var total int64
 	tx.Count(&total)
 
 	var events []model.PositionEvent
-	offset := (pageNum - 1) * pageSize
-	tx.Offset(offset).Limit(pageSize).Order("person_id ASC, effective_date DESC, seq DESC").Find(&events)
+	offset := (q.PageNum - 1) * q.PageSize
+	tx.Offset(offset).Limit(q.PageSize).Order("person_id ASC, effective_date DESC, seq DESC").Find(&events)
 
 	ids := make([]uint, len(events))
 	for i, e := range events {

@@ -53,6 +53,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '职务事件', permissionKey: 'position_event.read' },
       },
       {
+        path: 'position-events/create',
+        name: 'PositionEventCreate',
+        component: () => import('@/views/position/PositionEventPage.vue'),
+        meta: { title: '新增职务事件', permissionKey: 'position_event.read' },
+      },
+      {
+        path: 'position-events/:id',
+        name: 'PositionEventEdit',
+        component: () => import('@/views/position/PositionEventPage.vue'),
+        meta: { title: '编辑职务事件', permissionKey: 'position_event.read' },
+      },
+      {
         path: 'attendance',
         name: 'AttendanceEventManage',
         component: () => import('@/views/attendance/AttendanceEventManage.vue'),
@@ -75,6 +87,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AttendanceMonthlyCalc',
         component: () => import('@/views/attendance/AttendanceMonthlyCalc.vue'),
         meta: { title: '月度考勤核算', permissionKey: 'attendance.read' },
+      },
+      {
+        path: 'attendance-monthly/:personId/:month',
+        name: 'AttendanceMonthlyDetail',
+        component: () => import('@/views/attendance/AttendanceMonthlyDetail.vue'),
+        meta: { title: '月度考勤核算详情', permissionKey: 'attendance.read' },
       },
       {
         path: 'annual-leave-events',

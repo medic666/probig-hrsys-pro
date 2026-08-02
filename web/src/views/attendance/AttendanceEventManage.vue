@@ -9,16 +9,18 @@
       </template>
     </PageHeader>
 
-    <PageToolbar>
+    <PageToolbar :right-visible="isList">
       <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
       <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
       <el-button type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
-      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-      <el-button size="small" @click="handleAction('export')">导出</el-button>
+      <template #right>
+        <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button size="small" @click="handleAction('export')">导出</el-button>
+      </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -172,6 +174,8 @@ import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
+import { usePageView } from '@/composables/usePageView'
+
 const tableRef = ref()
 const dialogVisible = ref(false)
 const dialogMode = ref<'add'|'edit'>('add')
@@ -192,7 +196,7 @@ const previewing = ref(false)
 const importing = ref(false)
 const uploadRef = ref()
 
-const viewMode = ref<'list'|'blocks'>('blocks')
+const { viewMode, isList } = usePageView('blocks')
 const timePanelRef = ref()
 const editVisible = ref(false)
 const editDailyRow = ref<any>(null)
@@ -229,7 +233,6 @@ function detailSummary(r: any): string {
 }
 
 const columns = [
-  { prop:'id', label:'ID', width:'60' },
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'event_date', label:'日期', width:'110' },
   { prop:'status', label:'状态', width:'80', formatter:(r:any)=>({pending:'待确认',confirmed:'已确认'}[r.status]||r.status||'-') },
@@ -238,7 +241,14 @@ const columns = [
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOpts },
-  { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t=>({label:t,value:t})) },
+  {
+    prop:'status', label:'状态', type:'select' as const,
+    options: [
+      { label:'待确认', value:'pending' },
+      { label:'已确认', value:'confirmed' },
+    ],
+  },
+  { prop:'date', label:'日期', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 const trashCols = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' },{ prop:'event_date', label:'日期' }]
 
@@ -308,7 +318,7 @@ async function doImport() {
 }
 
 async function handleExport() {
-  const data = await exportAttendanceEvents({})
+  const data = await exportAttendanceEvents(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
 

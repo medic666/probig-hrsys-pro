@@ -1,32 +1,15 @@
 <template>
   <div>
-    <template v-if="showAL">
-      <h4 class="lb-title">年假明细</h4>
-      <el-descriptions v-if="alDetail" :column="1" border size="small">
-        <el-descriptions-item label="累计配发(天)">{{ hoursToDays(alDetail.grant).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="累计已休(天)">{{ hoursToDays(alDetail.consumed).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="累计人工调整(天)">{{ hoursToDays(alDetail.adjust).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="累计结转扣除(天)">{{ hoursToDays(alDetail.carryover).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="当前可用(天)">{{ hoursToDays(alDetail.balance).toFixed(2) }}</el-descriptions-item>
-      </el-descriptions>
-      <el-empty v-else description="暂无年假余额记录" :image-size="50" />
-    </template>
-    <template v-if="showLIL">
-      <h4 class="lb-title">调休明细</h4>
-      <el-descriptions v-if="lilDetail" :column="1" border size="small">
-        <el-descriptions-item label="累计补班(天)">{{ hoursToDays(lilDetail.makeup).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="累计调休(天)">{{ hoursToDays(lilDetail.consumed).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="当前可用(天)">{{ hoursToDays(lilDetail.balance).toFixed(2) }}</el-descriptions-item>
-      </el-descriptions>
-      <el-empty v-else description="暂无调休余额记录" :image-size="50" />
-    </template>
+    <BalanceDetailList v-if="showAL" title="年假明细" empty-text="暂无年假余额记录" :rows="alRows" />
+    <BalanceDetailList v-if="showLIL" title="调休明细" empty-text="暂无调休余额记录" :rows="lilRows" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'
+import BalanceDetailList from '@/components/cards/BalanceDetailList.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -42,6 +25,28 @@ const props = withDefaults(
 
 const alDetail = ref<any>(null)
 const lilDetail = ref<any>(null)
+
+const alRows = computed(() =>
+  alDetail.value
+    ? [
+        { label: '累计配发(天)', value: hoursToDays(alDetail.value.grant).toFixed(2) },
+        { label: '累计已休(天)', value: hoursToDays(alDetail.value.consumed).toFixed(2) },
+        { label: '累计人工调整(天)', value: hoursToDays(alDetail.value.adjust).toFixed(2) },
+        { label: '累计结转扣除(天)', value: hoursToDays(alDetail.value.carryover).toFixed(2) },
+        { label: '当前可用(天)', value: hoursToDays(alDetail.value.balance).toFixed(2) },
+      ]
+    : [],
+)
+
+const lilRows = computed(() =>
+  lilDetail.value
+    ? [
+        { label: '累计补班(天)', value: hoursToDays(lilDetail.value.makeup).toFixed(2) },
+        { label: '累计调休(天)', value: hoursToDays(lilDetail.value.consumed).toFixed(2) },
+        { label: '当前可用(天)', value: hoursToDays(lilDetail.value.balance).toFixed(2) },
+      ]
+    : [],
+)
 
 watch(
   () => props.personId,
@@ -63,15 +68,3 @@ watch(
   { immediate: true },
 )
 </script>
-
-<style scoped>
-.lb-title {
-  font-size: 13px;
-  color: #606266;
-  margin: 0 0 8px;
-}
-.lb-title + .el-descriptions,
-.lb-title + .el-empty {
-  margin-bottom: 12px;
-}
-</style>

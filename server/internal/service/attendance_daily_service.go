@@ -101,26 +101,36 @@ func SaveDailyDetailsKeepStatus(tx *gorm.DB, dailyID uint, details []model.Atten
 	)
 }
 
-func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status string, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {
+// AttendanceDailyListQuery 考勤日记录列表查询（列表与导出共用）
+type AttendanceDailyListQuery struct {
+	PageNum   int
+	PageSize  int
+	PersonID  uint
+	DateStart string
+	DateEnd   string
+	Status    string
+}
+
+func GetAttendanceDailyList(q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
 	tx := dao.DB.Model(&model.AttendanceDaily{}).Preload("Details")
-	if personID > 0 {
-		tx = tx.Where("person_id = ?", personID)
+	if q.PersonID > 0 {
+		tx = tx.Where("person_id = ?", q.PersonID)
 	}
-	if dateStart != "" {
-		tx = tx.Where("event_date >= ?", dateStart)
+	if q.DateStart != "" {
+		tx = tx.Where("event_date >= ?", q.DateStart)
 	}
-	if dateEnd != "" {
-		tx = tx.Where("event_date <= ?", dateEnd)
+	if q.DateEnd != "" {
+		tx = tx.Where("event_date <= ?", q.DateEnd)
 	}
-	if status != "" {
-		tx = tx.Where("status = ?", status)
+	if q.Status != "" {
+		tx = tx.Where("status = ?", q.Status)
 	}
 	var total int64
 	tx.Count(&total)
 
 	var list []model.AttendanceDaily
-	offset := (pageNum - 1) * pageSize
-	tx.Order("event_date DESC, person_id ASC").Offset(offset).Limit(pageSize).Find(&list)
+	offset := (q.PageNum - 1) * q.PageSize
+	tx.Order("event_date DESC, person_id ASC").Offset(offset).Limit(q.PageSize).Find(&list)
 
 	ids := make([]uint, len(list))
 	for i, d := range list {
@@ -149,8 +159,10 @@ func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status str
 	return result, total, nil
 }
 
-func GetPendingDailyList(pageNum, pageSize int, personID uint) ([]map[string]interface{}, int64, error) {
-	return GetAttendanceDailyList(personID, "", "", "pending", pageNum, pageSize)
+func GetPendingDailyList(q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
+	q.DateStart, q.DateEnd = "", ""
+	q.Status = "pending"
+	return GetAttendanceDailyList(q)
 }
 
 // detailSnapshots 将考勤事件明细转成审计快照（不含技术字段）

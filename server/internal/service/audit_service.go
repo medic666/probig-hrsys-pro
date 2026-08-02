@@ -7,28 +7,39 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetAuditLogList(pageNum, pageSize int, operatorName, action, targetType, dateStart, dateEnd string) ([]model.AuditLog, int64, error) {
+// AuditLogListQuery 审计日志列表查询（列表与导出共用）
+type AuditLogListQuery struct {
+	PageNum      int
+	PageSize     int
+	OperatorName string
+	Action       string
+	TargetType   string
+	DateStart    string
+	DateEnd      string
+}
+
+func GetAuditLogList(q AuditLogListQuery) ([]model.AuditLog, int64, error) {
 	tx := dao.DB.Model(&model.AuditLog{})
-	if operatorName != "" {
-		tx = tx.Where("operator_name LIKE ?", "%"+operatorName+"%")
+	if q.OperatorName != "" {
+		tx = tx.Where("operator_name LIKE ?", "%"+q.OperatorName+"%")
 	}
-	if action != "" {
-		tx = tx.Where("action = ?", action)
+	if q.Action != "" {
+		tx = tx.Where("action = ?", q.Action)
 	}
-	if targetType != "" {
-		tx = tx.Where("target_type = ?", targetType)
+	if q.TargetType != "" {
+		tx = tx.Where("target_type = ?", q.TargetType)
 	}
-	if dateStart != "" {
-		tx = tx.Where("created_at >= ?", dateStart)
+	if q.DateStart != "" {
+		tx = tx.Where("created_at >= ?", q.DateStart)
 	}
-	if dateEnd != "" {
-		tx = tx.Where("created_at <= ?", dateEnd+" 23:59:59")
+	if q.DateEnd != "" {
+		tx = tx.Where("created_at <= ?", q.DateEnd+" 23:59:59")
 	}
 	var total int64
 	tx.Count(&total)
 	var list []model.AuditLog
-	offset := (pageNum - 1) * pageSize
-	tx.Offset(offset).Limit(pageSize).Order("id DESC").Find(&list)
+	offset := (q.PageNum - 1) * q.PageSize
+	tx.Offset(offset).Limit(q.PageSize).Order("id DESC").Find(&list)
 	return list, total, nil
 }
 

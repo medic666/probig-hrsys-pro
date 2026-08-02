@@ -29,7 +29,8 @@ export function useMonthStats(options: MonthStatsOptions) {
   function buildMonths() {
     const now = new Date()
     const list: MonthStat[] = []
-    for (let i = 11; i >= 0; i--) {
+    // 最近 11 个月（含当月）+ 未来 1 个月，共 12 格
+    for (let i = 10; i >= -1; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       list.push({ month: monthKey(d), level: 'gray' })
     }
@@ -43,11 +44,11 @@ export function useMonthStats(options: MonthStatsOptions) {
     const countMap = new Map<string, number>()
     const orangeMap = new Map<string, boolean>()
     try {
-      const rangeStart = new Date()
-      rangeStart.setMonth(rangeStart.getMonth() - 11)
-      rangeStart.setDate(1)
+      const now = new Date()
+      const rangeStart = new Date(now.getFullYear(), now.getMonth() - 10, 1)
+      const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0)
       const start = `${rangeStart.getFullYear()}-${String(rangeStart.getMonth() + 1).padStart(2, '0')}-01`
-      const end = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-31`
+      const end = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, '0')}-${String(rangeEnd.getDate()).padStart(2, '0')}`
 
       const params: any = { pageNum: 1, pageSize: 100 }
       if (pid > 0) {

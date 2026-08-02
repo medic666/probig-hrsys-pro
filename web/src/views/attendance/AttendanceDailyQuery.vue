@@ -8,9 +8,14 @@
       </el-radio-group>
       </template>
     </PageHeader>
+    <PageToolbar :right-visible="isList">
+      <template #right>
+        <el-button size="small" @click="handleExport">导出</el-button>
+      </template>
+    </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchDaily" :search-fields="searchFields" @action="noop">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchDaily" :search-fields="searchFields" @action="noop">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="showEvents(row)">查看原始事件</el-button>
         </template>
@@ -26,7 +31,12 @@
         :pending-values="['pending']"
       >
         <template #day="{ date, items }">
-          <div v-if="items.length > 0" class="proj-card" :class="{ 'is-pending': items[0].status === 'pending' }">
+          <div
+            v-if="items.length > 0"
+            class="proj-card"
+            :class="{ 'is-pending': items[0].status === 'pending' }"
+            @click="showEvents({ person_id: items[0].person_id, work_date: date })"
+          >
             <div class="pc-header">
               <span class="pc-date">{{ date }}</span>
               <span class="pc-person">{{ items[0].person_name || '' }}</span>
@@ -63,13 +73,16 @@
 import { ref } from 'vue'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import { getDailyProjections, getEventsByDate } from '@/api/attendance'
+import { getDailyProjections, getEventsByDate, exportDailyProjections } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
+import { usePageView } from '@/composables/usePageView'
+import { downloadBlob } from '@/utils/download'
 import { hoursToDays } from '@/utils'
 
 const tableRef = ref()
-const viewMode = ref<'cards'|'list'>('cards')
+const { viewMode, isList } = usePageView('cards')
 const eventsVisible = ref(false)
 const dailyEvents = ref<any[]>([])
 
@@ -86,7 +99,7 @@ const columns = [
 ]
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
-  { prop:'date', label:'日期范围', type:'date-range' as const },
+  { prop:'date', label:'日期范围', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 
 async function fetchPersonOptions(k?: string) { const l=(await getAllPersons()) as any[]||[]; return k?l.filter((p:any)=>p.name.includes(k)):l }
@@ -95,6 +108,10 @@ async function fetchDaily(p: any) {
 }
 
 async function showEvents(row: any) { dailyEvents.value = (await getEventsByDate(row.person_id, row.work_date)) as any[]||[]; eventsVisible.value=true }
+async function handleExport() {
+  const data = await exportDailyProjections(tableRef.value?.getSearchParams() || {})
+  downloadBlob(data)
+}
 function noop() {}
 </script>
 <style scoped>
@@ -106,6 +123,11 @@ function noop() {}
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
   &.is-pending {
     border-color: #eebe77;
   }

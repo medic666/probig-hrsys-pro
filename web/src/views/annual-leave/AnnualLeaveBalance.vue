@@ -1,12 +1,13 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>年假余额查询</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+    <PageHeader title="年假余额查询">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
         <el-radio-button value="cards">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
       </el-radio-group>
-    </div>
+      </template>
+    </PageHeader>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchData" :search-fields="searchFields">
@@ -33,20 +34,26 @@
     <el-dialog v-model="detailVisible" :title="detailPersonName ? `${detailPersonName} 的假期明细` : '假期明细'" width="440px">
       <LeaveBalanceDetail :person-id="detailPersonId" :show-lil="false" />
     </el-dialog>
+
+    <PersonScopeSwitch v-if="viewMode === 'cards'" v-model="scope" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
 import ProTable from '@/components/ProTable.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import CardGrid from '@/components/cards/CardGrid.vue'
+import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import LeaveBalanceDetail from '@/components/cards/LeaveBalanceDetail.vue'
 import { getAllPersons, getPersonCards } from '@/api/person'
 import request from '@/utils/request'
 import { hoursToDays, formatDateTime } from '@/utils'
+import { filterPersons, type PersonScope } from '@/utils/personScope'
 
 const tableRef = ref()
+const scope = ref<PersonScope>('active')
 const viewMode = ref<'cards' | 'list'>('cards')
 const cardGridRef = ref()
 const balanceMap = ref<Record<number, number>>({})
@@ -76,7 +83,7 @@ async function fetchCards() {
     map[row.person_id] = row.balance_hours ?? 0
   }
   balanceMap.value = map
-  return { list: cards, total: cards.length }
+  return { list: filterPersons(cards, scope.value), total: cards.length }
 }
 
 function openDetail(personId: number, personName: string) {
@@ -87,7 +94,8 @@ function openDetail(personId: number, personName: string) {
 </script>
 <style scoped>
 .page-container { padding: 0; background: transparent; }
-.page-header { margin-bottom: 16px; display: flex; align-items: center; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+
+
 .balance-line { font-size: 13px; color: #409eff; font-weight: 600; line-height: 20px; }
 .balance-line.is-zero { color: #c0c4cc; font-weight: 400; }
 </style>

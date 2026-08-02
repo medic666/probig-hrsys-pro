@@ -57,6 +57,21 @@ func UpdatePerson(c *gin.Context) {
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
+// UpdatePersonProfile 聚合更新人员档案（基础字段 + 电话/邮箱/银行卡/紧急联系人，事务内同步）
+func UpdatePersonProfile(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	var req service.PersonProfile
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, "参数错误")
+		return
+	}
+	if err := service.UpdatePersonProfile(c.Request.Context(), uint(id), &req); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.SuccessWithMsg(c, "保存成功", nil)
+}
+
 func DeletePerson(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err := service.DeletePerson(c.Request.Context(), uint(id)); err != nil {
@@ -86,7 +101,8 @@ func GetDeletedPersons(c *gin.Context) {
 }
 
 func ExportPersons(c *gin.Context) {
-	list, _, err := service.GetPersonList(1, 10000, c.Query("name"), c.Query("id_card"), "")
+	// 导出当前视图范围的人员基础信息：列表视图传当前筛选（name/id_card/person_id），卡片视图不传（全量）
+	list, _, err := service.GetPersonList(1, 10000, c.Query("name"), c.Query("id_card"), c.Query("person_id"))
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return

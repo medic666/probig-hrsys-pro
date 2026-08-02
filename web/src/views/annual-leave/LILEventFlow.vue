@@ -1,15 +1,20 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>调休事件流水</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+    <PageHeader title="调休事件流水">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
         <el-radio-button value="cards">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
       </el-radio-group>
-    </div>
+      </template>
+    </PageHeader>
+
+    <PageToolbar>
+      <el-button type="primary" size="small" @click="handleAction('add')">新增</el-button>
+    </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction" />
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" />
     </template>
 
     <template v-else>
@@ -53,10 +58,12 @@
 import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import DayCard from '@/components/cards/DayCard.vue'
 import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import { getLILEvents } from '@/api/annual-leave'
 import { getAttendanceEvents } from '@/api/attendance'
 import { createAttendanceEvent } from '@/api/attendance'
@@ -81,7 +88,6 @@ const searchFields = [
   { prop: 'person_id', label: '人员', type: 'person-select' as const, fetchApi: fetchOpts },
   { prop: 'date', label: '时间范围', type: 'date-range' as const },
 ]
-const actions = [{ key: 'add', label: '新增', type: 'primary' as const }]
 
 async function fetchOpts(k?: string) { const l = await getAllPersons() as any[]; return k ? l.filter(p => p.name.includes(k)) : l }
 async function fetchEvents(p: any) {
@@ -137,5 +143,5 @@ function onEdited() {
 </script>
 <style scoped>
 .page-container { padding: 0; background: transparent; }
-.page-header { margin-bottom: 16px; display: flex; align-items: center; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="time-card-panel">
-    <div class="panel-nav">
+    <div v-if="level !== 'cards'" class="panel-nav">
       <template v-if="level === 'months'">
         <el-button link size="small" @click="backToCards">← 全部人员</el-button>
         <span class="nav-title">{{ personName }} 的最近 12 个月</span>
@@ -9,17 +9,16 @@
         <el-button link size="small" @click="backToMonths">← {{ personName }} 的月度</el-button>
         <span class="nav-title">{{ personName }} / {{ selectedMonth }}</span>
       </template>
-      <template v-else>
-        <span class="nav-title">人员卡片</span>
-      </template>
     </div>
+
+    <PersonScopeSwitch v-if="level === 'cards'" v-model="scope" />
 
     <div v-loading="loading" style="min-height:120px">
       <template v-if="level === 'cards'">
         <div class="panel-grid">
-          <PersonCard v-for="p in personCards" :key="p.id" :person="p" @click="openPerson" />
+          <PersonCard v-for="p in visiblePersonCards" :key="p.id" :person="p" @click="openPerson" />
         </div>
-        <el-empty v-if="!loading && personCards.length === 0" description="暂无数据" :image-size="60" />
+        <el-empty v-if="!loading && visiblePersonCards.length === 0" description="暂无数据" :image-size="60" />
       </template>
 
       <template v-else-if="level === 'months'">
@@ -43,11 +42,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import MonthCard from '@/components/cards/MonthCard.vue'
+import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import { getPersonCards } from '@/api/person'
 import { useMonthStats } from '@/composables/useMonthStats'
+import { filterPersons, type PersonScope } from '@/utils/personScope'
 
 const props = withDefaults(
   defineProps<{
@@ -69,6 +70,8 @@ const props = withDefaults(
 
 const level = ref<'cards' | 'months' | 'days'>('cards')
 const personCards = ref<any[]>([])
+const scope = ref<PersonScope>('active')
+const visiblePersonCards = computed(() => filterPersons(personCards.value, scope.value))
 const personId = ref<number | null>(null)
 const personName = ref('')
 const selectedMonth = ref('')

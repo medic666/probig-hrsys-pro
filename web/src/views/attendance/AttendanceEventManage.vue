@@ -1,15 +1,24 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>考勤事件管理</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+    <PageHeader title="考勤事件管理">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
         <el-radio-button value="blocks">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
       </el-radio-group>
-    </div>
+      </template>
+    </PageHeader>
+
+    <PageToolbar>
+      <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
+      <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
+      <el-button type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
+      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+      <el-button size="small" @click="handleAction('export')">导出</el-button>
+    </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -19,16 +28,6 @@
     </template>
 
     <template v-else>
-      <div class="block-toolbar">
-        <div class="block-actions-bar">
-          <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
-          <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
-          <el-button type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
-          <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-          <el-button size="small" @click="handleAction('export')">导出</el-button>
-        </div>
-      </div>
-
       <TimeCardPanel
         ref="timePanelRef"
         :fetch-fn="(p: any) => getAttendanceEvents(p)"
@@ -160,11 +159,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getAttendanceEvents, createAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
@@ -238,13 +239,6 @@ const columns = [
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOpts },
   { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t=>({label:t,value:t})) },
-]
-const actions = [
-  { key:'add', label:'新增事件', type:'primary' as const },
-  { key:'batch', label:'批量新增', type:'success' as const },
-  { key:'import', label:'钉钉导入', type:'warning' as const },
-  { key:'trash', label:'回收站', type:'default' as const },
-  { key:'export', label:'导出', type:'default' as const },
 ]
 const trashCols = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' },{ prop:'event_date', label:'日期' }]
 
@@ -354,29 +348,9 @@ function onRefresh() { tableRef.value?.refresh() }
 </script>
 <style lang="scss" scoped>
 .page-container { padding:0; background:transparent; }
-.page-header { margin-bottom:16px; display:flex; align-items:center; h2 { font-size:18px; font-weight:600; color:#303133; } }
+
 .import-hint { color:#909399; font-size:12px; margin-top:8px; }
-.block-toolbar {
-  background: #fff;
-  border-radius: 4px;
-  padding: 12px 16px 0;
-  margin-bottom: 12px;
-  .block-nav {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-    .nav-title {
-      font-weight: 600;
-      color: #303133;
-    }
-  }
-  .block-actions-bar {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-}
+
 .block-group {
   margin-bottom: 16px;
   .group-header {

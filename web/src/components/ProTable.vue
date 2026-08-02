@@ -256,9 +256,25 @@ function getSelected() {
   return selectedRows.value
 }
 
+function getSearchParams() {
+  const params: Record<string, any> = {}
+  for (const key of Object.keys(searchForm)) {
+    const val = searchForm[key]
+    if (val !== '' && val !== null && val !== undefined) {
+      if (Array.isArray(val)) {
+        params[`${key}Start`] = val[0] || ''
+        params[`${key}End`] = val[1] || ''
+      } else {
+        params[key] = val
+      }
+    }
+  }
+  return params
+}
+
 const showActions = computed(() => props.actions && props.actions.length > 0)
 
-defineExpose({ refresh, clearSelection, getSelected })
+defineExpose({ refresh, clearSelection, getSelected, getSearchParams })
 
 onMounted(() => {
   initSearchForm()

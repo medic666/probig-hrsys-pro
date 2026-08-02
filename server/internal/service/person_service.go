@@ -53,6 +53,32 @@ func CreatePerson(ctx context.Context, p *model.Person) error {
 	return dao.DBFromContext(ctx).Create(p).Error
 }
 
+// buildPersonUpdates 基础字段差异更新 map：仅返回发生变化字段（未变化零操作零审计）
+func buildPersonUpdates(existing *model.Person, p *model.Person) map[string]interface{} {
+	updates := map[string]interface{}{}
+	if p.Name != existing.Name { updates["name"] = p.Name }
+	if p.IDCard != existing.IDCard { updates["id_card"] = p.IDCard }
+	if p.Gender != existing.Gender { updates["gender"] = p.Gender }
+	if !sameDate(p.Birthday, existing.Birthday) { updates["birthday"] = p.Birthday }
+	if p.Nation != existing.Nation { updates["nation"] = p.Nation }
+	if p.NativePlace != existing.NativePlace { updates["native_place"] = p.NativePlace }
+	if p.Address != existing.Address { updates["address"] = p.Address }
+	if p.PoliticalStatus != existing.PoliticalStatus { updates["political_status"] = p.PoliticalStatus }
+	if p.MaritalStatus != existing.MaritalStatus { updates["marital_status"] = p.MaritalStatus }
+	if p.Alias != existing.Alias { updates["alias"] = p.Alias }
+	return updates
+}
+
+func sameDate(a, b *utils.DateOnly) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Equal(*b)
+}
+
 func UpdatePerson(ctx context.Context, id uint, p *model.Person) error {
 	var existing model.Person
 	if err := dao.DB.First(&existing, id).Error; err != nil {
@@ -67,19 +93,81 @@ func UpdatePerson(ctx context.Context, id uint, p *model.Person) error {
 		}
 	}
 
-	updates := map[string]interface{}{
-		"name":             p.Name,
-		"id_card":          p.IDCard,
-		"gender":           p.Gender,
-		"birthday":         p.Birthday,
-		"nation":           p.Nation,
-		"native_place":     p.NativePlace,
-		"address":          p.Address,
-		"political_status": p.PoliticalStatus,
-		"marital_status":   p.MaritalStatus,
-		"alias":            p.Alias,
+	updates := buildPersonUpdates(&existing, p)
+	if len(updates) == 0 {
+		return nil
 	}
 	return dao.DBFromContext(ctx).Model(&existing).Updates(updates).Error
+}
+
+// PersonProfile 人员聚合档案：基础字段 + 四类子表（提交时按主键同步，未变化零审计）
+type PersonProfile struct {
+	model.Person
+	Phones            []model.PersonPhone            `json:"phones"`
+	Emails            []model.PersonEmail            `json:"emails"`
+	BankCards         []model.PersonBankCard         `json:"bank_cards"`
+	EmergencyContacts []model.PersonEmergencyContact `json:"emergency_contacts"`
+}
+
+// UpdatePersonProfile 聚合更新人员档案（事务）：基础字段 + 四类子表同步（UPSERT）
+func UpdatePersonProfile(ctx context.Context, id uint, req *PersonProfile) error {
+	if req.Name == "" {
+		return errors.New("姓名不能为空")
+	}
+	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		var existing model.Person
+		if err := tx.First(&existing, id).Error; err != nil {
+			return errors.New("人员不存在")
+		}
+		if req.IDCard != "" && req.IDCard != existing.IDCard {
+			var count int64
+			tx.Model(&model.Person{}).Where("id_card = ? AND id != ?", req.IDCard, id).Count(&count)
+			if count > 0 {
+				return errors.New("身份证号已存在")
+			}
+		}
+		updates := buildPersonUpdates(&existing, &req.Person)
+		if len(updates) > 0 {
+			if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+
+		syncPhones := func(tx *gorm.DB) error {
+			return SyncChildRecords(tx, "person_id", id, req.Phones,
+				func(p model.PersonPhone) uint { return p.ID },
+				func(a, b model.PersonPhone) bool { return a.PhoneType == b.PhoneType && a.Phone == b.Phone },
+				func(p *model.PersonPhone) { p.PersonID = id })
+		}
+		syncEmails := func(tx *gorm.DB) error {
+			return SyncChildRecords(tx, "person_id", id, req.Emails,
+				func(e model.PersonEmail) uint { return e.ID },
+				func(a, b model.PersonEmail) bool { return a.EmailType == b.EmailType && a.Email == b.Email },
+				func(e *model.PersonEmail) { e.PersonID = id })
+		}
+		syncBankCards := func(tx *gorm.DB) error {
+			return SyncChildRecords(tx, "person_id", id, req.BankCards,
+				func(b model.PersonBankCard) uint { return b.ID },
+				func(a, b model.PersonBankCard) bool {
+					return a.BankName == b.BankName && a.AccountNumber == b.AccountNumber && a.AccountHolder == b.AccountHolder
+				},
+				func(b *model.PersonBankCard) { b.PersonID = id })
+		}
+		syncContacts := func(tx *gorm.DB) error {
+			return SyncChildRecords(tx, "person_id", id, req.EmergencyContacts,
+				func(c model.PersonEmergencyContact) uint { return c.ID },
+				func(a, b model.PersonEmergencyContact) bool {
+					return a.ContactName == b.ContactName && a.ContactPhone == b.ContactPhone && a.Sort == b.Sort
+				},
+				func(c *model.PersonEmergencyContact) { c.PersonID = id })
+		}
+		for _, fn := range []func(*gorm.DB) error{syncPhones, syncEmails, syncBankCards, syncContacts} {
+			if err := fn(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func DeletePerson(ctx context.Context, id uint) error {
@@ -151,25 +239,30 @@ func GetAllPersons() ([]model.Person, error) {
 	return list, nil
 }
 
-// PersonCard 人员卡片：基本信息 + 当前职务快照（公司/部门/职位）
+// PersonCard 人员卡片：基本信息 + 当前职务快照（公司/部门/职位/在职状态）
 type PersonCard struct {
-	ID          uint   `json:"id"`
-	PersonID    uint   `json:"person_id"`
-	Name        string `json:"name"`
-	CompanyID   uint   `json:"company_id"`
-	CompanyName string `json:"company_name"`
-	Department  string `json:"department"`
-	Position    string `json:"position"`
+	ID          uint            `json:"id"`
+	PersonID    uint            `json:"person_id"`
+	Name        string          `json:"name"`
+	CompanyID   uint            `json:"company_id"`
+	CompanyName string          `json:"company_name"`
+	Department  string          `json:"department"`
+	Position    string          `json:"position"`
+	IsActive    bool            `json:"is_active"`
+	EntryDate   *utils.DateOnly `json:"entry_date"`
+	LeaveDate   *utils.DateOnly `json:"leave_date"`
 }
 
-// GetPersonCards 人员卡片列表：以当前职务快照（9999-12-31 结束段）关联公司/部门/职位
+// GetPersonCards 人员卡片列表：以当前职务快照段（9999-12-31 结束）关联公司/部门/职位/在职状态；
+// 无快照段者（未入职）EntryDate 为空、IsActive 为 false
 func GetPersonCards() ([]PersonCard, error) {
 	var cards []PersonCard
 	err := dao.DB.Table("persons").
 		Select(`persons.id, persons.id AS person_id, persons.name,
-			s.company_id, c.name AS company_name, s.department, s.position`).
+			s.company_id, c.name AS company_name, s.department, s.position,
+			s.is_active, s.entry_date, s.leave_date`).
 		Joins(`LEFT JOIN position_snapshots s ON s.person_id = persons.id
-			AND s.effective_end_date = ? AND s.is_active = 1`, realFarFuture).
+			AND s.effective_end_date = ?`, realFarFuture).
 		Joins("LEFT JOIN companies c ON c.id = s.company_id").
 		Where("persons.deleted_at IS NULL").
 		Order("persons.name").

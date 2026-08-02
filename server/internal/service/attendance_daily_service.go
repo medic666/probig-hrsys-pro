@@ -75,32 +75,30 @@ func CreateDetail(tx *gorm.DB, dailyID uint, eventType, subType string, hours fl
 }
 
 func UpdateDailyDetails(tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail, status string) error {
-	if err := tx.Where("daily_id = ?", dailyID).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
+	// 同步（UPSERT）模式：未变化明细零操作零审计；变化更新、新增创建、缺失软删除
+	if err := SyncChildRecords(tx, "daily_id", dailyID, details,
+		func(d model.AttendanceEventDetail) uint { return d.ID },
+		func(a, b model.AttendanceEventDetail) bool {
+			return a.EventType == b.EventType && a.SubType == b.SubType &&
+				a.Hours == b.Hours && a.Minutes == b.Minutes && a.Remark == b.Remark
+		},
+		func(d *model.AttendanceEventDetail) { d.DailyID = dailyID },
+	); err != nil {
 		return err
-	}
-	for _, d := range details {
-		d.ID = 0
-		d.DailyID = dailyID
-		if err := tx.Create(&d).Error; err != nil {
-			return err
-		}
 	}
 	return tx.Model(&model.AttendanceDaily{}).Where("id = ?", dailyID).Update("status", status).Error
 }
 
 // SaveDailyDetailsKeepStatus 暂存保存当日事件明细：更新 details 但保持原状态不变（供编辑后暂存）
 func SaveDailyDetailsKeepStatus(tx *gorm.DB, dailyID uint, details []model.AttendanceEventDetail) error {
-	if err := tx.Where("daily_id = ?", dailyID).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
-		return err
-	}
-	for _, d := range details {
-		d.ID = 0
-		d.DailyID = dailyID
-		if err := tx.Create(&d).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+	return SyncChildRecords(tx, "daily_id", dailyID, details,
+		func(d model.AttendanceEventDetail) uint { return d.ID },
+		func(a, b model.AttendanceEventDetail) bool {
+			return a.EventType == b.EventType && a.SubType == b.SubType &&
+				a.Hours == b.Hours && a.Minutes == b.Minutes && a.Remark == b.Remark
+		},
+		func(d *model.AttendanceEventDetail) { d.DailyID = dailyID },
+	)
 }
 
 func GetAttendanceDailyList(personID uint, dateStart, dateEnd string, status string, pageNum, pageSize int) ([]map[string]interface{}, int64, error) {

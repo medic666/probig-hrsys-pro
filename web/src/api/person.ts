@@ -24,6 +24,10 @@ export function updatePerson(id: number, data: any) {
   return request.put(`/persons/${id}`, data)
 }
 
+export function updatePersonProfile(id: number, data: any) {
+  return request.put(`/persons/${id}/profile`, data)
+}
+
 export function deletePerson(id: number) {
   return request.delete(`/persons/${id}`)
 }

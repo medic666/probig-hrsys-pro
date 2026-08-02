@@ -1,12 +1,13 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>日记工时查询</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+    <PageHeader title="日记工时查询">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
         <el-radio-button value="cards">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
       </el-radio-group>
-    </div>
+      </template>
+    </PageHeader>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchDaily" :search-fields="searchFields" @action="noop">
@@ -61,6 +62,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import ProTable from '@/components/ProTable.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getDailyProjections, getEventsByDate } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
@@ -97,7 +99,7 @@ function noop() {}
 </script>
 <style scoped>
 .page-container{padding:0;background:transparent}
-.page-header{margin-bottom:16px;display:flex;align-items:center;h2{font-size:18px;font-weight:600;color:#303133}}
+
 .proj-card {
   width: 260px;
   border: 1px solid #e4e7ed;

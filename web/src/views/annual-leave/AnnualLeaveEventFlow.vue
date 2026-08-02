@@ -1,14 +1,21 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <h2>年假事件流水</h2>
-      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+    <PageHeader title="年假事件流水">
+      <template #actions>
+        <el-radio-group v-model="viewMode" size="small">
         <el-radio-button value="cards">卡片</el-radio-button>
         <el-radio-button value="list">列表</el-radio-button>
       </el-radio-group>
-    </div>
+      </template>
+    </PageHeader>
+    <PageToolbar>
+      <el-button type="primary" size="small" @click="handleAction('add')">新增</el-button>
+      <el-button size="small" @click="handleAction('trash')">回收站</el-button>
+      <el-button size="small" @click="handleAction('export')">导出</el-button>
+    </PageToolbar>
+
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button v-if="row.source_type === 'manual'" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
           <el-button v-if="row.source_type === 'manual'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
@@ -52,11 +59,13 @@
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import DayCard from '@/components/cards/DayCard.vue'
+import PageToolbar from '@/components/PageToolbar.vue'
 import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
 import { getAnnualLeaveEvents, createAnnualLeaveEvent, updateAnnualLeaveEvent, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAttendanceEvents } from '@/api/attendance'
@@ -85,7 +94,6 @@ const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi:fetchPersonOpts },
   { prop:'date', label:'时间范围', type:'date-range' as const },
 ]
-const actions = [{ key:'add', label:'新增', type:'primary' as const },{ key:'trash', label:'回收站', type:'default' as const },{ key:'export', label:'导出', type:'default' as const }]
 const tc = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' }]
 
 async function fetchPersonOpts(k?:string){ const l=await getAllPersons() as any[]; return k?l.filter(p=>p.name.includes(k)):l }
@@ -145,4 +153,4 @@ async function submit(){
 async function handleDelete(r:any){ try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteAnnualLeaveEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ } }
 function onR(){ tableRef.value?.refresh() }
 </script>
-<style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>
+<style scoped>.page-container{padding:0;background:transparent}</style>

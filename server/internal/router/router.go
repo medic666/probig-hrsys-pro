@@ -75,6 +75,7 @@ func SetupRouter() *gin.Engine {
 		persons.GET("/:id", middleware.RequirePermission("person.read"), handler.GetPersonByID)
 		persons.POST("", middleware.RequirePermission("person.write"), handler.CreatePerson)
 		persons.PUT("/:id", middleware.RequirePermission("person.write"), handler.UpdatePerson)
+		persons.PUT("/:id/profile", middleware.RequirePermission("person.write"), handler.UpdatePersonProfile)
 		persons.DELETE("/:id", middleware.RequirePermission("person.delete"), handler.DeletePerson)
 		persons.POST("/:id/restore", middleware.RequirePermission("person.write"), handler.RestorePerson)
 		persons.POST("/:id/phones", middleware.RequirePermission("person.write"), handler.AddPersonPhone)

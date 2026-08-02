@@ -65,7 +65,7 @@ func GetLILEvents(c *gin.Context) {
 				sub, _ := d["sub_type"].(string)
 				if sub == "补班出勤" || sub == "调休" {
 					filtered = append(filtered, map[string]interface{}{
-						"id": d["id"], "person_id": daily["person_id"], "person_name": daily["person_name"],
+						"id": d["id"], "daily_id": daily["id"], "person_id": daily["person_id"], "person_name": daily["person_name"],
 						"event_date": daily["event_date"], "event_type": d["event_type"],
 						"sub_type": d["sub_type"], "hours": d["hours"], "remark": d["remark"],
 					})

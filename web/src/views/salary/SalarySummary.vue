@@ -1,15 +1,67 @@
 <template>
-  <div class="page-container"><div class="page-header"><h2>月度工资汇总</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchSummaries" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #status="{ row }">
-        <StatusTag :status="row.status || 'not_calculated'" />
-      </template>
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="showDetail(row)">明细</el-button>
-        <el-button type="success" link size="small" @click="showVersions(row)">版本</el-button>
-        <el-button type="warning" link size="small" @click="showTrace(row)">追溯</el-button>
-      </template>
-    </ProTable>
+  <div class="page-container">
+    <div class="page-header">
+      <h2>月度工资汇总</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchSummaries" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #status="{ row }">
+          <StatusTag :status="row.status || 'not_calculated'" />
+        </template>
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="showDetail(row)">明细</el-button>
+          <el-button type="success" link size="small" @click="showVersions(row)">版本</el-button>
+          <el-button type="warning" link size="small" @click="showTrace(row)">追溯</el-button>
+        </template>
+      </ProTable>
+    </template>
+    <template v-else>
+      <TimeCardPanel
+        ref="timePanelRef"
+        :fetch-fn="(p: any) => getSalarySummaries(p)"
+        month-field="belong_month"
+        status-field="status"
+        :pending-values="['data_changed']"
+        :has-day-level="false"
+      >
+        <template #month-list="{ items }">
+          <el-descriptions v-if="items.length > 0" :column="3" border size="small" style="max-width:900px">
+            <el-descriptions-item label="月份">{{ items[0].belong_month }}</el-descriptions-item>
+            <el-descriptions-item label="状态">
+              <StatusTag :status="items[0].status || 'not_calculated'" />
+            </el-descriptions-item>
+            <el-descriptions-item label="计薪天数">{{ items[0].salary_days }}</el-descriptions-item>
+            <el-descriptions-item label="出勤工资">{{ items[0].attendance_salary }}</el-descriptions-item>
+            <el-descriptions-item label="工作日加班工资">{{ items[0].overtime_workday_salary }}</el-descriptions-item>
+            <el-descriptions-item label="节假日加班工资">{{ items[0].overtime_holiday_salary }}</el-descriptions-item>
+            <el-descriptions-item label="年假结转工资">{{ items[0].annual_leave_carryover_salary }}</el-descriptions-item>
+            <el-descriptions-item label="全勤奖">{{ items[0].attendance_bonus }}</el-descriptions-item>
+            <el-descriptions-item label="绩效工资">{{ items[0].performance_salary }}</el-descriptions-item>
+            <el-descriptions-item label="职位津贴">{{ items[0].post_allowance }}</el-descriptions-item>
+            <el-descriptions-item label="餐补">{{ items[0].meal_allowance }}</el-descriptions-item>
+            <el-descriptions-item label="房补">{{ items[0].housing_allowance }}</el-descriptions-item>
+            <el-descriptions-item label="交通补贴">{{ items[0].transport_allowance }}</el-descriptions-item>
+            <el-descriptions-item label="高温补贴">{{ items[0].high_temp_allowance }}</el-descriptions-item>
+            <el-descriptions-item label="保险补偿">{{ items[0].insurance_compensation }}</el-descriptions-item>
+            <el-descriptions-item label="公积金补偿">{{ items[0].fund_compensation }}</el-descriptions-item>
+            <el-descriptions-item label="提成">{{ items[0].sales_commission }}</el-descriptions-item>
+            <el-descriptions-item label="奖惩">{{ items[0].reward_punishment }}</el-descriptions-item>
+            <el-descriptions-item label="借款还款">{{ items[0].borrowing_repayment }}</el-descriptions-item>
+            <el-descriptions-item label="社保代扣">{{ items[0].social_security_deduct }}</el-descriptions-item>
+            <el-descriptions-item label="公积金代扣">{{ items[0].housing_fund_deduct }}</el-descriptions-item>
+            <el-descriptions-item label="个税代扣">{{ items[0].tax_deduct }}</el-descriptions-item>
+            <el-descriptions-item label="实发工资">
+              <strong style="color:#e6a23c;font-size:16px">{{ items[0].final_salary }}</strong>
+            </el-descriptions-item>
+            <el-descriptions-item label="核算时间">{{ formatDateTime(items[0].last_calc_at) }}</el-descriptions-item>
+          </el-descriptions>
+        </template>
+      </TimeCardPanel>
+    </template>
 
     <el-dialog v-model="calcVisible" title="批量核算" width="450px">
       <el-form label-width="80px">
@@ -127,9 +179,9 @@
           <el-descriptions v-if="traceData.attendance_calc && traceData.attendance_calc.id" :column="2" border size="small">
             <el-descriptions-item label="计薪天数">{{ traceData.attendance_calc.salary_days }}</el-descriptions-item>
             <el-descriptions-item label="加权基本工资">{{ traceData.attendance_calc.weighted_base_salary }}</el-descriptions-item>
-            <el-descriptions-item label="记出勤工时">{{ traceData.attendance_calc.total_work_hours }}</el-descriptions-item>
-            <el-descriptions-item label="工作日加班工时">{{ traceData.attendance_calc.total_overtime_workday_hours }}</el-descriptions-item>
-            <el-descriptions-item label="节假日加班工时">{{ traceData.attendance_calc.total_overtime_holiday_hours }}</el-descriptions-item>
+            <el-descriptions-item label="记出勤(天)">{{ hoursToDays(traceData.attendance_calc.total_work_hours).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="工作日加班(天)">{{ hoursToDays(traceData.attendance_calc.total_overtime_workday_hours).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="节假日加班(天)">{{ hoursToDays(traceData.attendance_calc.total_overtime_holiday_hours).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="全勤奖">{{ traceData.attendance_calc.attendance_bonus }}</el-descriptions-item>
             <el-descriptions-item label="违纪次数">{{ traceData.attendance_calc.total_violation_count }}</el-descriptions-item>
             <el-descriptions-item label="有事假">{{ traceData.attendance_calc.has_personal_leave_month ? '是' : '否' }}</el-descriptions-item>
@@ -203,6 +255,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getSalarySummaries, calculateSalaries, exportSalarySummaries, getSalaryVersions, getSalaryTrace, getSalaryVersionDetail } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime, hoursToDays } from '@/utils'
@@ -210,6 +263,8 @@ import { downloadBlob } from '@/utils/download'
 
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
 const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
+const viewMode=ref<'cards'|'list'>('cards')
+const timePanelRef=ref()
 const versionVisible=ref(false), versions=ref<any[]>([]), verDetailVisible=ref(false), verDetail=ref<any>(null)
 const traceVisible=ref(false), traceData=ref<any>(null), traceTab=ref('summary')
 const dailyEventsVisible=ref(false), dailyEvents=ref<any[]>([])
@@ -276,7 +331,7 @@ async function doCalc(){
   saving.value=true
   try{const d=await calculateSalaries({month:calcMonth.value,person_ids:calcPersonIds.value}) as any
     ElMessage.success(`核算完成: 成功${d.success}, 失败${d.fail}, 跳过${d.skip}`)
-    calcVisible.value=false;tableRef.value?.refresh()
+    calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   }catch{/* */}finally{saving.value=false}
 }
 function showDetail(r:any){detailRow.value=r;detailVisible.value=true}

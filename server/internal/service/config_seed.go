@@ -15,7 +15,7 @@ func seedDefaultConfigs(db *gorm.DB) error {
 		ValueType   string
 		OptionValue string
 	}{
-		{Key: "system.work_hours_per_day", Value: "8", Name: "计薪小时基准", Desc: "每日标准计薪小时数", ValueType: "number"},
+		{Key: "attendance.work_hours_per_day", Value: "8", Name: "计薪小时基准", Desc: "每日标准计薪小时数", ValueType: "number"},
 		{Key: "attendance.sick_leave_ratio", Value: "0.8", Name: "病假系数", Desc: "病假折算记出勤工时的系数", ValueType: "number"},
 		{Key: "attendance.overtime_workday_ratio", Value: "1.5", Name: "工作日加班系数", Desc: "工作日加班工资倍数", ValueType: "number"},
 		{Key: "attendance.overtime_holiday_ratio", Value: "2.0", Name: "节假日加班系数", Desc: "节假日加班工资倍数", ValueType: "number"},

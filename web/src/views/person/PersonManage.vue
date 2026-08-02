@@ -1,13 +1,28 @@
 <template>
   <div class="page-container">
-    <div class="page-header"><h2>人员管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchPersons" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
-        <el-button type="success" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-      </template>
-    </ProTable>
+    <div class="page-header">
+      <h2>人员管理</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchPersons" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
+          <el-button type="success" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        </template>
+      </ProTable>
+    </template>
+    <template v-else>
+      <CardGrid ref="cardGridRef" :fetch-fn="fetchCards">
+        <template #default="{ item }">
+          <PersonCard :person="item" @click="handleDetail" />
+        </template>
+      </CardGrid>
+    </template>
 
     <ProFormDialog v-model:visible="dialogVisible" :title="dialogMode === 'add' ? '新增人员' : '编辑人员'" :mode="dialogMode" :form-fields="personFormFields" :rules="formRules" :submit-api="submitForm" :edit-data="editRow" @success="onFormSuccess" />
 
@@ -128,6 +143,10 @@
             </div>
           </el-tab-pane>
 
+          <el-tab-pane label="假期余额" name="leave-balance">
+            <LeaveBalanceDetail :person-id="detailRow.id" />
+          </el-tab-pane>
+
           <el-tab-pane label="附件" name="files">
             <FileAttachPanel v-if="detailRow" :target-type="'person'" :target-id="detailRow.id" />
           </el-tab-pane>
@@ -175,11 +194,16 @@ import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
-import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, addPersonEmergencyContact, deletePersonEmergencyContact, getAllPersons, exportPersons } from '@/api/person'
+import PersonCard from '@/components/cards/PersonCard.vue'
+import CardGrid from '@/components/cards/CardGrid.vue'
+import LeaveBalanceDetail from '@/components/cards/LeaveBalanceDetail.vue'
+import { getPersons, getPerson, createPerson, updatePerson, deletePerson, restorePerson, getDeletedPersons, addPersonPhone, deletePersonPhone, addPersonEmail, deletePersonEmail, addPersonBankCard, deletePersonBankCard, addPersonEmergencyContact, deletePersonEmergencyContact, getAllPersons, getPersonCards, exportPersons } from '@/api/person'
 import { getCurrentPosition, getPositionHistory } from '@/api/position-snapshot'
 import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
+const viewMode = ref<'cards' | 'list'>('cards')
+const cardGridRef = ref()
 const dialogVisible = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
 const editRow = ref<any>(null)
@@ -282,6 +306,11 @@ async function handleDetail(row: any) {
   } catch { /* handled */ }
 }
 
+async function fetchCards() {
+  const cards = (await getPersonCards()) as any[] || []
+  return { list: cards, total: cards.length }
+}
+
 async function submitForm(data: any) {
   if (dialogMode.value === 'add') return createPerson(data)
   return updatePerson(editRow.value.id, data)
@@ -289,7 +318,7 @@ async function submitForm(data: any) {
 
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' }) } catch { return }
-  try { await deletePerson(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh() } catch { /* handled */ }
+  try { await deletePerson(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh(); cardGridRef.value?.reload() } catch { /* handled */ }
 }
 
 async function addPhone() {
@@ -340,13 +369,14 @@ async function delEmergencyContact(id: number) {
   ElMessage.success('删除成功')
   handleDetail({ id: detailRow.value.id })
 }
-function onFormSuccess() { tableRef.value?.refresh() }
+function onFormSuccess() { tableRef.value?.refresh(); cardGridRef.value?.reload() }
 function onTrashRestored() { tableRef.value?.refresh() }
 </script>
 
 <style lang="scss" scoped>
 .page-container { padding: 0; background: transparent; }
-.page-header { margin-bottom: 16px; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+.page-header { margin-bottom: 16px; display: flex; align-items: center; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+.block-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 .sub-table { margin-bottom: 4px; }
 .sub-add { display: flex; gap: 8px; margin-bottom: 8px; }
 </style>

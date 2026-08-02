@@ -1,5 +1,5 @@
 <template>
-  <div class="daily-block" :class="{ 'is-edited': edited }">
+  <div class="daily-block" :class="{ 'is-edited': edited, 'is-pending': daily.status === 'pending' }">
     <div class="block-header">
       <span class="person">{{ daily.person_name }}</span>
       <span class="date">{{ daily.event_date }}</span>
@@ -20,7 +20,7 @@
     </div>
     <div class="block-actions">
       <el-button size="small" type="primary" link @click="$emit('edit', daily)">编辑</el-button>
-      <el-button size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
+      <el-button v-if="daily.status === 'pending'" size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
     </div>
   </div>
 </template>
@@ -50,6 +50,10 @@ defineEmits<{
 
   &.is-edited {
     border-color: #e6a23c;
+  }
+
+  &.is-pending {
+    border-color: #eebe77;
   }
 
   .block-header {

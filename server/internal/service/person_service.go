@@ -154,6 +154,7 @@ func GetAllPersons() ([]model.Person, error) {
 // PersonCard 人员卡片：基本信息 + 当前职务快照（公司/部门/职位）
 type PersonCard struct {
 	ID          uint   `json:"id"`
+	PersonID    uint   `json:"person_id"`
 	Name        string `json:"name"`
 	CompanyID   uint   `json:"company_id"`
 	CompanyName string `json:"company_name"`
@@ -165,7 +166,7 @@ type PersonCard struct {
 func GetPersonCards() ([]PersonCard, error) {
 	var cards []PersonCard
 	err := dao.DB.Table("persons").
-		Select(`persons.id, persons.name,
+		Select(`persons.id, persons.id AS person_id, persons.name,
 			s.company_id, c.name AS company_name, s.department, s.position`).
 		Joins(`LEFT JOIN position_snapshots s ON s.person_id = persons.id
 			AND s.effective_end_date = ? AND s.is_active = 1`, realFarFuture).

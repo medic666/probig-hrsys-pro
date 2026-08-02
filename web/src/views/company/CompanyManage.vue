@@ -1,13 +1,28 @@
 <template>
   <div class="page-container">
-    <div class="page-header"><h2>公司管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchCompanies" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
-        <el-button type="success" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-      </template>
-    </ProTable>
+    <div class="page-header">
+      <h2>公司管理</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchCompanies" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
+          <el-button type="success" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        </template>
+      </ProTable>
+    </template>
+    <template v-else>
+      <CardGrid ref="cardGridRef" :fetch-fn="fetchCompanyCards">
+        <template #default="{ item }">
+          <CompanyCard :company="item" @click="handleDetail" />
+        </template>
+      </CardGrid>
+    </template>
 
     <ProFormDialog v-model:visible="dialogVisible" :title="dialogMode === 'add' ? '新增公司' : '编辑公司'" :mode="dialogMode" :form-fields="companyFormFields" :rules="formRules" :submit-api="submitForm" :edit-data="editRow" @success="onFormSuccess" />
 
@@ -43,10 +58,14 @@ import ProTable from '@/components/ProTable.vue'
 import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import CompanyCard from '@/components/cards/CompanyCard.vue'
+import CardGrid from '@/components/cards/CardGrid.vue'
 import { getCompanies, getCompany, createCompany, updateCompany, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies, exportCompanies } from '@/api/company'
 import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
+const viewMode = ref<'cards' | 'list'>('cards')
+const cardGridRef = ref()
 const dialogVisible = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
 const editRow = ref<any>(null)
@@ -101,6 +120,11 @@ const trashColumns = [
 async function fetchCompanies(params: any) { return (await getCompanies(params)) as any }
 async function fetchDeleted(params: any) { return (await getDeletedCompanies(params)) as any }
 
+async function fetchCompanyCards() {
+  const d = (await getCompanies({ pageNum: 1, pageSize: 100 })) as any
+  return { list: d.list || [], total: d.total || 0 }
+}
+
 function handleAction(key: string) {
   if (key === 'add') { dialogMode.value = 'add'; editRow.value = null; dialogVisible.value = true }
   else if (key === 'export') { handleExport() }
@@ -129,14 +153,15 @@ async function submitForm(data: any) {
 
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' }) } catch { return }
-  try { await deleteCompany(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh() } catch { /* handled */ }
+  try { await deleteCompany(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh(); cardGridRef.value?.reload() } catch { /* handled */ }
 }
 
-function onFormSuccess() { tableRef.value?.refresh() }
+function onFormSuccess() { tableRef.value?.refresh(); cardGridRef.value?.reload() }
 function onTrashRestored() { tableRef.value?.refresh() }
 </script>
 
 <style lang="scss" scoped>
 .page-container { padding: 0; background: transparent; }
-.page-header { margin-bottom: 16px; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+.page-header { margin-bottom: 16px; display: flex; align-items: center; h2 { font-size: 18px; font-weight: 600; color: #303133; } }
+.block-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 </style>

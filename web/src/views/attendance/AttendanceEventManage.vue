@@ -63,7 +63,7 @@
             <el-option v-for="s in currentSubTypes" :key="s" :label="s" :value="s" />
           </el-select>
         </el-form-item>
-        <el-form-item v-if="form.event_type !== '违纪'" label="时长(天)" required>
+        <el-form-item v-if="form.event_type !== '违纪'" label="时长(小时)" required>
           <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
@@ -89,7 +89,7 @@
         <el-form-item v-if="batchForm.event_type !== '违纪'" label="子类型">
           <el-select v-model="batchForm.sub_type" style="width:100%"><el-option v-for="s in batchSubTypes" :key="s" :label="s" :value="s" /></el-select>
         </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '违纪'" label="每日时长(天)" required>
+        <el-form-item v-if="batchForm.event_type !== '违纪'" label="每日时长(小时)" required>
           <el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="batchForm.remark" /></el-form-item>

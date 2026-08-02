@@ -236,10 +236,9 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 					return err
 				}
 			}
-			if status == "confirmed" {
-				return RebuildProjectionsAfterAttendanceChange(tx, personID, date, events)
-			}
-			return nil
+			// 无条件重建投影：pending 事件同样进入投影（状态 pending），
+			// 使日记工时/月度核算/工资逐层感知待确认状态，形成 L0→L1→L2→L3 完整控制链
+			return RebuildProjectionsAfterAttendanceChange(tx, personID, date, events)
 		})
 		if err != nil {
 			return 0, 0

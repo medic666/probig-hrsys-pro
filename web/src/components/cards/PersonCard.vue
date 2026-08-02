@@ -6,6 +6,7 @@
       <div v-if="person.department" class="pc-line">部门：{{ person.department }}</div>
       <div v-if="person.position" class="pc-line">职位：{{ person.position }}</div>
       <div v-if="!person.company_name && !person.department && !person.position" class="pc-line pc-empty">暂无职务信息</div>
+      <slot name="extra" />
     </div>
   </div>
 </template>

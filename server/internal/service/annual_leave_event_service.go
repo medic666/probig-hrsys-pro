@@ -161,6 +161,7 @@ func GetAnnualLeaveEventList(pageNum, pageSize int, personID uint, dateStart, da
 func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []map[string]interface{} {
 	type attRow struct {
 		DetailID  uint
+		DailyID   uint
 		PersonID  uint
 		Hours     float64
 		EventDate utils.DateOnly
@@ -169,7 +170,7 @@ func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []
 	}
 	var rows []attRow
 	q := dao.DB.Table("attendance_event_details").
-		Select("attendance_event_details.id AS detail_id, attendance_daily.person_id, attendance_event_details.hours, attendance_daily.event_date, attendance_event_details.remark, attendance_event_details.created_at").
+		Select("attendance_event_details.id AS detail_id, attendance_event_details.daily_id, attendance_daily.person_id, attendance_event_details.hours, attendance_daily.event_date, attendance_event_details.remark, attendance_event_details.created_at").
 		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
 		Where("attendance_event_details.deleted_at IS NULL AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", "休假", "年假")
 	if personID > 0 {
@@ -192,7 +193,7 @@ func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []
 
 	for _, r := range rows {
 		result = append(result, map[string]interface{}{
-			"id": r.DetailID, "person_id": r.PersonID, "seq": 0,
+			"id": r.DetailID, "daily_id": r.DailyID, "person_id": r.PersonID, "seq": 0,
 			"event_type": "休假", "sub_type": "年假", "source_type": "attendance",
 			"batch_id": nil, "hours": r.Hours, "effective_date": r.EventDate,
 			"remark": r.Remark, "created_at": r.CreatedAt, "person_name": nameMap[r.PersonID],

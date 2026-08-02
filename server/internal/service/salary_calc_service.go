@@ -20,16 +20,25 @@ var ErrAttendanceNotCalculated = errors.New("未完成月度考勤核算，请�
 func CalculateSalary(ctx context.Context, personID uint, month string, operatorID uint, operatorName string) error {
 	var oldJSON, newJSON, personName string
 	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		monthStart, _ := time.Parse("2006-01", month)
+		monthEnd := monthStart.AddDate(0, 1, -1)
+		monthStartD := utils.DateOnlyFromTime(monthStart)
+		monthEndD := utils.DateOnlyFromTime(monthEnd)
+
+		// L1 状态检查：当月存在待确认日记工时投影时禁止核算（与考勤核算一致，形成 L0→L1→L2→L3 完整控制链）
+		var pendingCount int64
+		tx.Model(&model.AttendanceDailyProjection{}).
+			Where("person_id = ? AND work_date >= ? AND work_date <= ? AND status = ?",
+				personID, monthStartD, monthEndD, "pending").Count(&pendingCount)
+		if pendingCount > 0 {
+			return fmt.Errorf("当月有 %d 天待确认的考勤记录，请先完成核实", pendingCount)
+		}
+
 		var calc model.AttendanceCalculationMonthly
 		err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc).Error
 		if err != nil {
-		return fmt.Errorf("%w", ErrAttendanceNotCalculated)
-	}
-
-	monthStart, _ := time.Parse("2006-01", month)
-	monthEnd := monthStart.AddDate(0, 1, -1)
-	monthStartD := utils.DateOnlyFromTime(monthStart)
-	monthEndD := utils.DateOnlyFromTime(monthEnd)
+			return fmt.Errorf("%w", ErrAttendanceNotCalculated)
+		}
 
 	var snapshots []model.PositionSnapshot
 	tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",

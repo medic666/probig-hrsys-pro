@@ -21,9 +21,11 @@
         ref="timePanelRef"
         :fetch-fn="(p: any) => getDailyProjections(p)"
         date-field="work_date"
+        status-field="status"
+        :pending-values="['pending']"
       >
         <template #day="{ date, items }">
-          <div v-if="items.length > 0" class="proj-card">
+          <div v-if="items.length > 0" class="proj-card" :class="{ 'is-pending': items[0].status === 'pending' }">
             <div class="pc-header">
               <span class="pc-date">{{ date }}</span>
               <span class="pc-person">{{ items[0].person_name || '' }}</span>
@@ -46,7 +48,7 @@
       <el-table :data="dailyEvents" border size="small">
         <el-table-column prop="event_type" label="事件类型" width="80" />
         <el-table-column prop="sub_type" label="子类型" width="100" />
-        <el-table-column prop="hours" label="时长(天)" width="90">
+        <el-table-column label="时长(天)" width="90">
           <template #default="{ row: r }">{{ hoursToDays(r.hours).toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="punch_time" label="打卡时间" width="90" />
@@ -72,6 +74,7 @@ const dailyEvents = ref<any[]>([])
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'work_date', label:'日期', width:'110' },
+  { prop:'status', label:'状态', width:'80', formatter:(r:any)=>({pending:'待确认',confirmed:'已确认'}[r.status]||r.status||'-') },
   { prop:'work_hours', label:'记出勤(天)', width:'110', formatter:(r:any)=>hoursToDays(r.work_hours).toFixed(2) },
   { prop:'overtime_workday_hours', label:'工作日加班(天)', width:'120', formatter:(r:any)=>hoursToDays(r.overtime_workday_hours).toFixed(2) },
   { prop:'overtime_holiday_hours', label:'节假日加班(天)', width:'120', formatter:(r:any)=>hoursToDays(r.overtime_holiday_hours).toFixed(2) },
@@ -101,6 +104,9 @@ function noop() {}
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  &.is-pending {
+    border-color: #eebe77;
+  }
   .pc-header {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
     .pc-date { font-weight: 600; font-size: 14px; color: #303133; }

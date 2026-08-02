@@ -148,7 +148,7 @@ func getAttendanceBonusDaily() float64 {
 }
 
 func getWorkHoursPerDay() float64 {
-	v := GetConfigValueOrDefault("system.work_hours_per_day", "8")
+	v := GetConfigValueOrDefault("attendance.work_hours_per_day", "8")
 	f, _ := strconv.ParseFloat(v, 64)
 	return f
 }

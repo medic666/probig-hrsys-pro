@@ -226,34 +226,38 @@ type BalanceListItem struct {
 }
 
 func GetAllALBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
-	baseTx := dao.DB.Model(&model.AnnualLeaveBalanceSnapshot{}).
-		Select("annual_leave_balance_snapshots.person_id, persons.name AS person_name, annual_leave_balance_snapshots.balance_hours, annual_leave_balance_snapshots.last_calc_at").
-		Joins("LEFT JOIN persons ON persons.id = annual_leave_balance_snapshots.person_id").
-		Where("annual_leave_balance_snapshots.effective_end_date = ? AND persons.deleted_at IS NULL", realFarFuture)
+	baseTx := dao.DB.Table("persons").
+		Select(`persons.id AS person_id, persons.name AS person_name,
+			COALESCE(s.balance_hours, 0) AS balance_hours, s.last_calc_at`).
+		Joins(`LEFT JOIN annual_leave_balance_snapshots s
+			ON s.person_id = persons.id AND s.effective_end_date = ?`, realFarFuture).
+		Where("persons.deleted_at IS NULL")
 	if personID > 0 {
-		baseTx = baseTx.Where("annual_leave_balance_snapshots.person_id = ?", personID)
+		baseTx = baseTx.Where("persons.id = ?", personID)
 	}
 	var total int64
 	baseTx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	var list []BalanceListItem
-	baseTx.Offset(offset).Limit(pageSize).Order("annual_leave_balance_snapshots.person_id ASC").Scan(&list)
+	baseTx.Offset(offset).Limit(pageSize).Order("persons.name").Scan(&list)
 	return list, total, nil
 }
 
 func GetAllLILBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
-	baseTx := dao.DB.Model(&model.LeaveInLieuBalanceSnapshot{}).
-		Select("leave_in_lieu_balance_snapshots.person_id, persons.name AS person_name, leave_in_lieu_balance_snapshots.balance_hours, leave_in_lieu_balance_snapshots.last_calc_at").
-		Joins("LEFT JOIN persons ON persons.id = leave_in_lieu_balance_snapshots.person_id").
-		Where("leave_in_lieu_balance_snapshots.effective_end_date = ? AND persons.deleted_at IS NULL", realFarFuture)
+	baseTx := dao.DB.Table("persons").
+		Select(`persons.id AS person_id, persons.name AS person_name,
+			COALESCE(s.balance_hours, 0) AS balance_hours, s.last_calc_at`).
+		Joins(`LEFT JOIN leave_in_lieu_balance_snapshots s
+			ON s.person_id = persons.id AND s.effective_end_date = ?`, realFarFuture).
+		Where("persons.deleted_at IS NULL")
 	if personID > 0 {
-		baseTx = baseTx.Where("leave_in_lieu_balance_snapshots.person_id = ?", personID)
+		baseTx = baseTx.Where("persons.id = ?", personID)
 	}
 	var total int64
 	baseTx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	var list []BalanceListItem
-	baseTx.Offset(offset).Limit(pageSize).Order("leave_in_lieu_balance_snapshots.person_id ASC").Scan(&list)
+	baseTx.Offset(offset).Limit(pageSize).Order("persons.name").Scan(&list)
 	return list, total, nil
 }
 

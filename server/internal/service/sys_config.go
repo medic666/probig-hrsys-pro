@@ -116,8 +116,6 @@ type SystemConfigItem struct {
 
 func configGroup(key string) string {
 	switch {
-	case strings.HasPrefix(key, "system."):
-		return "系统"
 	case strings.HasPrefix(key, "attendance."):
 		return "考勤"
 	case strings.HasPrefix(key, "annual_leave."):

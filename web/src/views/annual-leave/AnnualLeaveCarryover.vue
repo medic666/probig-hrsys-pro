@@ -27,7 +27,7 @@
         <el-table-column prop="event_type" label="类型" width="120">
           <template #default="{row}">{{ {grant:'配发',carryover_deduct:'抵扣'}[row.event_type]||row.event_type }}</template>
         </el-table-column>
-        <el-table-column prop="hours" label="时长(天)" width="100">
+        <el-table-column label="时长(天)" width="100">
           <template #default="{ row: r }">{{ hoursToDays(r.hours).toFixed(2) }}</template>
         </el-table-column>
       </el-table>

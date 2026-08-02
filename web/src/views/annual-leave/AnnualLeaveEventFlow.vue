@@ -1,12 +1,32 @@
 <template>
-  <div class="page-container"><div class="page-header"><h2>年假事件流水</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button v-if="row.source_type === 'manual'" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button v-if="row.source_type === 'manual'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
-      </template>
-    </ProTable>
+  <div class="page-container">
+    <div class="page-header">
+      <h2>年假事件流水</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button v-if="row.source_type === 'manual'" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button v-if="row.source_type === 'manual'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
+        </template>
+      </ProTable>
+    </template>
+    <template v-else>
+      <TimeCardPanel
+        ref="timePanelRef"
+        :fetch-fn="(p: any) => getAnnualLeaveEvents(p)"
+        date-field="effective_date"
+      >
+        <template #day="{ date, items }">
+          <DayCard :date="date" :events="items" @event-click="handleEdit" />
+        </template>
+      </TimeCardPanel>
+    </template>
 
     <el-dialog v-model="dialogVisible" :title="mode==='add'?'新增':'编辑'" width="420px">
       <el-form :model="form" label-width="80px">
@@ -33,12 +53,16 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
+import DayCard from '@/components/cards/DayCard.vue'
 import { getAnnualLeaveEvents, createAnnualLeaveEvent, updateAnnualLeaveEvent, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
-const tableRef = ref(); const dialogVisible = ref(false); const mode = ref<'add'|'edit'>('add'); const eid = ref(0); const s = ref(false); const tv = ref(false)
+const tableRef = ref()
+const viewMode = ref<'cards'|'list'>('cards')
+const timePanelRef = ref(); const dialogVisible = ref(false); const mode = ref<'add'|'edit'>('add'); const eid = ref(0); const s = ref(false); const tv = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
 const types = ref(['grant', 'carryover_deduct', 'adjust'])
@@ -78,10 +102,10 @@ async function submit(){
   s.value=true
   try { const d:any={person_id:form.person_id,event_type:form.event_type,hours:form.hours,effective_date:form.effective_date,remark:form.remark}
     if(mode.value==='add') await createAnnualLeaveEvent(d); else await updateAnnualLeaveEvent(eid.value,d)
-    ElMessage.success('成功');dialogVisible.value=false;tableRef.value?.refresh()
+    ElMessage.success('成功');dialogVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   } catch { /* */ } finally { s.value=false }
 }
-async function handleDelete(r:any){ try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteAnnualLeaveEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh()}catch{ /* */ } }
+async function handleDelete(r:any){ try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteAnnualLeaveEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ } }
 function onR(){ tableRef.value?.refresh() }
 </script>
 <style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

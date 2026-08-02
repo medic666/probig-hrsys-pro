@@ -5,7 +5,7 @@
       <slot name="status" />
     </div>
     <div class="dc-events">
-      <div v-for="(e, i) in events" :key="i" class="dc-event">
+      <div v-for="(e, i) in events" :key="i" class="dc-event" @click="$emit('event-click', e)">
         <span class="ev-type">{{ e.event_type }}<span v-if="e.sub_type">-{{ e.sub_type }}</span></span>
         <span v-if="e.event_type === '违纪'" class="ev-meta">{{ e.minutes ? e.minutes + '分钟' : '' }}</span>
         <span v-else class="ev-meta">{{ hoursToDays(e.hours || 0).toFixed(2) }}天</span>
@@ -26,6 +26,7 @@ defineProps<{
   date: string
   events: any[]
 }>()
+defineEmits<{ (e: 'event-click', item: any): void }>()
 </script>
 
 <style lang="scss" scoped>
@@ -55,30 +56,38 @@ defineProps<{
   }
 
   .dc-events {
-    .dc-event {
-      font-size: 12px;
-      line-height: 22px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      .dc-event {
+        font-size: 12px;
+        line-height: 22px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        border-radius: 3px;
+        padding: 0 4px;
+        margin: 0 -4px;
 
-      .ev-type {
-        color: #303133;
-        white-space: nowrap;
-      }
+        &:hover {
+          background: #f5f7fa;
+        }
 
-      .ev-meta {
-        color: #606266;
-        white-space: nowrap;
-      }
+        .ev-type {
+          color: #303133;
+          white-space: nowrap;
+        }
 
-      .ev-remark {
-        color: #909399;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        .ev-meta {
+          color: #606266;
+          white-space: nowrap;
+        }
+
+        .ev-remark {
+          color: #909399;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       }
-    }
 
     .dc-empty {
       color: #c0c4cc;

@@ -20,19 +20,6 @@
 
     <template v-else>
       <div class="block-toolbar">
-        <div class="block-nav">
-          <template v-if="blockView === 'months'">
-            <el-button link size="small" @click="blockView='cards'">← 全部人员</el-button>
-            <span class="nav-title">{{ cardPersonName }} 的最近 12 个月</span>
-          </template>
-          <template v-else-if="blockView === 'days'">
-            <el-button link size="small" @click="blockView='months'; loadMonthStats()">← {{ cardPersonName }} 的月度</el-button>
-            <span class="nav-title">{{ cardPersonName }} / {{ selectedMonth }}</span>
-          </template>
-          <template v-else>
-            <span class="nav-title">人员卡片</span>
-          </template>
-        </div>
         <div class="block-actions-bar">
           <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
           <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
@@ -42,32 +29,22 @@
         </div>
       </div>
 
-      <div v-loading="loadingBlocks" style="min-height:120px">
-        <template v-if="blockView === 'cards'">
-          <div class="block-grid">
-            <PersonCard v-for="p in personCards" :key="p.id" :person="p" @click="openPersonMonths" />
-          </div>
-          <el-empty v-if="personCards.length === 0" description="暂无数据" :image-size="60" />
+      <TimeCardPanel
+        ref="timePanelRef"
+        :fetch-fn="(p: any) => getAttendanceEvents(p)"
+        date-field="event_date"
+        status-field="status"
+        :pending-values="['pending']"
+      >
+        <template #day="{ items }">
+          <AttendanceDailyBlock
+            v-if="items.length > 0"
+            :daily="items[0]"
+            @edit="openEdit"
+            @confirm="confirmDaily"
+          />
         </template>
-
-        <template v-else-if="blockView === 'months'">
-          <MonthCard :months="monthStats" title="月度概览" @select="openMonthDays" />
-          <div v-loading="loadingMonths" style="min-height:80px" />
-        </template>
-
-        <template v-else>
-          <div class="block-grid">
-            <AttendanceDailyBlock
-              v-for="d in blockGroups"
-              :key="d.id"
-              :daily="d"
-              @edit="openEdit"
-              @confirm="confirmDaily"
-            />
-          </div>
-          <el-empty v-if="!loadingBlocks && blockGroups.length === 0" description="该月暂无考勤数据" :image-size="60" />
-        </template>
-      </div>
+      </TimeCardPanel>
     </template>
 
     <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onBlockSaved" />
@@ -180,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
@@ -188,11 +165,8 @@ import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
-import PersonCard from '@/components/cards/PersonCard.vue'
-import MonthCard from '@/components/cards/MonthCard.vue'
-import type { MonthStat } from '@/composables/useMonthStats'
+import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getAttendanceEvents, createAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
-import { getPersonCards } from '@/api/person'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
@@ -218,17 +192,9 @@ const importing = ref(false)
 const uploadRef = ref()
 
 const viewMode = ref<'list'|'blocks'>('blocks')
-const blockView = ref<'cards'|'months'|'days'>('cards')
-const personCards = ref<any[]>([])
-const cardPersonId = ref<number | null>(null)
-const cardPersonName = ref('')
-const selectedMonth = ref('')
-const loadingMonths = ref(false)
-const daysData = ref<any[]>([])
-const loadingBlocks = ref(false)
+const timePanelRef = ref()
 const editVisible = ref(false)
 const editDailyRow = ref<any>(null)
-const monthStats = ref<MonthStat[]>([])
 
 const eventTypes = ['出勤','休假','加班','违纪']
 const subTypeMap: Record<string,string[]> = {
@@ -243,10 +209,6 @@ const batchForm = reactive({ person_ids:[] as number[], start_date:'', end_date:
 
 const currentSubTypes = computed(() => subTypeMap[form.event_type] || [])
 const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
-
-const blockGroups = computed(() => {
-  return [...daysData.value].sort((a, b) => a.event_date.localeCompare(b.event_date))
-})
 
 function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = form.event_type==='违纪' ? 0 : 8 }
 function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = batchForm.event_type==='违纪' ? 0 : 8 }
@@ -291,113 +253,14 @@ async function fetchEvents(p: any) { return (await getAttendanceEvents(p)) as an
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
 
-async function loadPersonCards() {
-  loadingBlocks.value = true
-  try {
-    personCards.value = (await getPersonCards()) as any[] || []
-  } catch {
-    personCards.value = []
-  } finally {
-    loadingBlocks.value = false
-  }
-}
-
-async function loadMonthStats() {
-  if (!cardPersonId.value) return
-  loadingMonths.value = true
-  try {
-    const params: any = { pageNum: 1, pageSize: 100, person_id: cardPersonId.value }
-    const now = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1)
-    params.date_start = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-01`
-    params.date_end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-31`
-    const stats: MonthStat[] = []
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      stats.push({ month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, level: 'gray' })
-    }
-    const countMap = new Map<string, number>()
-    const orangeMap = new Map<string, boolean>()
-    let page = 1
-    let total = Infinity
-    while ((page - 1) * 100 < total && page <= 20) {
-      const d = (await getAttendanceEvents({ ...params, pageNum: page, pageSize: 100 })) as any
-      total = d.total || 0
-      for (const row of d.list || []) {
-        const key = String(row.event_date || '').slice(0, 7)
-        if (!key) continue
-        countMap.set(key, (countMap.get(key) || 0) + 1)
-        if (row.status === 'pending') orangeMap.set(key, true)
-      }
-      page++
-    }
-    for (const m of stats) {
-      const c = countMap.get(m.month) || 0
-      if (c > 0) {
-        m.count = c
-        m.level = orangeMap.get(m.month) ? 'orange' : 'green'
-      }
-    }
-    monthStats.value = stats
-  } catch {
-    monthStats.value = []
-  } finally {
-    loadingMonths.value = false
-  }
-}
-
-async function loadMonthDays() {
-  if (!cardPersonId.value || !selectedMonth.value) return
-  loadingBlocks.value = true
-  try {
-    const params: any = {
-      pageNum: 1,
-      pageSize: 100,
-      person_id: cardPersonId.value,
-      date_start: `${selectedMonth.value}-01`,
-      date_end: `${selectedMonth.value}-31`,
-    }
-    const d = (await getAttendanceEvents(params)) as any
-    daysData.value = d.list || []
-  } catch {
-    daysData.value = []
-  } finally {
-    loadingBlocks.value = false
-  }
-}
-
-function openPersonMonths(person: any) {
-  cardPersonId.value = person.id
-  cardPersonName.value = person.name
-  blockView.value = 'months'
-  loadMonthStats()
-}
-
-function openMonthDays(month: string) {
-  selectedMonth.value = month
-  blockView.value = 'days'
-  loadMonthDays()
-}
-
-watch(viewMode, (v) => {
-  if (v === 'blocks') {
-    blockView.value = 'cards'
-    if (personCards.value.length === 0) {
-      loadPersonCards()
-    }
-  }
-}, { immediate: true })
-
 function openEdit(row: any) {
   editDailyRow.value = row
   editVisible.value = true
 }
 
 function onBlockSaved() {
-  if (viewMode.value === 'blocks') {
-    loadMonthDays()
-    loadMonthStats()
-  } else {
+  timePanelRef.value?.reload()
+  if (viewMode.value === 'list') {
     tableRef.value?.refresh()
   }
 }
@@ -411,8 +274,7 @@ async function confirmDaily(row: any) {
     const latest = (d.list || []).find((x: any) => x.id === row.id) || row
     await confirmPendingDaily(row.id, latest.details || [], latest.punch_time || '', latest.remark || '')
     ElMessage.success('确认成功')
-    loadMonthDays()
-    loadMonthStats()
+    timePanelRef.value?.reload()
   } catch { /* handled */ }
 }
 

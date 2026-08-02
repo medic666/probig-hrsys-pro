@@ -1,13 +1,34 @@
 <template>
   <div class="page-container">
-    <div class="page-header"><h2>职务事件管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
-      </template>
-    </ProTable>
+    <div class="page-header">
+      <h2>职务事件管理</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
+        </template>
+      </ProTable>
+    </template>
+
+    <template v-else>
+      <TimeCardPanel
+        ref="timePanelRef"
+        :fetch-fn="(p: any) => getPositionEvents(p)"
+        date-field="effective_date"
+      >
+        <template #day="{ date, items }">
+          <DayCard :date="date" :events="items" @event-click="handleEdit" />
+        </template>
+      </TimeCardPanel>
+    </template>
 
     <el-dialog v-model="dialogVisible" :title="dialogMode === 'add' ? '新增职务事件' : '编辑职务事件'" width="640px" @close="handleDialogClose">
       <el-form :model="eventForm" label-width="110px">
@@ -106,12 +127,16 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
+import DayCard from '@/components/cards/DayCard.vue'
 import { getPositionEvents, getPositionEvent, createPositionEvent, updatePositionEvent, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
 import { getAllCompanies } from '@/api/company'
 import { downloadBlob } from '@/utils/download'
 
 const tableRef = ref()
+const viewMode = ref<'cards'|'list'>('cards')
+const timePanelRef = ref()
 const dialogVisible = ref(false)
 const dialogMode = ref<'add' | 'edit'>('add')
 const editId = ref(0)
@@ -244,12 +269,13 @@ async function handleSubmit() {
     ElMessage.success(dialogMode.value === 'add' ? '创建成功' : '更新成功')
     dialogVisible.value = false
     tableRef.value?.refresh()
+    timePanelRef.value?.reload()
   } catch { /* handled */ } finally { saving.value = false }
 }
 
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm('确认删除该事件？', '提示', { type: 'warning' }) } catch { return }
-  try { await deletePositionEvent(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh() } catch { /* handled */ }
+  try { await deletePositionEvent(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh(); timePanelRef.value?.reload() } catch { /* handled */ }
 }
 
 function handleDialogClose() { resetFlags() }

@@ -1,12 +1,44 @@
 <template>
-  <div class="page-container"><div class="page-header"><h2>工资事件管理</h2></div>
-    <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
-      <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-        <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
-      </template>
-    </ProTable>
+  <div class="page-container">
+    <div class="page-header">
+      <h2>工资事件管理</h2>
+      <el-radio-group v-model="viewMode" size="small" style="margin-left:16px">
+        <el-radio-button value="cards">卡片</el-radio-button>
+        <el-radio-button value="list">列表</el-radio-button>
+      </el-radio-group>
+    </div>
+    <template v-if="viewMode === 'list'">
+      <ProTable ref="tableRef" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields" :actions="actions" @action="handleAction">
+        <template #actions="{ row }">
+          <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
+        </template>
+      </ProTable>
+    </template>
+    <template v-else>
+      <TimeCardPanel
+        ref="timePanelRef"
+        :fetch-fn="(p: any) => getSalaryEvents(p)"
+        month-field="belong_month"
+        :has-day-level="false"
+      >
+        <template #month-list="{ items }">
+          <el-table :data="items" border size="small" style="max-width:720px">
+            <el-table-column prop="belong_month" label="月份" width="90" />
+            <el-table-column prop="event_type" label="类型" width="100" />
+            <el-table-column prop="amount" label="值" width="110" />
+            <el-table-column prop="remark" label="备注" />
+            <el-table-column label="操作" width="90">
+              <template #default="{ row }">
+                <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+                <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </TimeCardPanel>
+    </template>
 
     <el-dialog v-model="dialogVisible" :title="mode==='add'?'新增':'编辑'" width="420px">
       <el-form :model="form" label-width="80px">
@@ -35,11 +67,14 @@ import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getSalaryEvents, createSalaryEvent, updateSalaryEvent, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents, exportSalaryEvents } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
 const tableRef=ref(), dialogVisible=ref(false), mode=ref<'add'|'edit'>('add'), eid=ref(0), s=ref(false), tv=ref(false), attachVisible=ref(false), attachFileId=ref<number|null>(null)
+const viewMode=ref<'cards'|'list'>('cards')
+const timePanelRef=ref()
 const types=['绩效系数','提成','奖惩','借款还款','个税扣除']
 const form=reactive({person_id:null as any,belong_month:'',event_type:'绩效系数',amount:1,remark:''})
 
@@ -75,10 +110,10 @@ async function submit(){
   s.value=true
   try{const d:any={person_id:form.person_id,belong_month:form.belong_month,event_type:form.event_type,amount:form.amount,remark:form.remark}
     if(mode.value==='add') await createSalaryEvent(d); else await updateSalaryEvent(eid.value,d)
-    ElMessage.success('成功');dialogVisible.value=false;tableRef.value?.refresh()
+    ElMessage.success('成功');dialogVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   }catch{/* */}finally{s.value=false}
 }
-async function handleDelete(r:any){try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteSalaryEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh()}catch{ /* */ }}
+async function handleDelete(r:any){try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteSalaryEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ }}
 function onR(){tableRef.value?.refresh()}
 </script>
 <style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

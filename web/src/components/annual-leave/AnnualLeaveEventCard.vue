@@ -1,0 +1,77 @@
+<template>
+  <div class="annual-leave-card">
+    <div class="alc-header">
+      <span class="alc-person">{{ event.person_name }}</span>
+      <el-tag size="small">{{ typeText }}</el-tag>
+      <el-tag v-if="event.source_type === 'attendance'" size="small" type="info">考勤休假</el-tag>
+    </div>
+    <div class="alc-line">时长：{{ hoursToDays(event.hours || 0).toFixed(2) }} 天</div>
+    <div class="alc-line">生效日期：{{ event.effective_date }}</div>
+    <div class="alc-line" :class="{ 'alc-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
+    <div class="alc-actions">
+      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import { hoursToDays } from '@/utils'
+
+const props = defineProps<{ event: any }>()
+defineEmits<{ (e: 'edit', event: any): void }>()
+
+const typeMap: Record<string, string> = {
+  grant: '配发',
+  adjust: '人工调整',
+  carryover_deduct: '结转扣除',
+  休假: '休假',
+}
+const typeText = computed(() => typeMap[props.event.event_type] || props.event.event_type || '-')
+</script>
+
+<style lang="scss" scoped>
+.annual-leave-card {
+  width: 260px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px 12px;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .alc-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+
+    .alc-person {
+      font-weight: 600;
+      font-size: 14px;
+      color: #303133;
+    }
+  }
+
+  .alc-line {
+    font-size: 12px;
+    line-height: 22px;
+    color: #606266;
+
+    &.alc-empty {
+      color: #c0c4cc;
+    }
+  }
+
+  .alc-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+    border-top: 1px dashed #ebeef5;
+    padding-top: 6px;
+  }
+}
+</style>

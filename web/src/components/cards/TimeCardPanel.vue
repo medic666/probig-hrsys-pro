@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PersonCard from '@/components/cards/PersonCard.vue'
 import MonthCard from '@/components/cards/MonthCard.vue'
@@ -113,8 +113,16 @@ function syncUrl() {
   } else {
     delete query.month
   }
+  query.scope = scope.value
   router.replace({ query })
 }
+
+// 卡片范围（活跃/全部）变化同步 URL（卡片视图状态完整化）
+watch(scope, () => {
+  if (props.urlDriven && level.value === 'cards') {
+    syncUrl()
+  }
+})
 
 async function loadPersonCards() {
   loading.value = true
@@ -251,6 +259,9 @@ onMounted(() => {
   if (props.urlDriven) {
     // URL 恢复层级：?person=5&month=2026-06 → 直接进入对应层级
     const qp = route.query
+    if (qp.scope === 'all' || qp.scope === 'active') {
+      scope.value = qp.scope
+    }
     if (qp.person) {
       personId.value = Number(qp.person)
       personName.value = String(qp.name || '')

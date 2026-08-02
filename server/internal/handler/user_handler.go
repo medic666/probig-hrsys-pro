@@ -140,6 +140,29 @@ func AssignUserRoles(c *gin.Context) {
 	utils.SuccessWithMsg(c, "分配成功", nil)
 }
 
+// GetUserByID 用户完整详情（页面化"编辑=查看"取数，含角色）
+func GetUserByID(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	user, err := service.GetUserWithRoles(uint(id))
+	if err != nil {
+		utils.Error(c, "用户不存在")
+		return
+	}
+	personName := ""
+	if user.PersonID != nil {
+		personName = service.PersonName(*user.PersonID)
+	}
+	roleIDs := make([]uint, 0, len(user.Roles))
+	for _, r := range user.Roles {
+		roleIDs = append(roleIDs, r.ID)
+	}
+	utils.Success(c, gin.H{
+		"id": user.ID, "username": user.Username, "person_id": user.PersonID,
+		"person_name": personName, "is_active": user.IsActive, "is_first_login": user.IsFirstLogin,
+		"role_ids": roleIDs,
+	})
+}
+
 func GetDeletedUsers(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	list, total, err := service.GetDeletedUserList(pageReq.PageNum, pageReq.PageSize)

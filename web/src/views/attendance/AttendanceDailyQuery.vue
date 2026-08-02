@@ -15,7 +15,7 @@
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
-      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchDaily" :search-fields="searchFields" @action="noop">
+      <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchDaily" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="showEvents(row)">查看原始事件</el-button>
         </template>
@@ -25,6 +25,7 @@
     <template v-else>
       <TimeCardPanel
         ref="timePanelRef"
+        :url-driven="true"
         :fetch-fn="(p: any) => getDailyProjections(p)"
         date-field="work_date"
         status-field="status"
@@ -54,23 +55,13 @@
         </template>
       </TimeCardPanel>
     </template>
-
-    <el-dialog v-model="eventsVisible" title="当日考勤事件" width="600px">
-      <el-table :data="dailyEvents" border size="small">
-        <el-table-column prop="event_type" label="事件类型" width="80" />
-        <el-table-column prop="sub_type" label="子类型" width="100" />
-        <el-table-column label="时长(天)" width="90">
-          <template #default="{ row: r }">{{ hoursToDays(r.hours).toFixed(2) }}</template>
-        </el-table-column>
-        <el-table-column prop="punch_time" label="打卡时间" width="90" />
-        <el-table-column prop="remark" label="备注" />
-      </el-table>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
@@ -81,10 +72,9 @@ import { usePageView } from '@/composables/usePageView'
 import { downloadBlob } from '@/utils/download'
 import { hoursToDays } from '@/utils'
 
+const router = useRouter()
 const tableRef = ref()
 const { viewMode, isList } = usePageView('cards')
-const eventsVisible = ref(false)
-const dailyEvents = ref<any[]>([])
 
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
@@ -107,12 +97,21 @@ async function fetchDaily(p: any) {
   return (await getDailyProjections(p)) as any
 }
 
-async function showEvents(row: any) { dailyEvents.value = (await getEventsByDate(row.person_id, row.work_date)) as any[]||[]; eventsVisible.value=true }
+// 查看原始事件 = 进入该日考勤整日页（编辑=查看）
+async function showEvents(row: any) {
+  try {
+    const d = (await getEventsByDate(row.person_id, row.work_date)) as any
+    if (d?.daily_id) {
+      router.push(`/attendance-events/${d.daily_id}`)
+    } else {
+      ElMessage.warning('未找到当日考勤记录')
+    }
+  } catch { /* handled */ }
+}
 async function handleExport() {
   const data = await exportDailyProjections(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
-function noop() {}
 </script>
 <style scoped>
 .page-container{padding:0;background:transparent}

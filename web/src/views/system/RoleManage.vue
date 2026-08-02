@@ -19,17 +19,6 @@ ref="tableRef"
       </template>
     </ProTable>
 
-    <ProFormDialog
-      v-model:visible="dialogVisible"
-      :title="dialogMode === 'add' ? '新增角色' : '编辑角色'"
-      :mode="dialogMode"
-      :form-fields="formFields"
-      :rules="formRules"
-      :submit-api="submitForm"
-      :edit-data="editRow"
-      @success="onFormSuccess"
-    />
-
     <el-dialog v-model="permDialogVisible" title="权限分配" width="500px">
       <el-tree
         ref="treeRef"
@@ -56,14 +45,12 @@ ref="tableRef"
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
-import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import {
   getRoles,
-  createRole,
-  updateRole,
   deleteRole,
   getDeletedRoles,
   restoreRole,
@@ -72,11 +59,9 @@ import {
   getPermissions,
 } from '@/api/role'
 
+const router = useRouter()
 const tableRef = ref()
 const treeRef = ref()
-const dialogVisible = ref(false)
-const dialogMode = ref<'add' | 'edit'>('add')
-const editRow = ref<any>(null)
 const trashVisible = ref(false)
 const permDialogVisible = ref(false)
 const permSaving = ref(false)
@@ -100,15 +85,6 @@ const actions = [
   { key: 'trash', label: '回收站', type: 'default' as const },
 ]
 
-const formFields = [
-  { prop: 'name', label: '角色名称', type: 'input' as const, placeholder: '请输入角色名称' },
-  { prop: 'remark', label: '备注', type: 'textarea' as const, placeholder: '请输入备注' },
-]
-
-const formRules = {
-  name: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
-}
-
 const trashColumns = [
   { prop: 'id', label: 'ID', width: '70' },
   { prop: 'name', label: '角色名称' },
@@ -123,27 +99,16 @@ async function fetchDeletedRoles(params: any) {
   return (await getDeletedRoles(params)) as any
 }
 
-async function submitForm(data: any) {
-  if (dialogMode.value === 'add') {
-    return createRole(data)
-  }
-  return updateRole(editRow.value.id, data)
-}
-
 function handleAction(key: string) {
   if (key === 'add') {
-    dialogMode.value = 'add'
-    editRow.value = null
-    dialogVisible.value = true
+    router.push('/system/roles/create')
   } else if (key === 'trash') {
     trashVisible.value = true
   }
 }
 
 function handleEdit(row: any) {
-  dialogMode.value = 'edit'
-  editRow.value = row
-  dialogVisible.value = true
+  router.push(`/system/roles/${row.id}`)
 }
 
 async function handleAssignPerms(row: any) {
@@ -189,10 +154,6 @@ async function handleDelete(row: any) {
     ElMessage.success('删除成功')
     tableRef.value?.refresh()
   } catch { /* error handled by interceptor */ }
-}
-
-function onFormSuccess() {
-  tableRef.value?.refresh()
 }
 
 function onTrashRestored() {

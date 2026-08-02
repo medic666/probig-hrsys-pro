@@ -4,7 +4,7 @@
       <h2>用户管理</h2>
     </div>
     <ProTable
-ref="tableRef"
+      ref="tableRef"
       :url-driven="true"
       :columns="columns"
       :fetch-api="fetchUsers"
@@ -19,17 +19,6 @@ ref="tableRef"
         <el-button v-if="row.username !== 'admin'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
       </template>
     </ProTable>
-
-    <ProFormDialog
-      v-model:visible="dialogVisible"
-      :title="dialogMode === 'add' ? '新增用户' : '编辑用户'"
-      :mode="dialogMode"
-      :form-fields="formFields"
-      :rules="formRules"
-      :submit-api="submitForm"
-      :edit-data="editRow"
-      @success="onFormSuccess"
-    />
 
     <el-dialog
       v-model="roleDialogVisible"
@@ -59,14 +48,12 @@ ref="tableRef"
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
-import ProFormDialog from '@/components/ProFormDialog.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import {
   getUsers,
-  createUser,
-  updateUser,
   deleteUser,
   resetPassword,
   assignUserRoles,
@@ -74,23 +61,9 @@ import {
   restoreUser,
 } from '@/api/user'
 import { getAllRoles } from '@/api/role'
-import { getAllPersons } from '@/api/person'
 
-interface FormField {
-  prop: string
-  label: string
-  type: 'input' | 'number' | 'select' | 'date' | 'textarea' | 'switch' | 'person-select'
-  options?: { label: string; value: any }[]
-  placeholder?: string
-  span?: number
-  defaultValue?: any
-  fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
-}
-
+const router = useRouter()
 const tableRef = ref()
-const dialogVisible = ref(false)
-const dialogMode = ref<'add' | 'edit'>('add')
-const editRow = ref<any>(null)
 const trashVisible = ref(false)
 const roleDialogVisible = ref(false)
 const roleSaving = ref(false)
@@ -120,17 +93,6 @@ const actions = [
   { key: 'trash', label: '回收站', type: 'default' as const },
 ]
 
-const formFields: FormField[] = [
-  { prop: 'username', label: '用户名', type: 'input', placeholder: '请输入用户名' },
-  { prop: 'password', label: '密码', type: 'input', placeholder: '新增时必填，编辑时留空', defaultValue: '' },
-  { prop: 'person_id', label: '关联人员', type: 'person-select', fetchApi: fetchPersonOpts },
-  { prop: 'is_active', label: '启用', type: 'switch', defaultValue: true },
-]
-
-const formRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-}
-
 const trashColumns = [
   { prop: 'id', label: 'ID', width: '70' },
   { prop: 'username', label: '用户名' },
@@ -142,37 +104,21 @@ async function fetchUsers(params: any) {
   return data
 }
 
-async function fetchPersonOpts(keyword?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  return keyword ? list.filter((p) => p.name.includes(keyword)) : list
-}
-
 async function fetchDeletedUsers(params: any) {
   const data = (await getDeletedUsers(params)) as any
   return data
 }
 
-async function submitForm(data: any) {
-  if (dialogMode.value === 'add') {
-    return createUser(data)
-  }
-  return updateUser(editRow.value.id, data)
-}
-
 function handleAction(key: string) {
   if (key === 'add') {
-    dialogMode.value = 'add'
-    editRow.value = null
-    dialogVisible.value = true
+    router.push('/system/users/create')
   } else if (key === 'trash') {
     trashVisible.value = true
   }
 }
 
 function handleEdit(row: any) {
-  dialogMode.value = 'edit'
-  editRow.value = row
-  dialogVisible.value = true
+  router.push(`/system/users/${row.id}`)
 }
 
 async function handleAssignRoles(row: any) {
@@ -220,10 +166,6 @@ async function handleDelete(row: any) {
     ElMessage.success('删除成功')
     tableRef.value?.refresh()
   } catch { /* error handled by interceptor */ }
-}
-
-function onFormSuccess() {
-  tableRef.value?.refresh()
 }
 
 function onTrashRestored() {

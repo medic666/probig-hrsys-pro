@@ -32,6 +32,7 @@
     <template v-else>
       <TimeCardPanel
         ref="timePanelRef"
+        :url-driven="true"
         :fetch-fn="(p: any) => getAttendanceEvents(p)"
         date-field="event_date"
         status-field="status"
@@ -47,33 +48,6 @@
         </template>
       </TimeCardPanel>
     </template>
-
-    <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onBlockSaved" />
-
-    <el-dialog v-model="dialogVisible" title="新增考勤事件" width="500px">
-      <el-form :model="form" label-width="80px">
-        <el-form-item label="人员" required><NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" /></el-form-item>
-        <el-form-item label="日期" required><el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-        <el-form-item label="事件类型" required>
-          <el-select v-model="form.event_type" placeholder="选择类型" style="width:100%" @change="onTypeChange">
-            <el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="form.event_type !== '违纪'" label="子类型" required>
-          <el-select v-model="form.sub_type" placeholder="选择子类型" style="width:100%">
-            <el-option v-for="s in currentSubTypes" :key="s" :label="s" :value="s" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="form.event_type !== '违纪'" label="时长(小时)" required>
-          <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
 
     <el-dialog v-model="batchVisible" title="批量新增" width="500px">
       <el-form :model="batchForm" label-width="100px">
@@ -159,6 +133,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -166,20 +141,17 @@ import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
-import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import { getAttendanceEvents, createAttendanceEvent, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmPendingDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import { getAttendanceEvents, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
 
+const router = useRouter()
 const tableRef = ref()
-const dialogVisible = ref(false)
-const dialogMode = ref<'add'|'edit'>('add')
-const editId = ref(0)
 const saving = ref(false)
 const trashVisible = ref(false)
 const batchVisible = ref(false)
@@ -198,8 +170,6 @@ const uploadRef = ref()
 
 const { viewMode, isList } = usePageView('blocks')
 const timePanelRef = ref()
-const editVisible = ref(false)
-const editDailyRow = ref<any>(null)
 
 const eventTypes = ['出勤','休假','加班','违纪']
 const subTypeMap: Record<string,string[]> = {
@@ -209,14 +179,11 @@ const subTypeMap: Record<string,string[]> = {
   '违纪':['缺卡','迟到','早退'],
 }
 
-const form = reactive({ person_id: null as any, event_date:'', event_type:'', sub_type:'', hours:8, punch_time:'', remark:'' })
 const batchForm = reactive({ person_ids:[] as number[], start_date:'', end_date:'', event_type:'', sub_type:'', hours:8, remark:'' })
 
-const currentSubTypes = computed(() => subTypeMap[form.event_type] || [])
 const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
 
-function onTypeChange() { form.sub_type = ''; form.punch_time = ''; form.hours = form.event_type==='违纪' ? 0 : 8 }
-function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.punch_time = ''; batchForm.hours = batchForm.event_type==='违纪' ? 0 : 8 }
+function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.hours = batchForm.event_type==='违纪' ? 0 : 8 }
 
 function detailSummary(r: any): string {
   const parts = (r.details || []).map((d: any) => {
@@ -257,35 +224,23 @@ async function fetchEvents(p: any) { return (await getAttendanceEvents(p)) as an
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
 
+// 新增=编辑=查看统一跳业务逻辑页
 function openEdit(row: any) {
-  editDailyRow.value = row
-  editVisible.value = true
+  router.push(`/attendance-events/${row.id}`)
 }
 
-function onBlockSaved() {
-  timePanelRef.value?.reload()
-  if (viewMode.value === 'list') {
-    tableRef.value?.refresh()
-  }
-}
 
 async function confirmDaily(row: any) {
   try {
     await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 的整日事件？提交后将一次性完成全部改动。`, '确认整日', { type: 'warning' })
   } catch { return }
-  try {
-    const d = (await getAttendanceEvents({ person_id: row.person_id, date_start: row.event_date, date_end: row.event_date, pageNum: 1, pageSize: 100 })) as any
-    const latest = (d.list || []).find((x: any) => x.id === row.id) || row
-    await confirmPendingDaily(row.id, latest.details || [], latest.punch_time || '', latest.remark || '')
-    ElMessage.success('确认成功')
-    timePanelRef.value?.reload()
-  } catch { /* handled */ }
+  router.push(`/attendance-events/${row.id}?confirm=1`)
 }
 
 onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [] })
 
 function handleAction(key: string) {
-  if (key==='add') { dialogMode.value='add'; editId.value=0; Object.assign(form,{person_id:null,event_date:'',event_type:'',sub_type:'',hours:8,punch_time:'',remark:''}); dialogVisible.value=true }
+  if (key==='add') { router.push('/attendance-events/create') }
   else if (key==='batch') { Object.assign(batchForm,{person_ids:[],start_date:'',end_date:'',event_type:'',sub_type:'',hours:8,remark:''}); batchVisible.value=true }
   else if (key==='import') { importVisible.value=true; importStep.value=0; importFile.value=null; importPreview.value=[]; importFilePath.value=''; importMonth.value='' }
   else if (key==='trash') { trashVisible.value=true }
@@ -323,22 +278,8 @@ async function handleExport() {
 }
 
 async function handleEdit(row: any) {
-  // 编辑统一为整日编辑（与卡片视图一致），确定即事务提交
+  // 编辑统一为整日编辑（与卡片视图一致），跳业务逻辑页
   openEdit(row)
-}
-
-async function handleSubmit() {
-  saving.value=true
-  try {
-    const d: any = { person_id:form.person_id, event_date:form.event_date, event_type:form.event_type, sub_type:form.sub_type }
-    if (form.event_type !== '违纪') {
-      d.hours = form.hours
-    }
-    d.remark = form.remark || ''
-    await createAttendanceEvent(d)
-    ElMessage.success('创建成功')
-    dialogVisible.value=false; tableRef.value?.refresh()
-  } catch { /* */ } finally { saving.value=false }
 }
 
 async function handleBatchSubmit() {

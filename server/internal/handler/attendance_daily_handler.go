@@ -94,8 +94,27 @@ type updateDailyReq struct {
 	Details   []model.AttendanceEventDetail  `json:"details"`
 }
 
-func UpdateAttendanceEvent(c *gin.Context) {
+// GetAttendanceEventByID 考勤日记录完整详情（页面化"编辑=查看"取数）
+func GetAttendanceEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	daily, err := service.GetAttendanceDailyByID(uint(id))
+	if err != nil {
+		utils.Error(c, "记录不存在")
+		return
+	}
+	details, err := service.GetDetailsByDailyID(dao.DB, daily.ID)
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, gin.H{
+		"id": daily.ID, "person_id": daily.PersonID, "person_name": service.PersonName(daily.PersonID),
+		"event_date": daily.EventDate, "status": daily.Status,
+		"punch_time": daily.PunchTime, "remark": daily.Remark, "details": details,
+	})
+}
+
+func UpdateAttendanceEvent(c *gin.Context) {	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req updateDailyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "参数错误")
@@ -415,9 +434,12 @@ func GetEventsByPersonDate(c *gin.Context) {
 	list, _, _ := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
 		PageNum: 1, PageSize: 100, PersonID: uint(personID), DateStart: date, DateEnd: date,
 	})
-	if len(list) > 0 && list[0]["details"] != nil {
-		utils.Success(c, list[0]["details"])
-	} else {
-		utils.Success(c, []interface{}{})
+	if len(list) > 0 {
+		utils.Success(c, gin.H{
+			"daily_id": list[0]["id"],
+			"details":  list[0]["details"],
+		})
+		return
 	}
+	utils.Success(c, gin.H{"daily_id": 0, "details": []interface{}{}})
 }

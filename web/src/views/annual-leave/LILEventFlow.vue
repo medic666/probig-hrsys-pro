@@ -20,75 +20,50 @@
     <template v-else>
       <TimeCardPanel
         ref="timePanelRef"
+        :url-driven="true"
         :fetch-fn="(p: any) => getLILEvents(p)"
         date-field="event_date"
       >
-        <template #day="{ date, items }">
-          <DayCard :date="date" :events="items" @event-click="editDaily" />
+        <template #day="{ items }">
+          <div class="ev-grid">
+            <LILEventCard v-for="e in items" :key="e.id" :event="e" @edit="editDaily" />
+          </div>
         </template>
       </TimeCardPanel>
     </template>
-
-    <el-dialog v-model="dialogVisible" title="新增调休事件" width="440px">
-      <el-form :model="form" label-width="90px">
-        <el-form-item label="人员" required><NameSelect v-model="form.person_id" :fetch-api="fetchOpts" placeholder="选择人员" /></el-form-item>
-        <el-form-item label="日期" required><el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-        <el-form-item label="类型" required>
-          <el-select v-model="form.sub_type" style="width:100%">
-            <el-option label="补班出勤" value="补班出勤" />
-            <el-option label="调休" value="调休" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="时长(小时)" required>
-          <el-input-number v-model="form.hours" :min="0" :precision="1" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="备注"><el-input v-model="form.remark" type="textarea" :rows="2" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
-    <DailyEditDialog v-model:visible="editVisible" :daily="editDailyRow" @saved="onEdited" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import NameSelect from '@/components/NameSelect.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import DayCard from '@/components/cards/DayCard.vue'
-import DailyEditDialog from '@/components/attendance/DailyEditDialog.vue'
+import LILEventCard from '@/components/annual-leave/LILEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { getLILEvents } from '@/api/annual-leave'
-import { getAttendanceEvents } from '@/api/attendance'
-import { createAttendanceEvent } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 
 import { usePageView } from '@/composables/usePageView'
 
+const router = useRouter()
 const tableRef = ref()
 const { viewMode } = usePageView('cards')
 const timePanelRef = ref()
-const dialogVisible = ref(false)
-const saving = ref(false)
-const editVisible = ref(false)
-const editDailyRow = ref<any>(null)
-const form = reactive({ person_id: null as any, event_date: '', sub_type: '补班出勤', hours: 8, remark: '' })
 
 const columns = [
-  { prop: 'id', label: 'ID', width: '60' }, { prop: 'person_name', label: '人员', width: '80' },
-  { prop: 'sub_type', label: '类型', width: '100' }, { prop: 'event_date', label: '日期', width: '110' },
-  { prop: 'hours', label: '时长(天)', width: '90', formatter: (r: any) => hoursToDays(r.hours).toFixed(2) }, { prop: 'remark', label: '备注' },
+  { prop: 'person_name', label: '人员', width: '80' },
+  { prop: 'sub_type', label: '类型', width: '100' },
+  { prop: 'event_date', label: '日期', width: '110' },
+  { prop: 'hours', label: '时长(天)', width: '90', formatter: (r: any) => hoursToDays(r.hours).toFixed(2) },
+  { prop: 'remark', label: '备注' },
 ]
 const searchFields = [
   { prop: 'person_id', label: '人员', type: 'person-select' as const, fetchApi: fetchOpts },
-  { prop: 'date', label: '时间范围', type: 'date-range' as const },
+  { prop: 'date', label: '时间范围', type: 'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 
 async function fetchOpts(k?: string) { const l = await getAllPersons() as any[]; return k ? l.filter(p => p.name.includes(k)) : l }
@@ -97,53 +72,27 @@ async function fetchEvents(p: any) {
 }
 
 function handleAction(k: string) {
-  if (k === 'add') { Object.assign(form, { person_id: null, event_date: '', sub_type: '补班出勤', hours: 8, remark: '' }); dialogVisible.value = true }
+  if (k === 'add') {
+    // 调休事件本质是考勤事件（补班出勤/调休），新增统一走考勤事件页
+    router.push('/attendance-events/create')
+  }
 }
 
-async function handleSubmit() {
-  if (!form.person_id || !form.event_date) { ElMessage.warning('请选择人员和日期'); return }
-  saving.value = true
-  try {
-    await createAttendanceEvent({
-      person_id: form.person_id,
-      event_date: form.event_date,
-      event_type: form.sub_type === '补班出勤' ? '出勤' : '休假',
-      sub_type: form.sub_type,
-      hours: form.hours,
-      remark: form.remark || '',
-    })
-    ElMessage.success('创建成功')
-    dialogVisible.value = false
-    tableRef.value?.refresh()
-    timePanelRef.value?.reload()
-  } catch { /* */ } finally { saving.value = false }
-}
-
-// 统一编辑：点击调休事件 → 打开该日考勤整日编辑（DailyEditDialog + 事务确认）
-async function editDaily(item: any) {
-  try {
-    const dailyId = item.daily_id
-    let row: any = null
-    if (dailyId) {
-      const d = (await getAttendanceEvents({ pageNum: 1, pageSize: 100 })) as any
-      row = (d.list || []).find((x: any) => x.id === dailyId) || null
-    }
-    if (!row && item.person_id && item.event_date) {
-      const d = (await getAttendanceEvents({ person_id: item.person_id, date_start: item.event_date, date_end: item.event_date, pageNum: 1, pageSize: 100 })) as any
-      row = (d.list || [])[0] || null
-    }
-    if (!row) { ElMessage.warning('未找到当日考勤记录'); return }
-    editDailyRow.value = row
-    editVisible.value = true
-  } catch { /* handled */ }
-}
-
-function onEdited() {
-  timePanelRef.value?.reload()
-  tableRef.value?.refresh()
+// 编辑=查看：调休事件即考勤日事件 → 跳该日考勤整日页
+function editDaily(item: any) {
+  if (item.daily_id) {
+    router.push(`/attendance-events/${item.daily_id}`)
+  } else {
+    ElMessage.warning('未找到当日考勤记录')
+  }
 }
 </script>
 <style scoped>
 .page-container { padding: 0; background: transparent; }
 
+.ev-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 </style>

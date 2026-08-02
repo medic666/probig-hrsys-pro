@@ -33,6 +33,17 @@ func GetSalaryEvents(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
+// GetSalaryEventByID 工资事件完整详情（页面化"编辑=查看"取数）
+func GetSalaryEventByID(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	event, err := service.GetSalaryEvent(uint(id))
+	if err != nil {
+		utils.Error(c, "事件不存在")
+		return
+	}
+	utils.Success(c, event)
+}
+
 func CreateSalaryEvent(c *gin.Context) {
 	var e model.SalaryEvent
 	if err := c.ShouldBindJSON(&e); err != nil {

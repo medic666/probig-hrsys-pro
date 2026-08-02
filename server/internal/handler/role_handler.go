@@ -108,6 +108,17 @@ func RestoreRole(c *gin.Context) {
 	utils.SuccessWithMsg(c, "恢复成功", nil)
 }
 
+// GetRoleByID 角色完整详情（页面化"编辑=查看"取数）
+func GetRoleByID(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	role, err := service.GetRoleByID(uint(id))
+	if err != nil {
+		utils.Error(c, "角色不存在")
+		return
+	}
+	utils.Success(c, role)
+}
+
 func GetDeletedRoles(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	list, total, err := service.GetDeletedRoleList(pageReq.PageNum, pageReq.PageSize)

@@ -52,29 +52,12 @@
         <el-button type="primary" :loading="saving" @click="doCalc">开始核算(不选则全部在职人员)</el-button>
       </template>
     </el-dialog>
-
-    <el-dialog v-model="detailVisible" title="核算明细" width="700px">
-      <el-descriptions v-if="detailRow" :column="2" border>
-        <el-descriptions-item label="月份">{{ detailRow.belong_month }}</el-descriptions-item>
-        <el-descriptions-item label="计薪天数">{{ detailRow.salary_days }}</el-descriptions-item>
-        <el-descriptions-item label="加权基本工资">{{ detailRow.weighted_base_salary }}</el-descriptions-item>
-        <el-descriptions-item label="加权餐补">{{ detailRow.weighted_meal_allowance }}</el-descriptions-item>
-        <el-descriptions-item label="记出勤(天)">{{ hoursToDays(detailRow.total_work_hours).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="工作日加班(天)">{{ hoursToDays(detailRow.total_overtime_workday_hours).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="节假日加班(天)">{{ hoursToDays(detailRow.total_overtime_holiday_hours).toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="出勤工资">{{ detailRow.attendance_salary }}</el-descriptions-item>
-        <el-descriptions-item label="工作日加班工资">{{ detailRow.overtime_workday_salary }}</el-descriptions-item>
-        <el-descriptions-item label="节假日加班工资">{{ detailRow.overtime_holiday_salary }}</el-descriptions-item>
-        <el-descriptions-item label="全勤奖">{{ detailRow.attendance_bonus }}</el-descriptions-item>
-        <el-descriptions-item label="违纪次数">{{ detailRow.total_violation_count }}</el-descriptions-item>
-        <el-descriptions-item label="有事假">{{ detailRow.has_personal_leave_month ? '是' : '否' }}</el-descriptions-item>
-      </el-descriptions>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -83,13 +66,14 @@ import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { getMonthlyList, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
-import { formatDateTime, hoursToDays } from '@/utils'
+import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
 
+const router = useRouter()
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
-const personList=ref<{id:number;name:string}[]>([]), detailVisible=ref(false), detailRow=ref<any>(null)
+const personList=ref<{id:number;name:string}[]>([])
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 
@@ -139,6 +123,9 @@ async function doCalc(){
     ElMessage.success(`核算完成: 成功${d.success}条, 失败${d.fail}条`);calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   }catch{/* */}finally{saving.value=false}
 }
-function showDetail(row:any){detailRow.value=row;detailVisible.value=true}
+// 查看明细 = 进入月度考勤核算详情页（URL 携带人员+月份）
+function showDetail(row: any) {
+  router.push(`/attendance-monthly/${row.person_id}/${row.belong_month}`)
+}
 </script>
 <style scoped>.page-container{padding:0;background:transparent}</style>

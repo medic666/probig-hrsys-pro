@@ -66,6 +66,17 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 	utils.Success(c, utils.NewPageResult(list, int64(len(list)), utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
 }
 
+// GetAnnualLeaveEventByID 年假事件完整详情（页面化"编辑=查看"取数）
+func GetAnnualLeaveEventByID(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	event, err := service.GetAnnualLeaveEvent(uint(id))
+	if err != nil {
+		utils.Error(c, "事件不存在")
+		return
+	}
+	utils.Success(c, event)
+}
+
 func CreateAnnualLeaveEvent(c *gin.Context) {
 	var e model.AnnualLeaveAccountEvent
 	if err := c.ShouldBindJSON(&e); err != nil {

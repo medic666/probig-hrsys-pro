@@ -29,10 +29,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '用户管理', permissionKey: 'user.read' },
       },
       {
+        path: 'system/users/create',
+        name: 'UserCreate',
+        component: () => import('@/views/system/UserPage.vue'),
+        meta: { title: '新增用户', permissionKey: 'user.read' },
+      },
+      {
+        path: 'system/users/:id',
+        name: 'UserDetail',
+        component: () => import('@/views/system/UserPage.vue'),
+        meta: { title: '编辑用户', permissionKey: 'user.read' },
+      },
+      {
         path: 'system/roles',
         name: 'RoleManage',
         component: () => import('@/views/system/RoleManage.vue'),
         meta: { title: '角色管理', permissionKey: 'role.read' },
+      },
+      {
+        path: 'system/roles/create',
+        name: 'RoleCreate',
+        component: () => import('@/views/system/RolePage.vue'),
+        meta: { title: '新增角色', permissionKey: 'role.read' },
+      },
+      {
+        path: 'system/roles/:id',
+        name: 'RoleDetail',
+        component: () => import('@/views/system/RolePage.vue'),
+        meta: { title: '编辑角色', permissionKey: 'role.read' },
       },
       {
         path: 'person',
@@ -41,10 +65,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '人员管理', permissionKey: 'person.read' },
       },
       {
+        path: 'person/create',
+        name: 'PersonCreate',
+        component: () => import('@/views/person/PersonPage.vue'),
+        meta: { title: '新增人员', permissionKey: 'person.read' },
+      },
+      {
+        path: 'person/:id',
+        name: 'PersonDetail',
+        component: () => import('@/views/person/PersonPage.vue'),
+        meta: { title: '人员详情', permissionKey: 'person.read' },
+      },
+      {
         path: 'company',
         name: 'CompanyManage',
         component: () => import('@/views/company/CompanyManage.vue'),
         meta: { title: '公司管理', permissionKey: 'company.read' },
+      },
+      {
+        path: 'company/create',
+        name: 'CompanyCreate',
+        component: () => import('@/views/company/CompanyPage.vue'),
+        meta: { title: '新增公司', permissionKey: 'company.read' },
+      },
+      {
+        path: 'company/:id',
+        name: 'CompanyDetail',
+        component: () => import('@/views/company/CompanyPage.vue'),
+        meta: { title: '公司详情', permissionKey: 'company.read' },
       },
       {
         path: 'position-event',
@@ -69,6 +117,18 @@ const routes: RouteRecordRaw[] = [
         name: 'AttendanceEventManage',
         component: () => import('@/views/attendance/AttendanceEventManage.vue'),
         meta: { title: '考勤事件', permissionKey: 'attendance.read' },
+      },
+      {
+        path: 'attendance-events/create',
+        name: 'AttendanceDailyCreate',
+        component: () => import('@/views/attendance/AttendanceDailyPage.vue'),
+        meta: { title: '新增考勤事件', permissionKey: 'attendance.read' },
+      },
+      {
+        path: 'attendance-events/:id',
+        name: 'AttendanceDailyDetail',
+        component: () => import('@/views/attendance/AttendanceDailyPage.vue'),
+        meta: { title: '考勤事件详情', permissionKey: 'attendance.read' },
       },
       {
         path: 'attendance-pending',
@@ -101,6 +161,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '年假事件', permissionKey: 'annual_leave.read' },
       },
       {
+        path: 'annual-leave-events/create',
+        name: 'AnnualLeaveEventCreate',
+        component: () => import('@/views/annual-leave/AnnualLeaveEventPage.vue'),
+        meta: { title: '新增年假事件', permissionKey: 'annual_leave.read' },
+      },
+      {
+        path: 'annual-leave-events/:id',
+        name: 'AnnualLeaveEventDetail',
+        component: () => import('@/views/annual-leave/AnnualLeaveEventPage.vue'),
+        meta: { title: '年假事件详情', permissionKey: 'annual_leave.read' },
+      },
+      {
         path: 'annual-leave-balance',
         name: 'AnnualLeaveBalance',
         component: () => import('@/views/annual-leave/AnnualLeaveBalance.vue'),
@@ -131,10 +203,28 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '工资事件', permissionKey: 'salary.read' },
       },
       {
+        path: 'salary-events/create',
+        name: 'SalaryEventCreate',
+        component: () => import('@/views/salary/SalaryEventPage.vue'),
+        meta: { title: '新增工资事件', permissionKey: 'salary.read' },
+      },
+      {
+        path: 'salary-events/:id',
+        name: 'SalaryEventDetail',
+        component: () => import('@/views/salary/SalaryEventPage.vue'),
+        meta: { title: '工资事件详情', permissionKey: 'salary.read' },
+      },
+      {
         path: 'salary-summaries',
         name: 'SalarySummary',
         component: () => import('@/views/salary/SalarySummary.vue'),
         meta: { title: '月度工资汇总', permissionKey: 'salary.read' },
+      },
+      {
+        path: 'salary-summaries/:personId/:month',
+        name: 'SalarySummaryDetail',
+        component: () => import('@/views/salary/SalarySummaryDetail.vue'),
+        meta: { title: '月度工资汇总详情', permissionKey: 'salary.read' },
       },
       {
         path: 'files',
@@ -147,6 +237,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AuditLogList',
         component: () => import('@/views/audit/AuditLogList.vue'),
         meta: { title: '审计日志', permissionKey: 'audit.read' },
+      },
+      {
+        path: 'audit-logs/:id',
+        name: 'AuditLogDetail',
+        component: () => import('@/views/audit/AuditLogPage.vue'),
+        meta: { title: '审计日志详情', permissionKey: 'audit.read' },
       },
       {
         path: 'system/config',

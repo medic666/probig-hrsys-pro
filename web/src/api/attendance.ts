@@ -3,6 +3,9 @@ import request from '@/utils/request'
 export function getAttendanceEvents(params: any) {
   return request.get('/attendance-events', { params })
 }
+export function getAttendanceEvent(id: number) {
+  return request.get(`/attendance-events/${id}`)
+}
 export function exportAttendanceEvents(params: any) {
   return request.get('/attendance-events/export', { params, responseType: 'blob' })
 }
@@ -11,10 +14,6 @@ export function createAttendanceEvent(data: any) {
 }
 export function updateAttendanceEvent(id: number, data: any) {
   return request.put(`/attendance-events/${id}`, data)
-}
-
-export function saveAttendanceDetails(id: number, data: any) {
-  return request.put(`/attendance-events/${id}/details`, data)
 }
 export function deleteAttendanceEvent(id: number) {
   return request.delete(`/attendance-events/${id}`)

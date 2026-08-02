@@ -23,11 +23,11 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
-import { getUsers, createUser, updateUser } from '@/api/user'
+import { getUser, createUser, updateUser } from '@/api/user'
 import { getAllPersons } from '@/api/person'
 
 // 新增=编辑统一表单：id 缺失 → 新增；{id} → 编辑
-const props = defineProps<{ id?: number }>()
+const props = defineProps<{ id?: number | null }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
@@ -37,15 +37,10 @@ const form = reactive({ username: '', password: '', person_id: null as any, is_a
 onMounted(async () => {
   if (isEdit.value) {
     try {
-      const d = (await getUsers({ pageNum: 1, pageSize: 100 })) as any
-      const row = (d.list || []).find((x: any) => x.id === props.id) || null
-      if (row) {
-        form.username = row.username || ''
-        form.person_id = row.person_id || null
-        form.is_active = !!row.is_active
-      } else {
-        ElMessage.warning('未找到该用户')
-      }
+      const row = (await getUser(props.id!)) as any
+      form.username = row.username || ''
+      form.person_id = row.person_id || null
+      form.is_active = !!row.is_active
     } catch { /* handled */ }
   }
 })

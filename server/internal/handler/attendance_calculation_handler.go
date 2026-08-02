@@ -29,7 +29,7 @@ func GetMonthlyList(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 type calculateReq struct {

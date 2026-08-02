@@ -75,7 +75,7 @@ func GetLILEvents(c *gin.Context) {
 			}
 		}
 	}
-	utils.Success(c, utils.NewPageResult(filtered, int64(len(filtered)), pageReq))
+	successPage(c, filtered, int64(len(filtered)), pageReq.PageNum, pageReq.PageSize)
 }
 
 type carryoverReq struct {
@@ -134,7 +134,7 @@ func GetAllALBalances(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func GetAllLILBalances(c *gin.Context) {
@@ -145,7 +145,7 @@ func GetAllLILBalances(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func GetALBalanceDetail(c *gin.Context) {

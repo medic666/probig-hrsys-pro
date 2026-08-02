@@ -10,26 +10,31 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/PageHeader.vue'
 import PageBackButton from '@/components/PageBackButton.vue'
 
+// 业务逻辑页外壳：标题与返回回退目标缺省读路由 meta（title / backTo），页面可显式覆盖
 const props = withDefaults(
   defineProps<{
-    title: string
-    // 无历史记录（直接输入 URL 进入）时的回退目标
-    backTo: string
+    title?: string
+    backTo?: string
   }>(),
-  { backTo: '/' },
+  { title: '', backTo: '' },
 )
 
+const route = useRoute()
 const router = useRouter()
+
+const title = computed(() => props.title || String(route.meta.title || '业务详情'))
+const backTo = computed(() => props.backTo || String(route.meta.backTo || '/'))
 
 function goBack() {
   if (window.history.length > 1) {
     router.back()
   } else {
-    router.replace(props.backTo)
+    router.replace(backTo.value)
   }
 }
 </script>

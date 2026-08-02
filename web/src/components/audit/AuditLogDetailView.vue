@@ -32,7 +32,7 @@ import { ref, computed, onMounted } from 'vue'
 import { getAuditLogDetail } from '@/api/audit'
 import { formatDateTime } from '@/utils'
 
-const props = defineProps<{ id: number }>()
+const props = defineProps<{ id: number | null }>()
 const loading = ref(false)
 const detail = ref<any>(null)
 

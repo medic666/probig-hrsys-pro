@@ -25,7 +25,7 @@ func GetFiles(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func DeleteFile(c *gin.Context) {
@@ -53,7 +53,7 @@ func GetDeletedFiles(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func UploadFile(c *gin.Context) {

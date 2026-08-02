@@ -1,5 +1,5 @@
 <template>
-  <BusinessPage :title="title" back-to="/person">
+  <BusinessPage>
     <template v-if="isCreate">
       <PersonProfileForm :person="null" @saved="onCreated" @cancel="goBack" />
     </template>
@@ -110,8 +110,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BusinessPage from '@/components/BusinessPage.vue'
 import PersonProfileForm from '@/components/person/PersonProfileForm.vue'
@@ -120,13 +120,10 @@ import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getPerson } from '@/api/person'
 import { getCurrentPosition } from '@/api/position-snapshot'
 import { getPositionEvents, deletePositionEvent } from '@/api/position-event'
+import { useBusinessPage } from '@/composables/useBusinessPage'
 
-const route = useRoute()
 const router = useRouter()
-
-const personId = route.params.id ? Number(route.params.id) : null
-const isCreate = computed(() => personId == null)
-const title = computed(() => (isCreate.value ? '新增人员' : '人员详情'))
+const { id: personId, isCreate, goBack } = useBusinessPage()
 
 const genderMap: Record<number, string> = { 1: '男', 2: '女' }
 const maritalMap: Record<number, string> = { 1: '已婚', 2: '未婚' }
@@ -185,14 +182,6 @@ function onCreated(id: number) {
 function onEdited() {
   editMode.value = false
   loadPerson()
-}
-
-function goBack() {
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.replace('/person')
-  }
 }
 </script>
 

@@ -28,11 +28,11 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
-import { getAnnualLeaveEvents, createAnnualLeaveEvent, updateAnnualLeaveEvent } from '@/api/annual-leave'
+import { getAnnualLeaveEvent, createAnnualLeaveEvent, updateAnnualLeaveEvent } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 
 // 新增=编辑统一表单：id 缺失 → 新增；{id} → 编辑
-const props = defineProps<{ id?: number }>()
+const props = defineProps<{ id?: number | null }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
@@ -43,17 +43,12 @@ const form = reactive({ person_id: null as any, event_type: 'grant', hours: 8, e
 onMounted(async () => {
   if (isEdit.value) {
     try {
-      const d = (await getAnnualLeaveEvents({ pageNum: 1, pageSize: 100 })) as any
-      const row = (d.list || []).find((x: any) => x.id === props.id) || null
-      if (row) {
-        form.person_id = row.person_id
-        form.event_type = row.event_type || 'grant'
-        form.hours = row.hours ?? 8
-        form.effective_date = row.effective_date || ''
-        form.remark = row.remark || ''
-      } else {
-        ElMessage.warning('未找到该事件')
-      }
+      const row = (await getAnnualLeaveEvent(props.id!)) as any
+      form.person_id = row.person_id
+      form.event_type = row.event_type || 'grant'
+      form.hours = row.hours ?? 8
+      form.effective_date = row.effective_date || ''
+      form.remark = row.remark || ''
     } catch { /* handled */ }
   }
 })

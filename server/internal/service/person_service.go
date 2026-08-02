@@ -133,18 +133,6 @@ func GetPersonByID(id uint) (*model.Person, error) {
 	return &person, nil
 }
 
-func CreatePerson(ctx context.Context, p *model.Person) error {
-	if p.IDCard != "" {
-		var count int64
-		dao.DB.Model(&model.Person{}).Where("id_card = ?", p.IDCard).Count(&count)
-		if count > 0 {
-			return errors.New("身份证号已存在")
-		}
-	}
-	return dao.DBFromContext(ctx).Create(p).Error
-}
-
-// buildPersonUpdates 基础字段差异更新 map：仅返回发生变化字段（未变化零操作零审计）
 func buildPersonUpdates(existing *model.Person, p *model.Person) map[string]interface{} {
 	updates := map[string]interface{}{}
 	if p.Name != existing.Name { updates["name"] = p.Name }
@@ -170,27 +158,6 @@ func sameDate(a, b *utils.DateOnly) bool {
 	return a.Equal(*b)
 }
 
-func UpdatePerson(ctx context.Context, id uint, p *model.Person) error {
-	var existing model.Person
-	if err := dao.DB.First(&existing, id).Error; err != nil {
-		return errors.New("人员不存在")
-	}
-
-	if p.IDCard != "" && p.IDCard != existing.IDCard {
-		var count int64
-		dao.DB.Model(&model.Person{}).Where("id_card = ? AND id != ?", p.IDCard, id).Count(&count)
-		if count > 0 {
-			return errors.New("身份证号已存在")
-		}
-	}
-
-	updates := buildPersonUpdates(&existing, p)
-	if len(updates) == 0 {
-		return nil
-	}
-	return dao.DBFromContext(ctx).Model(&existing).Updates(updates).Error
-}
-
 // PersonProfile 人员聚合档案：基础字段 + 四类子表（提交时按主键同步，未变化零审计）
 type PersonProfile struct {
 	model.Person
@@ -200,7 +167,6 @@ type PersonProfile struct {
 	EmergencyContacts []model.PersonEmergencyContact `json:"emergency_contacts"`
 }
 
-// syncPersonChildren 四类子表同步（复用通用 UPSERT 基建：未变化零操作零审计）
 func syncPersonChildren(tx *gorm.DB, id uint, req *PersonProfile) error {
 	syncPhones := func(tx *gorm.DB) error {
 		return SyncChildRecords(tx, "person_id", id, req.Phones,
@@ -286,33 +252,6 @@ func UpsertPersonProfile(ctx context.Context, req *PersonProfile) (*model.Person
 		return nil, err
 	}
 	return &person, nil
-}
-
-// UpdatePersonProfile 聚合更新人员档案（事务）：基础字段 + 四类子表同步（UPSERT）
-func UpdatePersonProfile(ctx context.Context, id uint, req *PersonProfile) error {
-	if req.Name == "" {
-		return errors.New("姓名不能为空")
-	}
-	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-		var existing model.Person
-		if err := tx.First(&existing, id).Error; err != nil {
-			return errors.New("人员不存在")
-		}
-		if req.IDCard != "" && req.IDCard != existing.IDCard {
-			var count int64
-			tx.Model(&model.Person{}).Where("id_card = ? AND id != ?", req.IDCard, id).Count(&count)
-			if count > 0 {
-				return errors.New("身份证号已存在")
-			}
-		}
-		updates := buildPersonUpdates(&existing, &req.Person)
-		if len(updates) > 0 {
-			if err := tx.Model(&existing).Updates(updates).Error; err != nil {
-				return err
-			}
-		}
-		return syncPersonChildren(tx, id, req)
-	})
 }
 
 func DeletePerson(ctx context.Context, id uint) error {
@@ -418,81 +357,6 @@ func GetPersonCards() ([]PersonCard, error) {
 	return cards, nil
 }
 
-func AddPersonPhone(ctx context.Context, personID uint, phone, phoneType string) error {
-	if phoneType == "" {
-		phoneType = "mobile"
-	}
-	p := model.PersonPhone{PersonID: personID, Phone: phone, PhoneType: phoneType}
-	return dao.DBFromContext(ctx).Create(&p).Error
-}
-
-func UpdatePersonPhone(ctx context.Context, id uint, phone, phoneType string) error {
-	updates := map[string]interface{}{"phone": phone}
-	if phoneType != "" {
-		updates["phone_type"] = phoneType
-	}
-	return dao.DBFromContext(ctx).Model(&model.PersonPhone{}).Where("id = ?", id).Updates(updates).Error
-}
-
-func DeletePersonPhone(ctx context.Context, id uint) error {
-	return dao.DBFromContext(ctx).Delete(&model.PersonPhone{}, id).Error
-}
-
-func AddPersonEmail(ctx context.Context, personID uint, email, emailType string) error {
-	if emailType == "" {
-		emailType = "personal"
-	}
-	e := model.PersonEmail{PersonID: personID, Email: email, EmailType: emailType}
-	return dao.DB.Create(&e).Error
-}
-
-func UpdatePersonEmail(ctx context.Context, id uint, email, emailType string) error {
-	updates := map[string]interface{}{"email": email}
-	if emailType != "" {
-		updates["email_type"] = emailType
-	}
-	return dao.DBFromContext(ctx).Model(&model.PersonEmail{}).Where("id = ?", id).Updates(updates).Error
-}
-
-func DeletePersonEmail(ctx context.Context, id uint) error {
-	return dao.DBFromContext(ctx).Delete(&model.PersonEmail{}, id).Error
-}
-
-func AddPersonBankCard(ctx context.Context, personID uint, bankName, accountNumber, accountHolder string) error {
-	c := model.PersonBankCard{PersonID: personID, BankName: bankName, AccountNumber: accountNumber, AccountHolder: accountHolder}
-	return dao.DB.Create(&c).Error
-}
-
-func UpdatePersonBankCard(ctx context.Context, id uint, bankName, accountNumber, accountHolder string) error {
-	updates := map[string]interface{}{"bank_name": bankName, "account_number": accountNumber, "account_holder": accountHolder}
-	return dao.DBFromContext(ctx).Model(&model.PersonBankCard{}).Where("id = ?", id).Updates(updates).Error
-}
-
-func DeletePersonBankCard(ctx context.Context, id uint) error {
-	return dao.DBFromContext(ctx).Delete(&model.PersonBankCard{}, id).Error
-}
-
-func AddPersonEmergencyContact(ctx context.Context, personID uint, contactName, contactPhone string, sort int) error {
-	if sort == 0 {
-		sort = 1
-	}
-	c := model.PersonEmergencyContact{PersonID: personID, ContactName: contactName, ContactPhone: contactPhone, Sort: sort}
-	return dao.DBFromContext(ctx).Create(&c).Error
-}
-
-func UpdatePersonEmergencyContact(ctx context.Context, id uint, contactName, contactPhone string, sort int) error {
-	updates := map[string]interface{}{"contact_name": contactName, "contact_phone": contactPhone}
-	if sort > 0 {
-		updates["sort"] = sort
-	}
-	return dao.DBFromContext(ctx).Model(&model.PersonEmergencyContact{}).Where("id = ?", id).Updates(updates).Error
-}
-
-func DeletePersonEmergencyContact(ctx context.Context, id uint) error {
-	return dao.DBFromContext(ctx).Delete(&model.PersonEmergencyContact{}, id).Error
-}
-
-// PersonName 单条人员姓名查询（审计/导出等一次性场景）
 func PersonName(personID uint) string {
 	var name string
 	dao.DB.Table("persons").Select("name").Where("id = ?", personID).Scan(&name)

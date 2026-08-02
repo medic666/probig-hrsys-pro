@@ -31,7 +31,7 @@ func GetPositionEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 func GetPositionEventByID(c *gin.Context) {
@@ -242,7 +242,7 @@ func GetDeletedPositionEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 // positionEventExportFilters 职务事件导出文件名筛选摘要

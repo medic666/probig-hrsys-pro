@@ -25,7 +25,7 @@ func GetUsers(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func CreateUser(c *gin.Context) {
@@ -170,5 +170,5 @@ func GetDeletedUsers(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }

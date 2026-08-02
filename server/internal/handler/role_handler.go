@@ -19,7 +19,7 @@ func GetRoles(c *gin.Context) {
 		return
 	}
 
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func GetAllRolesList(c *gin.Context) {
@@ -126,7 +126,7 @@ func GetDeletedRoles(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 type assignPermsReq struct {

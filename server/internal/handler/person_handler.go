@@ -3,7 +3,6 @@ package handler
 import (
 	"strconv"
 
-	"probig/server/internal/model"
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
 
@@ -33,7 +32,7 @@ func GetPersons(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 func GetPersonByID(c *gin.Context) {
@@ -44,48 +43,6 @@ func GetPersonByID(c *gin.Context) {
 		return
 	}
 	utils.Success(c, p)
-}
-
-func CreatePerson(c *gin.Context) {
-	var p model.Person
-	if err := c.ShouldBindJSON(&p); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	if err := service.CreatePerson(c.Request.Context(), &p); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "创建成功", gin.H{"id": p.ID})
-}
-
-func UpdatePerson(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var p model.Person
-	if err := c.ShouldBindJSON(&p); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	if err := service.UpdatePerson(c.Request.Context(), uint(id), &p); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-// UpdatePersonProfile 聚合更新人员档案（基础字段 + 电话/邮箱/银行卡/紧急联系人，事务内同步）
-func UpdatePersonProfile(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req service.PersonProfile
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	if err := service.UpdatePersonProfile(c.Request.Context(), uint(id), &req); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "保存成功", nil)
 }
 
 // UpsertPersonProfile 人员档案统一保存（新增=编辑同一入口，req.id=0 视为新增）
@@ -133,7 +90,7 @@ func GetDeletedPersons(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 // personExportFilters 人员导出文件名筛选摘要
@@ -200,158 +157,6 @@ func maritalText(m int8) string {
 		return "未婚"
 	}
 	return ""
-}
-
-func AddPersonPhone(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req struct {
-		Phone string `json:"phone"`
-		Type  string `json:"phone_type"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.AddPersonPhone(c.Request.Context(), uint(id), req.Phone, req.Type); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "添加成功", nil)
-}
-
-func UpdatePersonPhone(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	var req struct {
-		Phone string `json:"phone"`
-		Type  string `json:"phone_type"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonPhone(c.Request.Context(), uint(pid), req.Phone, req.Type); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-func DeletePersonPhone(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonPhone(c.Request.Context(), uint(pid)); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "删除成功", nil)
-}
-
-func AddPersonEmail(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req struct {
-		Email string `json:"email"`
-		Type  string `json:"email_type"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.AddPersonEmail(c.Request.Context(), uint(id), req.Email, req.Type); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "添加成功", nil)
-}
-
-func UpdatePersonEmail(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	var req struct {
-		Email string `json:"email"`
-		Type  string `json:"email_type"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonEmail(c.Request.Context(), uint(pid), req.Email, req.Type); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-func DeletePersonEmail(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonEmail(c.Request.Context(), uint(pid)); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "删除成功", nil)
-}
-
-func AddPersonBankCard(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req struct {
-		BankName      string `json:"bank_name"`
-		AccountNumber string `json:"account_number"`
-		AccountHolder string `json:"account_holder"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.AddPersonBankCard(c.Request.Context(), uint(id), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "添加成功", nil)
-}
-
-func UpdatePersonBankCard(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	var req struct {
-		BankName      string `json:"bank_name"`
-		AccountNumber string `json:"account_number"`
-		AccountHolder string `json:"account_holder"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonBankCard(c.Request.Context(), uint(pid), req.BankName, req.AccountNumber, req.AccountHolder); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-func DeletePersonBankCard(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonBankCard(c.Request.Context(), uint(pid)); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "删除成功", nil)
-}
-
-func AddPersonEmergencyContact(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req struct {
-		ContactName  string `json:"contact_name"`
-		ContactPhone string `json:"contact_phone"`
-		Sort         int    `json:"sort"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.AddPersonEmergencyContact(c.Request.Context(), uint(id), req.ContactName, req.ContactPhone, req.Sort); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "添加成功", nil)
-}
-
-func UpdatePersonEmergencyContact(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	var req struct {
-		ContactName  string `json:"contact_name"`
-		ContactPhone string `json:"contact_phone"`
-		Sort         int    `json:"sort"`
-	}
-	c.ShouldBindJSON(&req)
-	if err := service.UpdatePersonEmergencyContact(c.Request.Context(), uint(pid), req.ContactName, req.ContactPhone, req.Sort); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-func DeletePersonEmergencyContact(c *gin.Context) {
-	pid, _ := strconv.ParseUint(c.Param("pid"), 10, 64)
-	if err := service.DeletePersonEmergencyContact(c.Request.Context(), uint(pid)); err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 
 func GetAllPersonsList(c *gin.Context) {

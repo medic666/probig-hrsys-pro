@@ -4,6 +4,10 @@ export function getUsers(params: any) {
   return request.get('/users', { params })
 }
 
+export function getUser(id: number) {
+  return request.get(`/users/${id}`)
+}
+
 export function createUser(data: any) {
   return request.post('/users', data)
 }

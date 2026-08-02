@@ -4,6 +4,10 @@ export function getRoles(params: any) {
   return request.get('/roles', { params })
 }
 
+export function getRole(id: number) {
+  return request.get(`/roles/${id}`)
+}
+
 export function getAllRoles() {
   return request.get('/roles/all')
 }

@@ -1,5 +1,5 @@
 <template>
-  <BusinessPage :title="title" back-to="/company">
+  <BusinessPage>
     <template v-if="isCreate">
       <CompanyForm :company="null" @saved="goBack" @cancel="goBack" />
     </template>
@@ -25,19 +25,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import BusinessPage from '@/components/BusinessPage.vue'
 import CompanyForm from '@/components/company/CompanyForm.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getCompany } from '@/api/company'
+import { useBusinessPage } from '@/composables/useBusinessPage'
 
-const route = useRoute()
-const router = useRouter()
-
-const companyId = route.params.id ? Number(route.params.id) : null
-const isCreate = computed(() => companyId == null)
-const title = computed(() => (isCreate.value ? '新增公司' : '公司详情'))
+const { id: companyId, isCreate, goBack } = useBusinessPage()
 
 const company = ref<any>(null)
 const editMode = ref(false)
@@ -55,13 +50,6 @@ function onEdited() {
   getCompany(companyId!).then((d: any) => { company.value = d }).catch(() => {})
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back()
-  } else {
-    router.replace('/company')
-  }
-}
 </script>
 
 <style scoped>

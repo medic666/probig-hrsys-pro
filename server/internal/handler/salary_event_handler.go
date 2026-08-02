@@ -30,7 +30,7 @@ func GetSalaryEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 // GetSalaryEventByID 工资事件完整详情（页面化"编辑=查看"取数）
@@ -100,7 +100,7 @@ func GetDeletedSalaryEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 // salaryEventExportFilters 工资事件导出文件名筛选摘要

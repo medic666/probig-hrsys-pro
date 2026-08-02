@@ -1,15 +1,13 @@
 <template>
-  <BusinessPage title="审计日志详情" back-to="/audit-logs">
-    <AuditLogDetailView :id="logId" />
+  <BusinessPage>
+    <AuditLogDetailView :id="id" />
   </BusinessPage>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import BusinessPage from '@/components/BusinessPage.vue'
 import AuditLogDetailView from '@/components/audit/AuditLogDetailView.vue'
+import { useBusinessPage } from '@/composables/useBusinessPage'
 
-const route = useRoute()
-const logId = computed(() => Number(route.params.id))
+const { id } = useBusinessPage()
 </script>

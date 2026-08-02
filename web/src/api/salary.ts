@@ -1,6 +1,7 @@
 import request from '@/utils/request'
 
 export function getSalaryEvents(params: any) { return request.get('/salary-events', { params }) }
+export function getSalaryEvent(id: number) { return request.get(`/salary-events/${id}`) }
 export function exportSalaryEvents(params: any) { return request.get('/salary-events/export', { params, responseType: 'blob' }) }
 export function createSalaryEvent(data: any) { return request.post('/salary-events', data) }
 export function updateSalaryEvent(id: number, data: any) { return request.put(`/salary-events/${id}`, data) }

@@ -30,7 +30,7 @@ func GetCompanies(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 func GetCompanyByID(c *gin.Context) {
@@ -95,7 +95,7 @@ func GetDeletedCompanies(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 // companyExportFilters 公司导出文件名筛选摘要

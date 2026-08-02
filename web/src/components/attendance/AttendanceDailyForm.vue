@@ -77,12 +77,12 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
-import { getAttendanceEvents, createAttendanceEvent, updateAttendanceEvent, confirmPendingDaily } from '@/api/attendance'
+import { getAttendanceEvent, createAttendanceEvent, updateAttendanceEvent, confirmPendingDaily } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 
 // 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）；
 // confirm=true 时保存走"确认"语义（待确认 → 已确认）
-const props = defineProps<{ id?: number; confirm?: boolean }>()
+const props = defineProps<{ id?: number | null; confirm?: boolean }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
@@ -103,19 +103,13 @@ const details = ref<any[]>([])
 onMounted(async () => {
   if (isEdit.value) {
     try {
-      const d = (await getAttendanceEvents({ pageNum: 1, pageSize: 100 })) as any
-      const list = d.list || []
-      const row = list.find((x: any) => x.id === props.id) || null
-      if (row) {
-        form.person_id = row.person_id
-        form.event_date = row.event_date
-        form.status = row.status || ''
-        form.punch_time = row.punch_time || ''
-        form.remark = row.remark || ''
-        details.value = JSON.parse(JSON.stringify(row.details || []))
-      } else {
-        ElMessage.warning('未找到该考勤记录')
-      }
+      const d = (await getAttendanceEvent(props.id!)) as any
+      form.person_id = d.person_id
+      form.event_date = d.event_date
+      form.status = d.status || ''
+      form.punch_time = d.punch_time || ''
+      form.remark = d.remark || ''
+      details.value = JSON.parse(JSON.stringify(d.details || []))
     } catch { /* handled */ }
   }
 })

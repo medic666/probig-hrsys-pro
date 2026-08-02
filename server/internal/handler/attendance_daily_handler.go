@@ -40,7 +40,7 @@ func GetAttendanceEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 type createDailyReq struct {
@@ -114,7 +114,8 @@ func GetAttendanceEventByID(c *gin.Context) {
 	})
 }
 
-func UpdateAttendanceEvent(c *gin.Context) {	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+func UpdateAttendanceEvent(c *gin.Context) {
+	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req updateDailyReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.BadRequest(c, "参数错误")
@@ -130,15 +131,9 @@ func UpdateAttendanceEvent(c *gin.Context) {	id, _ := strconv.ParseUint(c.Param(
 		if err != nil {
 			return err
 		}
-		if err := tx.Where("daily_id = ?", uint(id)).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
+		// 统一 upsert 语义（与确认路径同基建）：未变化明细零操作零审计
+		if err := service.SaveDailyDetailsKeepStatus(tx, uint(id), req.Details); err != nil {
 			return err
-		}
-		for _, dt := range req.Details {
-			dt.ID = 0
-			dt.DailyID = uint(id)
-			if err := tx.Create(&dt).Error; err != nil {
-				return err
-			}
 		}
 		if err := tx.Model(&daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
 			return err
@@ -151,35 +146,6 @@ func UpdateAttendanceEvent(c *gin.Context) {	id, _ := strconv.ParseUint(c.Param(
 		return
 	}
 	utils.SuccessWithMsg(c, "更新成功", nil)
-}
-
-// SaveAttendanceDetails 暂存保存当日事件明细（保持原状态不变），供每日方块"编辑-保存"使用
-func SaveAttendanceDetails(c *gin.Context) {
-	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	var req updateDailyReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		utils.BadRequest(c, "参数错误")
-		return
-	}
-	daily, err := service.GetAttendanceDailyByID(uint(id))
-	if err != nil {
-		utils.Error(c, "记录不存在")
-		return
-	}
-	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
-		if err := service.SaveDailyDetailsKeepStatus(tx, uint(id), req.Details); err != nil {
-			return err
-		}
-		if err := tx.Model(&daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
-			return err
-		}
-		return service.RebuildProjectionsAfterAttendanceChange(tx, daily.PersonID, daily.EventDate, req.Details)
-	})
-	if err != nil {
-		utils.Error(c, err.Error())
-		return
-	}
-	utils.SuccessWithMsg(c, "已保存", nil)
 }
 
 func DeleteAttendanceEvent(c *gin.Context) {
@@ -207,7 +173,7 @@ func GetDeletedAttendanceEvents(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, pageReq))
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 func CreateBatchAttendanceEvents(c *gin.Context) {
@@ -231,7 +197,7 @@ func GetPendingDailyList(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 type confirmDailyReq struct {
@@ -388,7 +354,7 @@ func GetDailyProjections(c *gin.Context) {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.Success(c, utils.NewPageResult(list, total, utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, total, q.PageNum, q.PageSize)
 }
 
 // dailyProjectionExportFilters 日记工时导出文件名筛选摘要

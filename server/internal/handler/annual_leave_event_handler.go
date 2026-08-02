@@ -63,7 +63,7 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 		}
 	}
 
-	utils.Success(c, utils.NewPageResult(list, int64(len(list)), utils.PageRequest{PageNum: q.PageNum, PageSize: q.PageSize}))
+	successPage(c, list, int64(len(list)), q.PageNum, q.PageSize)
 }
 
 // GetAnnualLeaveEventByID 年假事件完整详情（页面化"编辑=查看"取数）
@@ -140,7 +140,7 @@ func GetDeletedAnnualLeaveEvents(c *gin.Context) {
 			filtered = append(filtered, e)
 		}
 	}
-	utils.Success(c, utils.NewPageResult(filtered, int64(len(filtered)), pageReq))
+	successPage(c, filtered, int64(len(filtered)), pageReq.PageNum, pageReq.PageSize)
 }
 
 // annualLeaveExportFilters 年假事件导出文件名筛选摘要

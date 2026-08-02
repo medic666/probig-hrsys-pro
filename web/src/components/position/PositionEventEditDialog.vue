@@ -47,7 +47,7 @@
           <el-checkbox v-model="fieldFlags.performance_salary" style="margin-left:16px">绩效工资基数</el-checkbox>
           <el-input-number v-if="fieldFlags.performance_salary" v-model="eventForm.performance_salary" :min="0" :precision="2" size="small" style="margin:4px 0;width:100%" />
           <el-checkbox v-model="fieldFlags.salary_days" style="margin-left:16px">计薪天数</el-checkbox>
-          <el-input-number v-if="fieldFlags.salary_days" v-model="eventForm.salary_days" :min="0" size="small" style="margin:4px 0;width:100%" />
+          <el-input-number v-if="fieldFlags.salary_days" v-model="eventForm.salary_days" :min="0" :precision="1" size="small" style="margin:4px 0;width:100%" />
         </el-collapse-item>
 
         <el-collapse-item title="补贴">

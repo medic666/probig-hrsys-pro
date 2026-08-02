@@ -70,16 +70,16 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 			continue
 		}
 		activeDays += segDays
-		wPerfBase += s.PerformanceSalary * segDays
-		wPost += s.PostAllowance * segDays
-		wMeal += s.MealAllowance * segDays
-		wHousing += s.HousingAllowance * segDays
-		wTransport += s.TransportAllowance * segDays
-		wHighTemp += s.HighTempAllowance * segDays
-		wInsComp += s.InsuranceCompensation * segDays
-		wFundComp += s.FundCompensation * segDays
-		wSSDeduct += s.SocialSecurityDeduct * segDays
-		wHFDeduct += s.HousingFundDeduct * segDays
+		wPerfBase = utils.DecimalAdd(wPerfBase, utils.DecimalMul(s.PerformanceSalary, segDays))
+		wPost = utils.DecimalAdd(wPost, utils.DecimalMul(s.PostAllowance, segDays))
+		wMeal = utils.DecimalAdd(wMeal, utils.DecimalMul(s.MealAllowance, segDays))
+		wHousing = utils.DecimalAdd(wHousing, utils.DecimalMul(s.HousingAllowance, segDays))
+		wTransport = utils.DecimalAdd(wTransport, utils.DecimalMul(s.TransportAllowance, segDays))
+		wHighTemp = utils.DecimalAdd(wHighTemp, utils.DecimalMul(s.HighTempAllowance, segDays))
+		wInsComp = utils.DecimalAdd(wInsComp, utils.DecimalMul(s.InsuranceCompensation, segDays))
+		wFundComp = utils.DecimalAdd(wFundComp, utils.DecimalMul(s.FundCompensation, segDays))
+		wSSDeduct = utils.DecimalAdd(wSSDeduct, utils.DecimalMul(s.SocialSecurityDeduct, segDays))
+		wHFDeduct = utils.DecimalAdd(wHFDeduct, utils.DecimalMul(s.HousingFundDeduct, segDays))
 	}
 
 	if activeDays == 0 {
@@ -90,7 +90,7 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 		return fmt.Errorf("计薪天数为0")
 	}
 
-	salaryDays := float64(calc.SalaryDays)
+	salaryDays := calc.SalaryDays
 	totalCalendarDays := monthEnd.Sub(monthStart).Hours()/24 + 1
 	isFullMonth := activeDays == totalCalendarDays
 	attendanceDays := calc.TotalWorkHours / getWorkHoursPerDay()
@@ -129,13 +129,13 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 				maxCoeffSeq = e.Seq
 			}
 		case "提成":
-			salesCommission += e.Amount
+			salesCommission = utils.DecimalAdd(salesCommission, e.Amount)
 		case "奖惩":
-			rewardPunishment += e.Amount
+			rewardPunishment = utils.DecimalAdd(rewardPunishment, e.Amount)
 		case "借款还款":
-			borrowingRepayment += e.Amount
+			borrowingRepayment = utils.DecimalAdd(borrowingRepayment, e.Amount)
 		case "个税扣除":
-			taxDeduct += e.Amount
+			taxDeduct = utils.DecimalAdd(taxDeduct, e.Amount)
 		}
 	}
 
@@ -151,7 +151,7 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 	holidayRatio := getOvertimeHolidayRatio()
 	carryoverSalary := 0.0
 	if calc.SalaryDays > 0 {
-		carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / float64(calc.SalaryDays) / workHoursPerDay * holidayRatio)
+		carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / calc.SalaryDays / workHoursPerDay * holidayRatio)
 	}
 
 	salesCommission = utils.RoundTwoDecimal(salesCommission)

@@ -19,7 +19,6 @@ var testMu sync.Mutex
 func ptr(s string) *string       { return &s }
 func ptrBool(b bool) *bool        { return &b }
 func ptrFloat(f float64) *float64 { return &f }
-func ptrInt(i int) *int           { return &i }
 
 func withTestDB(t *testing.T, fn func(db *gorm.DB)) {
 	t.Helper()
@@ -58,7 +57,7 @@ func TestCalculateMonthlyAttendance_Basic(t *testing.T) {
 			EntryDate: &entryD, AttendanceGroup: ptr("标准"),
 			HasAnnualLeave: ptrBool(true), HasAttendanceBonus: ptrBool(true),
 			BaseSalary: ptrFloat(8000), PerformanceSalary: ptrFloat(2000),
-			SalaryDays: ptrInt(26), MealAllowance: ptrFloat(300),
+			SalaryDays: ptrFloat(26), MealAllowance: ptrFloat(300),
 		})
 		RebuildPositionSnapshots(db, 1)
 

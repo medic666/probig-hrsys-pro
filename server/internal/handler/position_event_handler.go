@@ -48,7 +48,7 @@ type positionEventReq struct {
 	Position            *string  `json:"position"`
 	BaseSalary          *float64 `json:"base_salary"`
 	PerformanceSalary   *float64 `json:"performance_salary"`
-	SalaryDays          *int     `json:"salary_days"`
+	SalaryDays          *float64 `json:"salary_days"`
 	PostAllowance       *float64 `json:"post_allowance"`
 	MealAllowance       *float64 `json:"meal_allowance"`
 	HousingAllowance    *float64 `json:"housing_allowance"`

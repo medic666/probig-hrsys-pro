@@ -26,7 +26,7 @@ type PositionSnapshot struct {
 
 	BaseSalary        float64 `gorm:"type:decimal(10,2)" json:"base_salary"`
 	PerformanceSalary float64 `gorm:"type:decimal(10,2)" json:"performance_salary"`
-	SalaryDays        int     `json:"salary_days"`
+	SalaryDays        float64 `gorm:"type:decimal(4,1)" json:"salary_days"`
 
 	PostAllowance      float64 `gorm:"type:decimal(10,2)" json:"post_allowance"`
 	MealAllowance      float64 `gorm:"type:decimal(10,2)" json:"meal_allowance"`

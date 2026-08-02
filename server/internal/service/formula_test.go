@@ -23,7 +23,7 @@ func TestSalaryMidMonthEntryWithLeave(t *testing.T) {
 			HasAttendanceBonus: ptrBool(true),
 			BaseSalary:         ptrFloat(8000),
 			PerformanceSalary:  ptrFloat(2000),
-			SalaryDays:         ptrInt(26),
+			SalaryDays:         ptrFloat(26),
 			MealAllowance:      ptrFloat(300),
 		}).Error; err != nil {
 			t.Fatalf("seed entry: %v", err)

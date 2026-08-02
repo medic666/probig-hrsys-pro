@@ -37,7 +37,7 @@ func RebuildPositionSnapshots(tx *gorm.DB, personID uint) error {
 		Position           string
 		BaseSalary         float64
 		PerformanceSalary  float64
-		SalaryDays         int
+		SalaryDays         float64
 		PostAllowance      float64
 		MealAllowance      float64
 		HousingAllowance   float64

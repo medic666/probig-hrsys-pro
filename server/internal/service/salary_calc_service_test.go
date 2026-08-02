@@ -57,7 +57,7 @@ func seedEmployee(db *gorm.DB, personID uint, entryDate string, baseSalary, perf
 		EntryDate: &dOnly, AttendanceGroup: ptr("标准"),
 		HasAnnualLeave: ptrBool(true), HasAttendanceBonus: ptrBool(true),
 		BaseSalary: ptrFloat(baseSalary), PerformanceSalary: ptrFloat(perfSalary),
-		SalaryDays: ptrInt(int(salaryDays)), MealAllowance: ptrFloat(meal),
+		SalaryDays: ptrFloat(salaryDays), MealAllowance: ptrFloat(meal),
 		PostAllowance: ptrFloat(post),
 	})
 	RebuildPositionSnapshots(db, personID)
@@ -352,7 +352,7 @@ func TestSalaryHighTempMonth(t *testing.T) {
 			EntryDate: ptrD(d1), AttendanceGroup: ptr("标准"),
 			HasAnnualLeave: ptrBool(true), HasAttendanceBonus: ptrBool(true),
 			BaseSalary: ptrFloat(8000), PerformanceSalary: ptrFloat(2000),
-			SalaryDays: ptrInt(26), MealAllowance: ptrFloat(300),
+			SalaryDays: ptrFloat(26), MealAllowance: ptrFloat(300),
 			PostAllowance: ptrFloat(500), HighTempAllowance: ptrFloat(300),
 		})
 		RebuildPositionSnapshots(db, 8)
@@ -392,7 +392,7 @@ func TestSalaryMidMonthAdjust(t *testing.T) {
 			EntryDate: ptrD(d1), AttendanceGroup: ptr("标准"),
 			HasAnnualLeave: ptrBool(true), HasAttendanceBonus: ptrBool(true),
 			BaseSalary: ptrFloat(5000), PerformanceSalary: ptrFloat(1500),
-			SalaryDays: ptrInt(26), MealAllowance: ptrFloat(300),
+			SalaryDays: ptrFloat(26), MealAllowance: ptrFloat(300),
 			PostAllowance: ptrFloat(400),
 		})
 		RebuildPositionSnapshots(db, 9)

@@ -92,9 +92,9 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			if !s.IsActive { continue }
 
 			totalDays += segDays
-			weightedBase += s.BaseSalary * segDays
-			weightedMeal += s.MealAllowance * segDays
-			salaryDaysTotal += float64(s.SalaryDays) * segDays
+			weightedBase = utils.DecimalAdd(weightedBase, utils.DecimalMul(s.BaseSalary, segDays))
+			weightedMeal = utils.DecimalAdd(weightedMeal, utils.DecimalMul(s.MealAllowance, segDays))
+			salaryDaysTotal += s.SalaryDays * segDays
 		}
 
 		if totalDays == 0 {
@@ -103,7 +103,7 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 
 		weightedBase = (weightedBase / totalDays)
 		weightedMeal = (weightedMeal / totalDays)
-		avgSalaryDays := int(salaryDaysTotal / totalDays)
+		avgSalaryDays := utils.RoundTwoDecimal(salaryDaysTotal / totalDays)
 
 		var totalWorkHours, overtimeWorkday, overtimeHoliday float64
 		var hasPersonalLeave bool
@@ -127,19 +127,19 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 
 		attendanceSalary := 0.0
 		if avgSalaryDays > 0 {
-			attendanceSalary = totalWorkHours * (weightedBase / float64(avgSalaryDays) / workHoursPerDay)
+			attendanceSalary = totalWorkHours * (weightedBase / avgSalaryDays / workHoursPerDay)
 		}
 		attendanceSalary = utils.RoundTwoDecimal(attendanceSalary)
 
 		overtimeWorkdaySalary := 0.0
 		if avgSalaryDays > 0 {
-			overtimeWorkdaySalary = overtimeWorkday * (weightedBase + weightedMeal) / float64(avgSalaryDays) / workHoursPerDay * getOvertimeWorkdayRatio()
+			overtimeWorkdaySalary = overtimeWorkday * (weightedBase + weightedMeal) / avgSalaryDays / workHoursPerDay * getOvertimeWorkdayRatio()
 		}
 		overtimeWorkdaySalary = utils.RoundTwoDecimal(overtimeWorkdaySalary)
 
 		overtimeHolidaySalary := 0.0
 		if avgSalaryDays > 0 {
-			overtimeHolidaySalary = overtimeHoliday * (weightedBase + weightedMeal) / float64(avgSalaryDays) / workHoursPerDay * getOvertimeHolidayRatio()
+			overtimeHolidaySalary = overtimeHoliday * (weightedBase + weightedMeal) / avgSalaryDays / workHoursPerDay * getOvertimeHolidayRatio()
 		}
 		overtimeHolidaySalary = utils.RoundTwoDecimal(overtimeHolidaySalary)
 

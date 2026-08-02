@@ -8,7 +8,7 @@ type SalarySummary struct {
 	ID                            uint           `gorm:"primarykey" json:"id"`
 	PersonID                      uint           `gorm:"not null;uniqueIndex:idx_person_month" json:"person_id"`
 	BelongMonth                   string         `gorm:"type:varchar(7);not null;uniqueIndex:idx_person_month" json:"belong_month"`
-	SalaryDays                    int            `gorm:"default:0" json:"salary_days"`
+	SalaryDays                    float64        `gorm:"type:decimal(4,1);default:0" json:"salary_days"`
 	WeightedBaseSalary            float64        `gorm:"type:decimal(10,2);default:0" json:"weighted_base_salary"`
 	TotalWorkHours                float64        `gorm:"type:decimal(5,1);default:0" json:"total_work_hours"`
 	TotalOvertimeWorkdayHours     float64        `gorm:"type:decimal(5,1);default:0" json:"total_overtime_workday_hours"`

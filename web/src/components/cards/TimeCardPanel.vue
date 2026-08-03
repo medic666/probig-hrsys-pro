@@ -1,9 +1,9 @@
 <template>
   <div class="time-card-panel">
     <div v-if="level !== 'cards'" class="panel-nav">
-      <PageBackButton v-if="level === 'months'" @click="backToCards" />
-      <PageBackButton v-else-if="level === 'days'" @click="backToMonths" />
-      <span class="nav-title">{{ level === 'months' ? `${personName} 的最近 12 个月` : `${personName} / ${selectedMonth}` }}</span>
+      <PageBackButton v-if="level === 'periods'" @click="backToCards" />
+      <PageBackButton v-else-if="level === 'days'" @click="backToPeriods" />
+      <span class="nav-title">{{ navTitle }}</span>
     </div>
 
     <PersonScopeSwitch v-if="level === 'cards'" v-model="scope" />
@@ -11,26 +11,32 @@
     <div v-loading="loading" style="min-height:120px">
       <template v-if="level === 'cards'">
         <div class="panel-grid">
-          <PersonCard v-for="p in visiblePersonCards" :key="p.id" :person="p" @click="openPerson" />
+          <PersonCard
+            v-for="p in visiblePersonCards"
+            :key="p.id"
+            :person="p"
+            :dot-color="personDotMap?.[p.id] || ''"
+            @click="openPerson"
+          />
         </div>
         <el-empty v-if="!loading && visiblePersonCards.length === 0" description="暂无数据" :image-size="60" />
       </template>
 
-      <template v-else-if="level === 'months'">
-        <MonthCard :months="monthStats" title="月度概览" @select="openMonth" />
-        <div v-loading="loadingMonths" style="min-height:60px" />
+      <template v-else-if="level === 'periods'">
+        <PeriodCard :periods="periodStats" :aggregate="aggregate" :title="periodTitle" @select="openPeriod" />
+        <div v-loading="loadingPeriods" style="min-height:60px" />
       </template>
 
       <template v-else-if="level === 'days' && hasDayLevel">
         <div class="panel-grid">
           <slot v-for="g in dayGroups" :key="g.date" name="day" :date="g.date" :items="g.items" />
         </div>
-        <el-empty v-if="!loading && dayGroups.length === 0" description="该月暂无数据" :image-size="60" />
+        <el-empty v-if="!loading && dayGroups.length === 0" description="该时段暂无数据" :image-size="60" />
       </template>
 
       <template v-else-if="level === 'days' && !hasDayLevel">
-        <slot name="month-list" :items="monthItems" :month="selectedMonth" />
-        <el-empty v-if="!loading && monthItems.length === 0" description="该月暂无数据" :image-size="60" />
+        <slot name="period-list" :items="periodItems" :period="selectedPeriod" />
+        <el-empty v-if="!loading && periodItems.length === 0" description="该时段暂无数据" :image-size="60" />
       </template>
     </div>
   </div>
@@ -40,13 +46,16 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PersonCard from '@/components/cards/PersonCard.vue'
-import MonthCard from '@/components/cards/MonthCard.vue'
+import PeriodCard from '@/components/cards/PeriodCard.vue'
 import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import PageBackButton from '@/components/PageBackButton.vue'
 import { getPersonCards } from '@/api/person'
-import { useMonthStats } from '@/composables/useMonthStats'
+import { usePeriodStats, type PeriodAggregate } from '@/composables/usePeriodStats'
 import { filterPersons, type PersonScope } from '@/utils/personScope'
 
+// 时间卡片面板：人员卡片 → 时段聚合（月度/年度同构）→ 原子卡片（业务页 slot 渲染）。
+// 卡片层可佩戴模块徽章（personDotMap：personId → 颜色点，仅活跃人员显示）；
+// 时段窗口 month=[入职月..明年+1] / year=[入职年..明年]，均由人员入职日期裁剪。
 const props = withDefaults(
   defineProps<{
     fetchFn: (params: any) => Promise<{ list: any[]; total: number }>
@@ -55,11 +64,12 @@ const props = withDefaults(
     hasDayLevel?: boolean
     statusField?: string
     pendingValues?: string[]
-    // URL 驱动模式：卡片→月份→日期层级状态同步到路由 query（?person=&name=&month=），
-    // 返回/刷新后层级可恢复；后续模块逐个启用即完成推广
+    aggregate?: PeriodAggregate
+    personDotMap?: Record<number, string>
+    // URL 驱动模式：卡片→时段→日期层级状态同步到路由 query，返回/刷新后层级可恢复
     urlDriven?: boolean
-    // 月份点击跳转的业务逻辑页路由生成器（优先级高于内部日期层），如 `/module/:personId/:month`
-    detailRoute?: (person: { id: number; name: string }, month: string) => string
+    // 时段点击跳转的业务逻辑页路由生成器（优先级高于内部日期层），如 `/module/:personId/:month`
+    detailRoute?: (person: { id: number; name: string }, period: string) => string
   }>(),
   {
     dateField: '',
@@ -67,32 +77,44 @@ const props = withDefaults(
     hasDayLevel: true,
     statusField: 'status',
     pendingValues: () => [],
+    aggregate: 'month',
+    personDotMap: undefined,
     urlDriven: false,
     detailRoute: undefined,
   },
 )
 
-const level = ref<'cards' | 'months' | 'days'>('cards')
+const level = ref<'cards' | 'periods' | 'days'>('cards')
 const personCards = ref<any[]>([])
 const scope = ref<PersonScope>('active')
 const visiblePersonCards = computed(() => filterPersons(personCards.value, scope.value))
 const personId = ref<number | null>(null)
 const personName = ref('')
-const selectedMonth = ref('')
+const selectedPeriod = ref('')
 const dayGroups = ref<{ date: string; items: any[] }[]>([])
-const monthItems = ref<any[]>([])
+const periodItems = ref<any[]>([])
 const loading = ref(false)
-const loadingMonths = ref(false)
+const loadingPeriods = ref(false)
 
-const monthStatsLoader = useMonthStats({
+const periodStatsLoader = usePeriodStats({
   personId: 0,
   fetchFn: props.fetchFn,
   dateField: props.dateField,
   monthField: props.monthField,
   statusField: props.statusField,
   pendingValues: props.pendingValues,
+  aggregate: props.aggregate,
 })
-const monthStats = monthStatsLoader.months
+const periodStats = periodStatsLoader.periods
+
+const periodTitle = computed(() =>
+  props.aggregate === 'year' ? `${personName.value} 的年度概览` : `${personName.value} 的最近 12 个月`,
+)
+
+const navTitle = computed(() => {
+  if (level.value === 'periods') return periodTitle.value
+  return `${personName.value} / ${selectedPeriod.value}`
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -108,10 +130,12 @@ function syncUrl() {
     delete query.person
     delete query.name
   }
-  if (selectedMonth.value && !props.detailRoute) {
-    query.month = selectedMonth.value
+  const periodKey = props.aggregate === 'year' ? 'year' : 'month'
+  if (selectedPeriod.value && !props.detailRoute) {
+    query[periodKey] = selectedPeriod.value
   } else {
     delete query.month
+    delete query.year
   }
   query.scope = scope.value
   router.replace({ query })
@@ -135,50 +159,60 @@ async function loadPersonCards() {
   }
 }
 
+// entryStartOf 时段窗口起点：月度取入职月（YYYY-MM），年度取入职年（YYYY）；
+// 未入职（无入职日期）返回空 → 走默认窗口
+function entryStartOf(person: any): string {
+  if (!person?.entry_date) return ''
+  const raw = String(person.entry_date)
+  return props.aggregate === 'year' ? raw.slice(0, 4) : raw.slice(0, 7)
+}
+
 function openPerson(person: any) {
   personId.value = person.id
   personName.value = person.name
-  level.value = 'months'
+  level.value = 'periods'
   syncUrl()
-  loadMonthStats()
+  loadPeriodStats(person.id, entryStartOf(person))
 }
 
 function backToCards() {
   level.value = 'cards'
   personId.value = null
   personName.value = ''
-  selectedMonth.value = ''
+  selectedPeriod.value = ''
   syncUrl()
   loadPersonCards()
 }
 
-function backToMonths() {
-  level.value = 'months'
-  selectedMonth.value = ''
+function backToPeriods() {
+  level.value = 'periods'
+  selectedPeriod.value = ''
   syncUrl()
-  loadMonthStats()
+  const person = personCards.value.find((p) => p.id === personId.value)
+  loadPeriodStats(personId.value || undefined, entryStartOf(person))
 }
 
-async function loadMonthStats() {
-  if (!personId.value) return
-  loadingMonths.value = true
-  await monthStatsLoader.load(personId.value)
-  loadingMonths.value = false
+async function loadPeriodStats(personIdParam?: number, start?: string) {
+  const pid = personIdParam ?? personId.value
+  if (!pid) return
+  loadingPeriods.value = true
+  await periodStatsLoader.load(pid, start)
+  loadingPeriods.value = false
 }
 
-function openMonth(month: string) {
-  selectedMonth.value = month
+function openPeriod(period: string) {
+  selectedPeriod.value = period
   if (props.detailRoute) {
-    // 月份点击直接进入业务逻辑页（URL 携带人员+月份）
+    // 时段点击直接进入业务逻辑页（URL 携带人员+时段）
     syncUrl()
-    router.push(props.detailRoute({ id: personId.value!, name: personName.value }, month))
+    router.push(props.detailRoute({ id: personId.value!, name: personName.value }, period))
     return
   }
   level.value = 'days'
   if (props.hasDayLevel) {
     loadDays()
   } else {
-    loadMonthItems()
+    loadPeriodItems()
   }
   syncUrl()
 }
@@ -196,17 +230,25 @@ async function fetchAll(params: any): Promise<any[]> {
   return list
 }
 
+function periodRange(period: string): { start: string; end: string } {
+  if (props.aggregate === 'year') {
+    return { start: `${period}-01-01`, end: `${period}-12-31` }
+  }
+  return { start: `${period}-01`, end: `${period}-31` }
+}
+
 async function loadDays() {
-  if (!personId.value || !selectedMonth.value) return
+  if (!personId.value || !selectedPeriod.value) return
   loading.value = true
   try {
+    const range = periodRange(selectedPeriod.value)
     const params: any = {
       person_id: personId.value,
-      date_start: `${selectedMonth.value}-01`,
-      date_end: `${selectedMonth.value}-31`,
+      date_start: range.start,
+      date_end: range.end,
     }
     if (!props.dateField) {
-      params.belong_month = selectedMonth.value
+      params.belong_month = selectedPeriod.value
     }
     const rows = await fetchAll(params)
     const map = new Map<string, any[]>()
@@ -227,17 +269,17 @@ async function loadDays() {
   }
 }
 
-async function loadMonthItems() {
-  if (!personId.value || !selectedMonth.value) return
+async function loadPeriodItems() {
+  if (!personId.value || !selectedPeriod.value) return
   loading.value = true
   try {
     const params: any = { person_id: personId.value }
     if (props.monthField) {
-      params[props.monthField] = selectedMonth.value
+      params[props.monthField] = selectedPeriod.value
     }
-    monthItems.value = await fetchAll(params)
+    periodItems.value = await fetchAll(params)
   } catch {
-    monthItems.value = []
+    periodItems.value = []
   } finally {
     loading.value = false
   }
@@ -246,11 +288,11 @@ async function loadMonthItems() {
 function reload() {
   if (level.value === 'cards') {
     loadPersonCards()
-  } else if (level.value === 'months') {
-    loadMonthStats()
+  } else if (level.value === 'periods') {
+    loadPeriodStats()
   } else if (level.value === 'days') {
     if (props.hasDayLevel) loadDays()
-    else loadMonthItems()
+    else loadPeriodItems()
   }
 }
 
@@ -265,17 +307,21 @@ onMounted(() => {
     if (qp.person) {
       personId.value = Number(qp.person)
       personName.value = String(qp.name || '')
-      if (qp.month && !props.detailRoute) {
-        selectedMonth.value = String(qp.month)
+      const person = personCards.value.find((p) => p.id === personId.value)
+      const start = entryStartOf(person)
+      const periodKey = props.aggregate === 'year' ? 'year' : 'month'
+      const qPeriod = qp[periodKey]
+      if (qPeriod && !props.detailRoute) {
+        selectedPeriod.value = String(qPeriod)
         level.value = 'days'
         if (props.hasDayLevel) {
           loadDays()
         } else {
-          loadMonthItems()
+          loadPeriodItems()
         }
       } else {
-        level.value = 'months'
-        loadMonthStats()
+        level.value = 'periods'
+        loadPeriodStats(personId.value, start)
       }
     }
   }

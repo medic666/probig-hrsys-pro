@@ -34,6 +34,7 @@
         :pending-values="['data_changed']"
         :has-day-level="false"
         :url-driven="true"
+        :person-dot-map="dotMap"
         :detail-route="monthDetailRoute"
       />
     </template>
@@ -42,9 +43,7 @@
       <el-form label-width="80px">
         <el-form-item label="月份"><el-date-picker v-model="calcMonth" type="month" value-format="YYYY-MM" style="width:100%" /></el-form-item>
         <el-form-item label="人员">
-          <el-select v-model="calcPersonIds" multiple placeholder="不选则核算全部" style="width:100%">
-            <el-option v-for="p in personList" :key="p.id" :label="p.name" :value="p.id" />
-          </el-select>
+          <PersonDomainSelect v-model="calcPersonIds" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -63,8 +62,9 @@ import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
+import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getMonthlyList, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
+import { getMonthlyList, getAttendanceMonthlyBadges, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
@@ -73,9 +73,10 @@ import { usePageView } from '@/composables/usePageView'
 
 const router = useRouter()
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
-const personList=ref<{id:number;name:string}[]>([])
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
+// 徽章映射：personId → 颜色点（上月核算为空 gray / 核算过期 orange / 已核算 green）
+const dotMap = ref<Record<number, string>>({})
 
 const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
@@ -89,11 +90,15 @@ const searchFields=[
   {prop:'month',label:'月份',type:'month' as const},
 ]
 
-onMounted(async()=>{personList.value=(await getAllPersons()) as any[]||[]})
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchMonthly(p:any){
   return (await getMonthlyList(p)) as any
 }
+
+onMounted(async () => {
+  const badges = (await getAttendanceMonthlyBadges()) as any[] || []
+  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+})
 
 // 月份点击 → 业务逻辑页（URL 携带人员+月份，返回后可恢复层级）
 function monthDetailRoute(person: { id: number; name: string }, month: string) {

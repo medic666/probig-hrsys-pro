@@ -8,7 +8,9 @@ export interface PersonScopeable {
   leave_date?: string | null
 }
 
-// isActivePerson 活跃判定：未入职 + 在职 + 离职 ≤ 3 个月 = 活跃；离职 > 3 个月 = 非活跃
+// isActivePerson 活跃判定：在职 + 离职 ≤ 3 个月 = 活跃；离职 > 3 个月 = 非活跃；
+// 未入职（无入职事件）视为活跃类型——参与各模块徽章运算，无数据时由各模块归为灰点。
+// 该判定同时驱动卡片过滤（filterPersons）与人员卡片小组件/颜色点的佩戴规则。
 export function isActivePerson(p: PersonScopeable): boolean {
   if (p.is_active) return true
   if (p.leave_date) {

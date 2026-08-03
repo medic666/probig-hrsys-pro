@@ -141,17 +141,7 @@
           </el-tab-pane>
 
           <el-tab-pane label="考勤核算" name="calc">
-            <el-descriptions v-if="traceData.attendance_calc && traceData.attendance_calc.id" :column="2" border size="small">
-              <el-descriptions-item label="计薪天数">{{ traceData.attendance_calc.salary_days }}</el-descriptions-item>
-              <el-descriptions-item label="加权基本工资">{{ traceData.attendance_calc.weighted_base_salary }}</el-descriptions-item>
-              <el-descriptions-item label="记出勤(天)">{{ hoursToDays(traceData.attendance_calc.total_work_hours).toFixed(2) }}</el-descriptions-item>
-              <el-descriptions-item label="工作日加班(天)">{{ hoursToDays(traceData.attendance_calc.total_overtime_workday_hours).toFixed(2) }}</el-descriptions-item>
-              <el-descriptions-item label="节假日加班(天)">{{ hoursToDays(traceData.attendance_calc.total_overtime_holiday_hours).toFixed(2) }}</el-descriptions-item>
-              <el-descriptions-item label="全勤奖">{{ traceData.attendance_calc.attendance_bonus }}</el-descriptions-item>
-              <el-descriptions-item label="违纪次数">{{ traceData.attendance_calc.total_violation_count }}</el-descriptions-item>
-              <el-descriptions-item label="有事假">{{ traceData.attendance_calc.has_personal_leave_month ? '是' : '否' }}</el-descriptions-item>
-            </el-descriptions>
-            <el-empty v-else description="当月未核算考勤" :image-size="60" />
+            <AttendanceCalcDescriptions :calc="traceData.attendance_calc" empty-text="当月未核算考勤" />
           </el-tab-pane>
 
           <el-tab-pane label="每日明细" name="daily">
@@ -217,6 +207,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import BusinessPage from '@/components/BusinessPage.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import AttendanceCalcDescriptions from '@/components/attendance/AttendanceCalcDescriptions.vue'
 import { getSalarySummaries, getSalaryVersions, getSalaryTrace } from '@/api/salary'
 import { formatDateTime, hoursToDays } from '@/utils'
 

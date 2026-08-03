@@ -43,7 +43,7 @@
     <el-dialog v-model="calcVisible" title="批量核算" width="450px">
       <el-form label-width="80px">
         <el-form-item label="月份" required><el-date-picker v-model="calcMonth" type="month" value-format="YYYY-MM" style="width:100%"/></el-form-item>
-        <el-form-item label="人员"><el-select v-model="calcPersonIds" multiple placeholder="不选则全部" style="width:100%"><el-option v-for="p in personList" :key="p.id" :label="p.name" :value="p.id"/></el-select></el-form-item>
+        <el-form-item label="人员"><PersonDomainSelect v-model="calcPersonIds" /></el-form-item>
       </el-form>
       <template #footer><el-button @click="calcVisible=false">取消</el-button><el-button type="primary" :loading="saving" @click="doCalc">开始核算</el-button></template>
     </el-dialog>
@@ -51,13 +51,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
+import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import { getSalarySummaries, calculateSalaries, exportSalarySummaries } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
@@ -68,7 +69,6 @@ import { usePageView } from '@/composables/usePageView'
 
 const router = useRouter()
 const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
-const personList=ref<{id:number;name:string}[]>([])
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 
@@ -84,7 +84,6 @@ const searchFields=[
   {prop:'month',label:'月份',type:'month' as const},
 ]
 
-onMounted(async()=>{personList.value=(await getAllPersons()) as any[]||[]})
 async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchSummaries(p:any){
   return (await getSalarySummaries(p)) as any

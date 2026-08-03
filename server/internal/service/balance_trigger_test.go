@@ -196,7 +196,7 @@ func TestConfirmDailyRebuildsBalances(t *testing.T) {
 
 		// 确认后余额生效
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			return ConfirmDaily(context.Background(), tx, daily.ID, []model.AttendanceEventDetail{{DailyID: daily.ID, EventType: "休假", SubType: "年假", Hours: 8}})
+			return ConfirmDaily(context.Background(), tx, daily.ID, []model.AttendanceEventDetail{{DailyID: daily.ID, EventType: "休假", SubType: "年假", Hours: 8}}, "confirmed")
 		}); err != nil {
 			t.Fatalf("confirm: %v", err)
 		}

@@ -218,27 +218,18 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 
 	createEvents := func() (int, int) {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-			daily, err := GetOrCreateDaily(tx, personID, date, status)
-			if err != nil {
-				return err
-			}
-			// 幂等导入：已存在该日记录时先清除当日明细再写入，避免重复导入产生重复事件
-			if err := tx.Where("daily_id = ?", daily.ID).Delete(&model.AttendanceEventDetail{}).Error; err != nil {
-				return err
-			}
-			// 打卡时间独立写入 daily.punch_time（唯一载体），不生成事件明细；
-			// 无条件覆盖：重新导入时无打卡时间（(-)）的单元格需清空旧值
-			if err := tx.Model(daily).Update("punch_time", punchTime).Error; err != nil {
-				return err
-			}
-			for _, e := range events {
-				if err := CreateDetail(tx, daily.ID, e.EventType, e.SubType, e.Hours, e.Minutes, e.Remark); err != nil {
-					return err
-				}
-			}
-			// 无条件重建投影：pending 事件同样进入投影（状态 pending），
-			// 使日记工时/月度核算/工资逐层感知待确认状态，形成 L0→L1→L2→L3 完整控制链
-			return RebuildProjectionsAfterAttendanceChange(tx, personID, date, events)
+			// 颗粒化 upsert（提供即覆盖，与单条/批量录入同一规则）：
+			// 明细/打卡时间/状态按解析结果写入；导入数据不含备注（nil 保持原值）。
+			// pending 事件同样进入投影（状态 pending），使日记工时/月度核算/工资
+			// 逐层感知待确认状态，形成 L0→L1→L2→L3 完整控制链
+			return UpsertAttendanceDaily(tx, AttendanceDailyUpsert{
+				PersonID:  personID,
+				Date:      date,
+				Status:    &status,
+				PunchTime: &punchTime,
+				Remark:    nil,
+				Details:   events,
+			})
 		})
 		if err != nil {
 			return 0, 0

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"time"
 	"fmt"
 	"io"
@@ -44,11 +45,24 @@ func GetAttendanceEvents(c *gin.Context) {
 }
 
 type createDailyReq struct {
-	PersonID  uint                           `json:"person_id"`
-	EventDate string                         `json:"event_date"`
-	PunchTime string                         `json:"punch_time"`
-	Remark    string                         `json:"remark"`
-	Details   []model.AttendanceEventDetail  `json:"details"`
+	PersonID  uint                          `json:"person_id"`
+	EventDate string                        `json:"event_date"`
+	Status    string                        `json:"status"`
+	PunchTime string                        `json:"punch_time"`
+	Remark    string                        `json:"remark"`
+	Details   []model.AttendanceEventDetail `json:"details"`
+}
+
+// normalizeDailyStatus 状态归一：空值默认已确认（向后兼容，原子卡片一键确认不传状态），
+// 非法值报错。新增/编辑/批量三入口共用，保证状态取值唯一来源。
+func normalizeDailyStatus(s string) (string, error) {
+	if s == "" {
+		return "confirmed", nil
+	}
+	if s != "pending" && s != "confirmed" {
+		return "", errors.New("状态取值仅支持 pending/confirmed")
+	}
+	return s, nil
 }
 
 func CreateAttendanceEvent(c *gin.Context) {
@@ -61,31 +75,30 @@ func CreateAttendanceEvent(c *gin.Context) {
 		utils.BadRequest(c, "人员和日期为必填项")
 		return
 	}
+	status, err := normalizeDailyStatus(req.Status)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
 	d, _ := utils.ParseDate(req.EventDate)
 	dateOnly := utils.DateOnlyFromTime(d)
 
-	err := utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
-		daily, err := service.GetOrCreateDaily(tx, req.PersonID, dateOnly, "confirmed")
-		if err != nil {
-			return err
-		}
-		if req.PunchTime != "" {
-			if err := tx.Model(daily).Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
-				return err
-			}
-		}
-		for _, dt := range req.Details {
-			if err := service.CreateDetail(tx, daily.ID, dt.EventType, dt.SubType, dt.Hours, dt.Minutes, dt.Remark); err != nil {
-				return err
-			}
-		}
-		return service.RebuildProjectionsAfterAttendanceChange(tx, req.PersonID, dateOnly, req.Details)
+	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
+		// 颗粒化 upsert（提供即覆盖）：明细/打卡时间/备注/状态按本次提交值写入，当天已有记录被替换
+		return service.UpsertAttendanceDaily(tx, service.AttendanceDailyUpsert{
+			PersonID:  req.PersonID,
+			Date:      dateOnly,
+			Status:    &status,
+			PunchTime: &req.PunchTime,
+			Remark:    &req.Remark,
+			Details:   req.Details,
+		})
 	})
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.SuccessWithMsg(c, "创建成功", nil)
+	utils.SuccessWithMsg(c, "录入成功", nil)
 }
 
 // GetAttendanceEventByID 考勤日记录完整详情（页面化"编辑=查看"取数）
@@ -143,6 +156,12 @@ func CreateBatchAttendanceEvents(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
+	status, err := normalizeDailyStatus(req.Status)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	req.Status = status
 	success, fail, err := service.CreateBatchAttendanceDailies(c.Request.Context(), req)
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -165,6 +184,7 @@ type confirmDailyReq struct {
 	Details   []model.AttendanceEventDetail `json:"details"`
 	PunchTime string                        `json:"punch_time"`
 	Remark    string                        `json:"remark"`
+	Status    string                        `json:"status"`
 }
 
 func ConfirmAttendanceDaily(c *gin.Context) {
@@ -174,13 +194,18 @@ func ConfirmAttendanceDaily(c *gin.Context) {
 		utils.BadRequest(c, "参数错误")
 		return
 	}
-	err := utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
+	status, err := normalizeDailyStatus(req.Status)
+	if err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
 		// 确认时同步应用打卡时间/备注（编辑弹窗"确定"一次提交）
 		if err := tx.Model(&model.AttendanceDaily{}).Where("id = ?", id).
 			Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
 			return err
 		}
-		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details)
+		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details, status)
 	})
 	if err != nil {
 		utils.Error(c, err.Error())

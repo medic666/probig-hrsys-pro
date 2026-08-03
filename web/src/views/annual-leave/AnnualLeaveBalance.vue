@@ -18,24 +18,18 @@
     </template>
 
     <template v-else>
-      <CardGrid ref="cardGridRef" :fetch-fn="fetchCards">
-        <template #default="{ item }">
-          <PersonCard :person="item" @click="openDetail(item.person_id, item.name)">
-            <template #extra>
-              <div class="balance-line" :class="{ 'is-zero': !(balanceMap[item.person_id] ?? 0) }">
-                年假 {{ hoursToDays(balanceMap[item.person_id] ?? 0).toFixed(2) }} 天
-              </div>
-            </template>
-          </PersonCard>
+      <PersonCardGrid ref="cardGridRef" :fetch-fn="fetchCards" badge-position="meta" @select="(person: any) => openDetail(person.person_id, person.name)">
+        <template #badge="{ person }">
+          <div class="balance-line" :class="{ 'is-zero': !(balanceMap[person.id] ?? 0) }">
+            年假 {{ hoursToDays(balanceMap[person.id] ?? 0).toFixed(2) }} 天
+          </div>
         </template>
-      </CardGrid>
+      </PersonCardGrid>
     </template>
 
     <el-dialog v-model="detailVisible" :title="detailPersonName ? `${detailPersonName} 的假期明细` : '假期明细'" width="440px">
       <LeaveBalanceDetail :person-id="detailPersonId" :show-lil="false" />
     </el-dialog>
-
-    <PersonScopeSwitch v-if="viewMode === 'cards'" v-model="scope" />
   </div>
 </template>
 
@@ -43,18 +37,14 @@
 import { ref } from 'vue'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import CardGrid from '@/components/cards/CardGrid.vue'
-import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
-import PersonCard from '@/components/cards/PersonCard.vue'
+import PersonCardGrid from '@/components/cards/PersonCardGrid.vue'
 import LeaveBalanceDetail from '@/components/cards/LeaveBalanceDetail.vue'
 import { getAllPersons, getPersonCards } from '@/api/person'
 import request from '@/utils/request'
 import { hoursToDays, formatDateTime } from '@/utils'
-import { filterPersons, type PersonScope } from '@/utils/personScope'
 import { usePageView } from '@/composables/usePageView'
 
 const tableRef = ref()
-const scope = ref<PersonScope>('active')
 const { viewMode } = usePageView('cards')
 const cardGridRef = ref()
 const balanceMap = ref<Record<number, number>>({})
@@ -77,6 +67,7 @@ async function fetchData(p: any) {
 }
 
 async function fetchCards() {
+  // 拉取全量人员卡片与余额映射，活跃/全部过滤由 PersonCardGrid 响应式派生
   const cards = (await getPersonCards()) as any[] || []
   const d = (await request.get('/annual-leave-balances', { params: { pageNum: 1, pageSize: 100 } })) as any
   const map: Record<number, number> = {}
@@ -84,7 +75,7 @@ async function fetchCards() {
     map[row.person_id] = row.balance_hours ?? 0
   }
   balanceMap.value = map
-  return { list: filterPersons(cards, scope.value), total: cards.length }
+  return { list: cards, total: cards.length }
 }
 
 function openDetail(personId: number, personName: string) {

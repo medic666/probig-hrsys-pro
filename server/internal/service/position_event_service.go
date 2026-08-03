@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
@@ -180,4 +182,29 @@ func GetDeletedPositionEvents(pageNum, pageSize int) ([]model.PositionEvent, int
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
 	return list, total, nil
+}
+
+// GetPositionEventBadges 职务事件徽章：无任何事件 gray；最新事件距今超过 2 年 orange（提示该涨薪）；
+// 否则 green。未入职（无事件）归 gray，不误报涨薪提醒。
+func GetPositionEventBadges() ([]PersonBadge, error) {
+	twoYearsAgo := utils.DateOnlyFromTime(time.Now().AddDate(-2, 0, 0))
+	var rows []struct {
+		PersonID uint
+		Level    string
+	}
+	err := dao.DB.Table("persons").
+		Select(fmt.Sprintf(`persons.id AS person_id,
+			CASE
+				WHEN MAX(e.effective_date) IS NULL THEN 'gray'
+				WHEN MAX(e.effective_date) < '%s' THEN 'orange'
+				ELSE 'green'
+			END AS level`, twoYearsAgo.String())).
+		Joins(`LEFT JOIN position_events e ON e.person_id = persons.id AND e.deleted_at IS NULL`).
+		Where("persons.deleted_at IS NULL").
+		Group("persons.id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return toPersonBadges(rows), nil
 }

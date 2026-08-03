@@ -117,6 +117,7 @@ func SetupRouter() *gin.Engine {
 	positionEvents.Use(middleware.AuthRequired())
 	{
 		positionEvents.GET("", middleware.RequirePermission("position_event.read"), handler.GetPositionEvents)
+		positionEvents.GET("/badges", middleware.RequirePermission("position_event.read"), handler.GetPositionEventBadges)
 		positionEvents.GET("/export", middleware.RequirePermission("position_event.export"), handler.ExportPositionEvents)
 		positionEvents.GET("/trash", middleware.RequirePermission("position_event.read"), handler.GetDeletedPositionEvents)
 		positionEvents.GET("/:id", middleware.RequirePermission("position_event.read"), handler.GetPositionEventByID)
@@ -130,6 +131,7 @@ func SetupRouter() *gin.Engine {
 	attendanceEvents.Use(middleware.AuthRequired())
 	{
 		attendanceEvents.GET("", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEvents)
+		attendanceEvents.GET("/badges", middleware.RequirePermission("attendance.read"), handler.GetAttendanceEventBadges)
 		attendanceEvents.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportAttendanceEvents)
 		attendanceEvents.GET("/trash", middleware.RequirePermission("attendance.read"), handler.GetDeletedAttendanceEvents)
 		attendanceEvents.GET("/pending", middleware.RequirePermission("attendance.read"), handler.GetPendingDailyList)
@@ -147,6 +149,7 @@ func SetupRouter() *gin.Engine {
 	attendanceDaily.Use(middleware.AuthRequired())
 	{
 		attendanceDaily.GET("", middleware.RequirePermission("attendance.read"), handler.GetDailyProjections)
+		attendanceDaily.GET("/badges", middleware.RequirePermission("attendance.read"), handler.GetDailyProjectionBadges)
 		attendanceDaily.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportDailyProjections)
 		attendanceDaily.GET("/:personId/:date/events", middleware.RequirePermission("attendance.read"), handler.GetEventsByPersonDate)
 	}
@@ -155,6 +158,7 @@ func SetupRouter() *gin.Engine {
 	attendanceMonthly.Use(middleware.AuthRequired())
 	{
 		attendanceMonthly.GET("", middleware.RequirePermission("attendance.read"), handler.GetMonthlyList)
+		attendanceMonthly.GET("/badges", middleware.RequirePermission("attendance.read"), handler.GetAttendanceMonthlyBadges)
 		attendanceMonthly.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportAttendanceMonthly)
 		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.write"), handler.CalculateMonthly)
 	}

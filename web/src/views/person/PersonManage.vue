@@ -28,20 +28,10 @@
     </template>
 
     <template v-else>
-      <CardGrid ref="cardGridRef" :fetch-fn="fetchCards">
-        <template #default="{ item }">
-          <PersonCard :person="item" @click="handleDetail">
-            <template #badge>
-              <PersonStatusBadge :person="item" />
-            </template>
-          </PersonCard>
-        </template>
-      </CardGrid>
+      <PersonCardGrid ref="cardGridRef" :fetch-fn="fetchCards" :dot-color-of="dotColorOf" @select="handleDetail" />
     </template>
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restorePerson" :columns="trashColumns" @restored="onTrashRestored" />
-
-    <PersonScopeSwitch v-if="viewMode === 'cards'" v-model="scope" />
   </div>
 </template>
 
@@ -52,14 +42,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import PersonCard from '@/components/cards/PersonCard.vue'
-import PersonStatusBadge from '@/components/cards/PersonStatusBadge.vue'
-import CardGrid from '@/components/cards/CardGrid.vue'
+import PersonCardGrid from '@/components/cards/PersonCardGrid.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import { getPersons, deletePerson, restorePerson, getDeletedPersons, getPersonCards, exportPersons } from '@/api/person'
 import { getAllCompanies } from '@/api/company'
-import { filterPersons, type PersonScope } from '@/utils/personScope'
 import { usePageView } from '@/composables/usePageView'
 import { downloadBlob } from '@/utils/download'
 
@@ -67,7 +53,6 @@ const router = useRouter()
 const tableRef = ref()
 const { viewMode, isList } = usePageView('cards')
 const cardGridRef = ref()
-const scope = ref<PersonScope>('active')
 const trashVisible = ref(false)
 const companyOptions = ref<{ label: string; value: number }[]>([])
 
@@ -107,8 +92,15 @@ onMounted(async () => {
 async function fetchPersons(params: any) { return (await getPersons(params)) as any }
 async function fetchDeleted(params: any) { return (await getDeletedPersons(params)) as any }
 async function fetchCards() {
+  // 拉取全量人员卡片，活跃/全部过滤由 PersonCardGrid 响应式派生
   const cards = (await getPersonCards()) as any[] || []
-  return { list: filterPersons(cards, scope.value), total: cards.length }
+  return { list: cards, total: cards.length }
+}
+
+// 在职状态颜色点：未入职灰 / 在职绿 / 已离职红（非活跃离职>3月由 PersonCard 内部自动不显示）
+function dotColorOf(p: any): string {
+  if (p.entry_date == null && !p.is_active) return 'gray'
+  return p.is_active ? 'green' : 'red'
 }
 
 // 新增=编辑=查看统一走人员聚合页

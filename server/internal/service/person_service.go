@@ -315,12 +315,33 @@ func GetDeletedPersons(pageNum, pageSize int) ([]model.Person, int64, error) {
 	return list, total, nil
 }
 
-func GetAllPersons() ([]model.Person, error) {
-	var list []model.Person
-	if err := dao.DB.Order("name").Find(&list).Error; err != nil {
-		return nil, err
-	}
-	return list, nil
+// PersonOption 人员选项：基础信息 + 当前快照段域字段（公司/考勤组/在职状态）。
+// 供人员选择组件（全体/公司/考勤组/在职状态多域筛选）与 NameSelect 共用，
+// 域字段随当前快照段（9999-12-31 结束）JOIN 公司表一次取得。
+type PersonOption struct {
+	ID              uint            `json:"id"`
+	Name            string          `json:"name"`
+	CompanyID       uint            `json:"company_id"`
+	CompanyName     string          `json:"company_name"`
+	AttendanceGroup string          `json:"attendance_group"`
+	IsActive        bool            `json:"is_active"`
+	EntryDate       *utils.DateOnly `json:"entry_date"`
+	LeaveDate       *utils.DateOnly `json:"leave_date"`
+}
+
+func GetAllPersons() ([]PersonOption, error) {
+	var list []PersonOption
+	err := dao.DB.Table("persons").
+		Select(`persons.id, persons.name,
+			s.company_id, c.name AS company_name, s.attendance_group,
+			COALESCE(s.is_active, false) AS is_active, s.entry_date, s.leave_date`).
+		Joins(`LEFT JOIN position_snapshots s ON s.person_id = persons.id
+			AND s.effective_end_date = ?`, realFarFuture).
+		Joins("LEFT JOIN companies c ON c.id = s.company_id").
+		Where("persons.deleted_at IS NULL").
+		Order("persons.name").
+		Scan(&list).Error
+	return list, err
 }
 
 // PersonCard 人员卡片：基本信息 + 当前职务快照（公司/部门/职位/在职状态）

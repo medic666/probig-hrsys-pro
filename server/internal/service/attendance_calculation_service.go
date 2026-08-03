@@ -303,3 +303,39 @@ func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) 
 	}
 	return success, fail, nil
 }
+
+// GetAttendanceMonthlyBadges 月度考勤核算徽章（指定月份）：无核算记录 gray；
+// 核算过期（IsAttendanceMonthlyStale = data_changed）orange；已核算未过期 green。
+// stale 判定复用既有核算状态逻辑（投影/快照 last_calc_at 比较），仅对有核算记录的人员执行。
+func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
+	if _, err := utils.MonthStart(month); err != nil {
+		return nil, err
+	}
+	var calcs []model.AttendanceCalculationMonthly
+	if err := dao.DB.Where("belong_month = ?", month).Find(&calcs).Error; err != nil {
+		return nil, err
+	}
+	calcMap := make(map[uint]model.AttendanceCalculationMonthly, len(calcs))
+	for _, c := range calcs {
+		calcMap[c.PersonID] = c
+	}
+
+	var personIDs []uint
+	if err := dao.DB.Table("persons").Where("deleted_at IS NULL").Pluck("id", &personIDs).Error; err != nil {
+		return nil, err
+	}
+	result := make([]PersonBadge, 0, len(personIDs))
+	for _, pid := range personIDs {
+		calc, ok := calcMap[pid]
+		if !ok {
+			result = append(result, PersonBadge{PersonID: pid, Level: "gray"})
+			continue
+		}
+		level := "green"
+		if IsAttendanceMonthlyStale(&calc) == "data_changed" {
+			level = "orange"
+		}
+		result = append(result, PersonBadge{PersonID: pid, Level: level})
+	}
+	return result, nil
+}

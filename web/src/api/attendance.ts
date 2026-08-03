@@ -45,9 +45,27 @@ export function calculateMonthly(data: any) {
 export function getPendingDailies(params: any) {
   return request.get('/attendance-events/pending', { params })
 }
-// confirmAttendanceDaily 确认整日考勤（统一确认入口：卡片确认/编辑保存/待确认复核共用）
-export function confirmAttendanceDaily(id: number, details: any[], punchTime?: string, remark?: string) {
-  return request.post(`/attendance-events/${id}/confirm`, { details, punch_time: punchTime || '', remark: remark || '' })
+// getAttendanceEventBadges 考勤事件徽章（默认上月）：person_id → gray/green/orange
+export function getAttendanceEventBadges(month?: string) {
+  return request.get('/attendance-events/badges', { params: month ? { month } : {} })
+}
+// getDailyProjectionBadges 日记工时徽章（默认上月）：person_id → gray/green/orange
+export function getDailyProjectionBadges(month?: string) {
+  return request.get('/attendance-daily/badges', { params: month ? { month } : {} })
+}
+// getAttendanceMonthlyBadges 月度核算徽章（默认上月）：person_id → gray/green/orange
+export function getAttendanceMonthlyBadges(month?: string) {
+  return request.get('/attendance-monthly/badges', { params: month ? { month } : {} })
+}
+// confirmAttendanceDaily 保存整日考勤（统一保存入口：卡片确认/编辑保存/待确认复核共用）。
+// status 缺省为已确认——原子卡片"一键确认"不传状态即生效；编辑保存可显式传待确认
+export function confirmAttendanceDaily(id: number, details: any[], punchTime?: string, remark?: string, status?: string) {
+  return request.post(`/attendance-events/${id}/confirm`, {
+    details,
+    punch_time: punchTime || '',
+    remark: remark || '',
+    status: status || '',
+  })
 }
 export function dingTalkPreview(file: File) {
   const fd = new FormData()

@@ -160,14 +160,10 @@ func maritalText(m int8) string {
 }
 
 func GetAllPersonsList(c *gin.Context) {
-	list, err := service.GetAllPersons()
+	opts, err := service.GetAllPersons()
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
-	}
-	var opts []gin.H
-	for _, p := range list {
-		opts = append(opts, gin.H{"id": p.ID, "name": p.Name})
 	}
 	utils.Success(c, opts)
 }

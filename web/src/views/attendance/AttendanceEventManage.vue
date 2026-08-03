@@ -10,8 +10,8 @@
     </PageHeader>
 
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
-      <el-button type="success" size="small" @click="handleAction('batch')">批量新增</el-button>
+      <el-button type="primary" size="small" @click="handleAction('add')">录入考勤</el-button>
+      <el-button type="success" size="small" @click="handleAction('batch')">批量录入</el-button>
       <el-button type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
       <template #right>
         <el-button size="small" @click="handleAction('trash')">回收站</el-button>
@@ -37,6 +37,7 @@
         date-field="event_date"
         status-field="status"
         :pending-values="['pending']"
+        :person-dot-map="dotMap"
       >
         <template #day="{ items }">
           <AttendanceDailyBlock
@@ -49,101 +50,26 @@
       </TimeCardPanel>
     </template>
 
-    <el-dialog v-model="batchVisible" title="批量新增" width="500px">
-      <el-form :model="batchForm" label-width="100px">
-        <el-form-item label="人员">
-          <el-select v-model="batchForm.person_ids" multiple placeholder="选择人员" style="width:100%">
-            <el-option v-for="p in personList" :key="p.id" :label="p.name" :value="p.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="起始日期"><el-date-picker v-model="batchForm.start_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-        <el-form-item label="结束日期"><el-date-picker v-model="batchForm.end_date" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item>
-        <el-form-item label="事件类型">
-          <el-select v-model="batchForm.event_type" style="width:100%" @change="onBatchTypeChange"><el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" /></el-select>
-        </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '违纪'" label="子类型">
-          <el-select v-model="batchForm.sub_type" style="width:100%"><el-option v-for="s in batchSubTypes" :key="s" :label="s" :value="s" /></el-select>
-        </el-form-item>
-        <el-form-item v-if="batchForm.event_type !== '违纪'" label="每日时长(小时)" required>
-          <el-input-number v-model="batchForm.hours" :min="0" :precision="1" style="width:100%" />
-        </el-form-item>
-        <el-form-item label="备注"><el-input v-model="batchForm.remark" /></el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="batchVisible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleBatchSubmit">确定</el-button>
-      </template>
-    </el-dialog>
-
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restore" :columns="trashCols" @restored="onRefresh" />
 
     <el-dialog v-model="attachVisible" title="文件附件" width="500px">
       <FileAttachPanel :target-type="'attendance_event'" :target-id="attachFileId" />
     </el-dialog>
-
-    <el-dialog v-model="importVisible" title="钉钉考勤导入" width="720px">
-      <el-steps :active="importStep" simple style="margin-bottom:16px">
-        <el-step title="上传文件" />
-        <el-step title="匹配确认" />
-        <el-step title="导入执行" />
-      </el-steps>
-
-      <div v-if="importStep === 0">
-        <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".xlsx" :on-change="onImportFileChange" :on-remove="()=>importFile=null">
-          <el-button type="primary">选择钉钉月度汇总文件</el-button>
-        </el-upload>
-        <el-button style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
-      </div>
-
-      <div v-else-if="importStep === 1">
-        <el-table :data="importPreview" border size="small" max-height="360">
-          <el-table-column prop="excel_name" label="Excel姓名" width="120" />
-          <el-table-column label="匹配状态" width="110">
-            <template #default="{ row }">
-              <el-tag v-if="row.confidence==='exact'" type="success" size="small">精确匹配</el-tag>
-              <el-tag v-else-if="row.confidence==='fuzzy'" type="warning" size="small">模糊匹配</el-tag>
-              <el-tag v-else type="danger" size="small">未匹配</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="匹配人员">
-            <template #default="{ row }">
-              <NameSelect v-model="row.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="matched_name" label="建议匹配" width="110" />
-        </el-table>
-        <div class="import-hint">未匹配人员请手动选择，已匹配可改选</div>
-        <el-button style="margin-top:8px" @click="importStep=0">上一步</el-button>
-        <el-button style="margin-top:8px" type="primary" :disabled="importPreview.some(r=>!r.person_id)" @click="importStep=2">下一步</el-button>
-      </div>
-
-      <div v-else>
-        <el-form label-width="90px">
-          <el-form-item label="归属月份" required>
-            <el-date-picker v-model="importMonth" type="month" value-format="YYYY-MM" style="width:100%" />
-          </el-form-item>
-        </el-form>
-        <el-alert type="info" :closable="false" title="导入后系统自动标记为「待确认」的记录，请到待确认页面核实后再参与核算。" style="margin-bottom:12px" />
-        <el-button @click="importStep=1">上一步</el-button>
-        <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import NameSelect from '@/components/NameSelect.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import { getAttendanceEvents, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, createBatchAttendanceEvents, exportAttendanceEvents, confirmAttendanceDaily, dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import { getAttendanceEvents, getAttendanceEventBadges, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, exportAttendanceEvents, confirmAttendanceDaily } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
@@ -152,38 +78,14 @@ import { usePageView } from '@/composables/usePageView'
 
 const router = useRouter()
 const tableRef = ref()
-const saving = ref(false)
 const trashVisible = ref(false)
-const batchVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
-const personList = ref<{id:number;name:string}[]>([])
-const importVisible = ref(false)
-const importStep = ref(0)
-const importFile = ref<File | null>(null)
-const importPreview = ref<any[]>([])
-const importFilePath = ref('')
-const importMonth = ref('')
-const previewing = ref(false)
-const importing = ref(false)
-const uploadRef = ref()
+// 徽章映射：personId → 颜色点（上月无考勤事件 gray / 待确认 orange / 全确认 green）
+const dotMap = ref<Record<number, string>>({})
 
 const { viewMode, isList } = usePageView('blocks')
 const timePanelRef = ref()
-
-const eventTypes = ['出勤','休假','加班','违纪']
-const subTypeMap: Record<string,string[]> = {
-  '出勤':['普通出勤','补班出勤','外勤出勤'],
-  '休假':['调休','事假','病假','年假','法定假','福利假'],
-  '加班':['工作日加班','节假日加班'],
-  '违纪':['缺卡','迟到','早退'],
-}
-
-const batchForm = reactive({ person_ids:[] as number[], start_date:'', end_date:'', event_type:'', sub_type:'', hours:8, remark:'' })
-
-const batchSubTypes = computed(() => subTypeMap[batchForm.event_type] || [])
-
-function onBatchTypeChange() { batchForm.sub_type = ''; batchForm.hours = batchForm.event_type==='违纪' ? 0 : 8 }
 
 function detailSummary(r: any): string {
   const parts = (r.details || []).map((d: any) => {
@@ -242,39 +144,12 @@ async function confirmDaily(row: any) {
   } catch { /* handled */ }
 }
 
-onMounted(async () => { personList.value = (await getAllPersons()) as any[] || [] })
-
 function handleAction(key: string) {
   if (key==='add') { router.push('/attendance-events/create') }
-  else if (key==='batch') { Object.assign(batchForm,{person_ids:[],start_date:'',end_date:'',event_type:'',sub_type:'',hours:8,remark:''}); batchVisible.value=true }
-  else if (key==='import') { importVisible.value=true; importStep.value=0; importFile.value=null; importPreview.value=[]; importFilePath.value=''; importMonth.value='' }
+  else if (key==='batch') { router.push('/attendance-batch/create') }
+  else if (key==='import') { router.push('/attendance-import') }
   else if (key==='trash') { trashVisible.value=true }
   else if (key==='export') { handleExport() }
-}
-
-function onImportFileChange(file: any) { importFile.value = file.raw || null }
-
-async function doPreview() {
-  if (!importFile.value) return
-  previewing.value = true
-  try {
-    const d = await dingTalkPreview(importFile.value) as any
-    importPreview.value = (d.preview || []).map((p: any) => ({ ...p, person_id: p.matched_id || null }))
-    importFilePath.value = d.file_path
-    importStep.value = 1
-  } catch { /* handled */ } finally { previewing.value = false }
-}
-
-async function doImport() {
-  if (!importMonth.value) { ElMessage.warning('请选择归属月份'); return }
-  importing.value = true
-  try {
-    const mappings = importPreview.value.map((p: any) => ({ excel_name: p.excel_name, person_id: p.person_id }))
-    const d = await dingTalkExecute(importMonth.value, importFilePath.value, mappings) as any
-    ElMessage.success(`导入完成: 创建${d.created}条, 待确认${d.pending}条`)
-    importVisible.value = false
-    tableRef.value?.refresh()
-  } catch { /* handled */ } finally { importing.value = false }
 }
 
 async function handleExport() {
@@ -287,25 +162,19 @@ async function handleEdit(row: any) {
   openEdit(row)
 }
 
-async function handleBatchSubmit() {
-  saving.value=true
-  try {
-    const d = await createBatchAttendanceEvents(batchForm) as any
-    ElMessage.success(`批量创建完成: 成功${d.success}条, 失败${d.fail}条`)
-    batchVisible.value=false; tableRef.value?.refresh()
-  } catch { /* */ } finally { saving.value=false }
-}
-
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm('确认删除？','提示',{type:'warning'}) } catch { return }
   try { await deleteAttendanceEvent(row.id); ElMessage.success('删除成功'); tableRef.value?.refresh() } catch { /* */ }
 }
 function onRefresh() { tableRef.value?.refresh() }
+
+onMounted(async () => {
+  const badges = (await getAttendanceEventBadges()) as any[] || []
+  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+})
 </script>
 <style lang="scss" scoped>
 .page-container { padding:0; background:transparent; }
-
-.import-hint { color:#909399; font-size:12px; margin-top:8px; }
 
 .block-group {
   margin-bottom: 16px;

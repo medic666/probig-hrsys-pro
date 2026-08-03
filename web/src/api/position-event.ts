@@ -4,6 +4,11 @@ export function getPositionEvents(params: any) {
   return request.get('/position-events', { params })
 }
 
+// getPositionEventBadges 职务事件徽章：person_id → gray/green/orange（超两年未变动为 orange）
+export function getPositionEventBadges() {
+  return request.get('/position-events/badges')
+}
+
 export function exportPositionEvents(params: any) {
   return request.get('/position-events/export', { params, responseType: 'blob' })
 }

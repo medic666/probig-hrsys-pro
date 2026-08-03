@@ -33,7 +33,7 @@
         month-field="belong_month"
         :has-day-level="false"
       >
-        <template #month-list="{ items }">
+        <template #period-list="{ items }">
           <el-table :data="items" border size="small" style="max-width:720px">
             <el-table-column prop="belong_month" label="月份" width="90" />
             <el-table-column prop="event_type" label="类型" width="100" />

@@ -32,6 +32,8 @@
         ref="timePanelRef"
         :fetch-fn="(p: any) => getPositionEvents(p)"
         date-field="effective_date"
+        :aggregate="'year'"
+        :person-dot-map="dotMap"
         :url-driven="true"
       >
         <template #day="{ items }">
@@ -51,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
@@ -61,7 +63,7 @@ import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PositionEventCard from '@/components/position/PositionEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getPositionEvents, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
+import { getPositionEvents, getPositionEventBadges, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
@@ -74,6 +76,8 @@ const timePanelRef = ref()
 const trashVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
+// 徽章映射：personId → 颜色点（超两年无职务变动为 orange，无事件 gray，正常 green）
+const dotMap = ref<Record<number, string>>({})
 
 const eventTypes = ['入职', '调薪调岗', '离职']
 
@@ -106,6 +110,11 @@ async function fetchPersonOptions(keyword?: string) {
 async function fetchEvents(params: any) { return (await getPositionEvents(params)) as any }
 async function fetchDeleted(params: any) { return (await getDeletedPositionEvents(params)) as any }
 async function restoreEvent(id: number) { return restorePositionEvent(id) }
+
+onMounted(async () => {
+  const badges = (await getPositionEventBadges()) as any[] || []
+  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+})
 
 function handleAction(key: string) {
   if (key === 'add') {

@@ -30,25 +30,24 @@
         date-field="work_date"
         status-field="status"
         :pending-values="['pending']"
+        :person-dot-map="dotMap"
       >
         <template #day="{ date, items }">
           <div
             v-if="items.length > 0"
             class="proj-card"
-            :class="{ 'is-pending': items[0].status === 'pending' }"
             @click="showEvents({ person_id: items[0].person_id, work_date: date })"
           >
             <div class="pc-header">
               <span class="pc-date">{{ date }}</span>
               <span class="pc-person">{{ items[0].person_name || '' }}</span>
-              <el-tag v-if="items[0].status === 'pending'" type="warning" size="small">待确认</el-tag>
             </div>
             <div class="pc-lines">
               <div class="pc-line">记出勤：{{ hoursToDays(items[0].work_hours || 0).toFixed(2) }} 天</div>
-              <div class="pc-line">工作日加班：{{ hoursToDays(items[0].overtime_workday_hours || 0).toFixed(2) }} 天</div>
+              <div class="pc-line" :class="{ 'is-alert': items[0].overtime_workday_hours > 0 }">工作日加班：{{ hoursToDays(items[0].overtime_workday_hours || 0).toFixed(2) }} 天</div>
               <div class="pc-line">节假日加班：{{ hoursToDays(items[0].overtime_holiday_hours || 0).toFixed(2) }} 天</div>
-              <div class="pc-line">违纪次数：{{ items[0].violation_count || 0 }}</div>
-              <div v-if="items[0].has_personal_leave" class="pc-line">有事假</div>
+              <div v-if="items[0].violation_count > 0" class="pc-line is-alert">有违纪</div>
+              <div v-if="items[0].has_personal_leave" class="pc-line is-alert">有事假</div>
               <div v-if="items[0].remark" class="pc-line">备注：{{ items[0].remark }}</div>
             </div>
           </div>
@@ -59,14 +58,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import { getDailyProjections, getEventsByDate, exportDailyProjections } from '@/api/attendance'
+import { getDailyProjections, getDailyProjectionBadges, getEventsByDate, exportDailyProjections } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { usePageView } from '@/composables/usePageView'
 import { downloadBlob } from '@/utils/download'
@@ -75,6 +74,8 @@ import { hoursToDays } from '@/utils'
 const router = useRouter()
 const tableRef = ref()
 const { viewMode, isList } = usePageView('cards')
+// 徽章映射：personId → 颜色点（上月无投影 gray / 同月事假+加班 orange / 正常 green）
+const dotMap = ref<Record<number, string>>({})
 
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
@@ -97,12 +98,12 @@ async function fetchDaily(p: any) {
   return (await getDailyProjections(p)) as any
 }
 
-// 查看原始事件 = 进入该日考勤整日页（编辑=查看）
+// 查看原始事件 = 进入该日考勤整日页（只读：日记工时模块进入无编辑/确认能力）
 async function showEvents(row: any) {
   try {
     const d = (await getEventsByDate(row.person_id, row.work_date)) as any
     if (d?.daily_id) {
-      router.push(`/attendance-events/${d.daily_id}`)
+      router.push(`/attendance-events/${d.daily_id}?readonly=1`)
     } else {
       ElMessage.warning('未找到当日考勤记录')
     }
@@ -112,6 +113,11 @@ async function handleExport() {
   const data = await exportDailyProjections(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
 }
+
+onMounted(async () => {
+  const badges = (await getDailyProjectionBadges()) as any[] || []
+  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+})
 </script>
 <style scoped>
 .page-container{padding:0;background:transparent}
@@ -127,9 +133,6 @@ async function handleExport() {
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
-  &.is-pending {
-    border-color: #eebe77;
-  }
   .pc-header {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
     .pc-date { font-weight: 600; font-size: 14px; color: #303133; }
@@ -137,6 +140,8 @@ async function handleExport() {
   }
   .pc-lines {
     .pc-line { font-size: 12px; line-height: 22px; color: #606266; }
+    /* 异常项蓝字提醒：工作日加班（有加班时）/有违纪/有事假 */
+    .pc-line.is-alert { color: #409eff; font-weight: 600; }
   }
 }
 </style>

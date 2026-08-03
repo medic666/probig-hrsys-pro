@@ -122,13 +122,25 @@ const routes: RouteRecordRaw[] = [
         path: 'attendance-events/create',
         name: 'AttendanceDailyCreate',
         component: () => import('@/views/attendance/AttendanceDailyPage.vue'),
-        meta: { title: '新增考勤事件', permissionKey: 'attendance.read', backTo: '/attendance' },
+        meta: { title: '录入考勤', permissionKey: 'attendance.read', backTo: '/attendance' },
       },
       {
         path: 'attendance-events/:id',
         name: 'AttendanceDailyDetail',
         component: () => import('@/views/attendance/AttendanceDailyPage.vue'),
         meta: { title: '考勤事件详情', permissionKey: 'attendance.read', backTo: '/attendance' },
+      },
+      {
+        path: 'attendance-batch/create',
+        name: 'AttendanceBatchCreate',
+        component: () => import('@/views/attendance/AttendanceBatchPage.vue'),
+        meta: { title: '批量录入', permissionKey: 'attendance.read', backTo: '/attendance' },
+      },
+      {
+        path: 'attendance-import',
+        name: 'DingTalkImport',
+        component: () => import('@/views/attendance/DingTalkImportPage.vue'),
+        meta: { title: '钉钉考勤导入', permissionKey: 'attendance.read', backTo: '/attendance' },
       },
       {
         path: 'attendance-pending',

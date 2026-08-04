@@ -126,8 +126,10 @@ const navTitle = computed(() => {
 const route = useRoute()
 const router = useRouter()
 
-// syncUrl 将当前层级状态合并写入路由 query（urlDriven 模式，保留其它视图的休眠状态）
-function syncUrl() {
+// syncUrl 将当前层级状态合并写入路由 query（urlDriven 模式，保留其它视图的休眠状态）。
+// 默认 push：层级钻取成为独立历史条目，浏览器返回可逐级回退；
+// detailRoute 场景紧随其后的业务页跳转会顶替本条目的历史位置，改用 replace 避免重复条目。
+function syncUrl(usePush = true) {
   if (!props.urlDriven) return
   const query: Record<string, any> = { ...route.query }
   if (personId.value) {
@@ -145,7 +147,11 @@ function syncUrl() {
     delete query.year
   }
   query.scope = scope.value
-  router.replace({ query })
+  if (usePush) {
+    router.push({ query })
+  } else {
+    router.replace({ query })
+  }
 }
 
 // 卡片范围（活跃/全部）变化同步 URL（卡片视图状态完整化）
@@ -154,6 +160,43 @@ watch(scope, () => {
     syncUrl()
   }
 })
+
+// URL 回退（浏览器返回/外部导航）时按 query 重置层级状态：
+// 同路由 query 变化组件不会重新 mount，必须由本 watch 反向同步；
+// 自身 syncUrl 写入或无关键（view/筛选）变化触发时，关键状态与 URL 一致 → 跳过。
+watch(
+  () => route.query,
+  () => {
+    if (!props.urlDriven) return
+    const qp = route.query
+    const qScope = qp.scope === 'all' ? 'all' : 'active'
+    const rawPerson = qp.person
+    const qPerson = typeof rawPerson === 'string' && /^\d+$/.test(rawPerson) ? Number(rawPerson) : null
+    const periodKey = props.aggregate === 'year' ? 'year' : 'month'
+    const rawPeriod = qp[periodKey]
+    const qPeriod = typeof rawPeriod === 'string' ? rawPeriod : ''
+
+    if (scope.value === qScope && personId.value === qPerson && selectedPeriod.value === qPeriod) {
+      return
+    }
+
+    scope.value = qScope
+    personId.value = qPerson
+    personName.value = String(qp.name || '')
+    selectedPeriod.value = qPeriod
+    if (qPerson === null) {
+      level.value = 'cards'
+    } else if (!qPeriod) {
+      level.value = 'periods'
+      const person = personCards.value.find((p) => p.id === qPerson)
+      loadPeriodStats(qPerson, entryStartOf(person))
+    } else {
+      level.value = 'days'
+      if (props.hasDayLevel) loadDays()
+      else loadPeriodItems()
+    }
+  },
+)
 
 async function loadPersonCards() {
   loading.value = true
@@ -210,8 +253,9 @@ async function loadPeriodStats(personIdParam?: number, start?: string) {
 function openPeriod(period: string) {
   selectedPeriod.value = period
   if (props.detailRoute) {
-    // 时段点击直接进入业务逻辑页（URL 携带人员+时段）
-    syncUrl()
+    // 时段点击直接进入业务逻辑页（URL 携带人员+时段）；
+    // 本条层级记录随即被业务页顶替，用 replace 避免历史重复条目
+    syncUrl(false)
     router.push(props.detailRoute({ id: personId.value!, name: personName.value }, period))
     return
   }

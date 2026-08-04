@@ -54,9 +54,11 @@
       size="min(80vw, 300px)"
       class="menu-drawer"
       :with-header="false"
+      destroy-on-close
+      @closed="onDrawerClosed"
     >
       <div class="drawer-logo">人事管理系统</div>
-      <SideMenu @select="mobileDrawer = false" />
+      <SideMenu manual-nav @select="onMobileMenuSelect" />
     </el-drawer>
 
     <ChangePasswordDialog v-model:visible="showPwdDialog" />
@@ -82,16 +84,34 @@ const { isMobile } = useBreakpoint()
 const isCollapsed = ref(false)
 const showPwdDialog = ref(false)
 const mobileDrawer = ref(false)
+// 移动抽屉菜单的挂起跳转目标：先关抽屉（关闭动画结束、DOM 移除）再导航，
+// 保证 pushState 瞬间抽屉不在页面中，历史快照（侧滑返回预览）不含抽屉
+const pendingNavPath = ref('')
 
 const pageTitle = computed(() => String(route.meta.title || ''))
 
-// 移动抽屉内选择菜单后自动收起（路由变化即关闭）
+// 移动抽屉内选择菜单后自动收起（路由变化即关闭）；挂起跳转在关闭动画期间
+// 发生返回/外部导航时一并取消，避免落地后意外跳转
 watch(
-  () => route.path,
+  () => route.fullPath,
   () => {
     mobileDrawer.value = false
+    pendingNavPath.value = ''
   },
 )
+
+function onMobileMenuSelect(index: string) {
+  pendingNavPath.value = index
+  mobileDrawer.value = false
+}
+
+function onDrawerClosed() {
+  if (pendingNavPath.value) {
+    const target = pendingNavPath.value
+    pendingNavPath.value = ''
+    router.push(target)
+  }
+}
 
 function toggleCollapse() {
   isCollapsed.value = !isCollapsed.value

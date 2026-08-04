@@ -277,7 +277,7 @@ const router = createRouter({
 
 const whiteList = ['/login', '/404', '/403']
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
   const permissionStore = usePermissionStore()
 
@@ -317,6 +317,20 @@ router.beforeEach(async (to, _from, next) => {
   const permKey = to.meta.permissionKey as string | undefined
   if (permKey && !permissionStore.hasPermission(permKey)) {
     next('/403')
+    return
+  }
+
+  // 业务逻辑页进入时记录来源页完整路径（含列表筛选/钻取状态），供返回精确回退：
+  // 返回 = replace(query.back) → 来源页；直达（无 back）→ meta.backTo 模块列表
+  const backable = to.meta.backTo as string | undefined
+  const excludedSources = ['/', '/login', '/403', '/404']
+  if (
+    backable &&
+    !to.query.back &&
+    from.path !== to.path &&
+    !excludedSources.includes(from.path)
+  ) {
+    next({ ...to, query: { ...to.query, back: from.fullPath } })
     return
   }
 

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"log"
 	"net"
 	"os"
 	"runtime/debug"
@@ -27,7 +26,7 @@ func Recovery() gin.HandlerFunc {
 				}
 
 				stack := string(debug.Stack())
-				log.Printf("panic recovered: %v\n%s", err, stack)
+				utils.Errorf("panic recovered: %v\n%s", err, stack)
 
 				if brokenPipe {
 					c.Error(err.(error))

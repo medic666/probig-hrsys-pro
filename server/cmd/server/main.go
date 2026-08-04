@@ -17,6 +17,7 @@ import (
 	"probig/server/internal/dao"
 	"probig/server/internal/router"
 	"probig/server/internal/service"
+	"probig/server/internal/utils"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -41,8 +42,23 @@ func main() {
 		}
 	}
 
-	log.Printf("数据库路径: %s", dbPath)
-	log.Printf("文件存储路径: %s", uploadDir)
+	// 日志初始化：业务日志级别过滤 + 按天轮转落盘（保留 retain_days 天），
+	// 返回统一 writer 供 gin access log 同源输出；打开失败降级仅控制台
+	logWriter, err := utils.Init(logPath,
+		utils.ParseLevel(config.AppConfig.Log.Level),
+		config.AppConfig.Log.RetainDays)
+	if err != nil {
+		log.Printf("日志文件打开失败，仅输出控制台: %v", err)
+		logWriter = os.Stdout
+	}
+	gin.DefaultWriter = logWriter
+	gin.DefaultErrorWriter = logWriter
+
+	// GIN 模式按配置生效（须在 engine 创建前设置）；非法值回退 release（生产安全）
+	gin.SetMode(resolveGinMode(config.AppConfig.Server.Mode))
+
+	utils.Infof("数据库路径: %s", dbPath)
+	utils.Infof("文件存储路径: %s", uploadDir)
 
 	db, err := dao.InitDB(dbPath)
 	if err != nil {
@@ -70,20 +86,30 @@ func main() {
 	defer stop()
 
 	go func() {
-		log.Printf("服务启动在 http://localhost%s", addr)
+		utils.Infof("服务启动在 http://localhost%s", addr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("服务启动失败: %v", err)
 		}
 	}()
 
 	<-ctx.Done()
-	log.Println("收到退出信号，正在优雅关闭...")
+	utils.Infof("收到退出信号，正在优雅关闭...")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("优雅关闭失败: %v", err)
+		utils.Warnf("优雅关闭失败: %v", err)
 	}
-	log.Println("服务已退出")
+	utils.Infof("服务已退出")
+}
+
+// resolveGinMode 校验配置的 GIN 模式，非法值回退 release
+func resolveGinMode(mode string) string {
+	switch mode {
+	case gin.DebugMode, gin.ReleaseMode, gin.TestMode:
+		return mode
+	default:
+		return gin.ReleaseMode
+	}
 }
 
 func initSystem(db *gorm.DB) error {
@@ -101,7 +127,7 @@ func initSystem(db *gorm.DB) error {
 		return fmt.Errorf("初始化默认管理员失败: %w", err)
 	}
 
-	log.Println("系统初始化完成")
+	utils.Infof("系统初始化完成")
 	return nil
 }
 

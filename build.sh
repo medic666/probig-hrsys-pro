@@ -31,15 +31,18 @@ echo "  Go 编译完成 -> server/dist/probig-server"
 echo ""
 echo "[3/3] 构建生产交付文件..."
 mkdir -p "$DIST_DIR"
-cp "$SERVER_DIST/probig-server" "$DIST_DIR/probig-server"
 
-# UPX 可选压缩：检测到即启用，未安装则优雅跳过（运行时不依赖 upx）
+# UPX 可选压缩：检测到即启用，未安装则优雅跳过（运行时不依赖 upx）。
+# 压缩放在复制之前、作用于源头 server/dist/probig-server，保证两处产物均为压缩版
+# （若先复制后压缩，后续任何 cp 覆盖都会把未压缩副本带进交付目录）。
 if command -v upx >/dev/null 2>&1; then
-  upx --best --lzma "$DIST_DIR/probig-server"
+  upx --best --lzma "$SERVER_DIST/probig-server"
   echo "  UPX 压缩完成"
 else
   echo "  提示: 未检测到 upx，跳过压缩（安装后自动启用: sudo apt install upx-ucl / brew install upx）"
 fi
+
+cp "$SERVER_DIST/probig-server" "$DIST_DIR/probig-server"
 
 echo ""
 SIZE=$(du -h "$DIST_DIR/probig-server" | cut -f1)

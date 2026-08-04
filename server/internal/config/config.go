@@ -36,8 +36,9 @@ type JwtConfig struct {
 }
 
 type LogConfig struct {
-	Level string `yaml:"level"`
-	File  string `yaml:"file"`
+	Level      string `yaml:"level"`
+	File       string `yaml:"file"`
+	RetainDays int    `yaml:"retain_days"`
 }
 
 var AppConfig *Config
@@ -123,5 +124,11 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Log.File == "" {
 		cfg.Log.File = "./data/probig.log"
+	}
+	if cfg.Log.Level == "" {
+		cfg.Log.Level = "info"
+	}
+	if cfg.Log.RetainDays == 0 {
+		cfg.Log.RetainDays = 30
 	}
 }

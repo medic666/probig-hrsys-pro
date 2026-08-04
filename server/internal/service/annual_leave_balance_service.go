@@ -11,6 +11,26 @@ import (
 	"gorm.io/gorm"
 )
 
+// 年假余额变更的过账类别优先级（财会"过账分类"思想的轻量落地）：
+// 同日多变更的次序由类别优先级决定，而非依赖 seq 跨表计数——
+//   0 系统配发（周年月首日，先于当月考勤，当天休假用新额度）
+//   1 人工调整（manual grant/adjust）
+//   2 考勤年假消费（日常业务）
+//   3 系统结转 deduct（结算月末，后于当月考勤，先扣消费再结余）
+const (
+	alPriorityGrant   = 0
+	alPriorityManual  = 1
+	alPriorityConsume = 2
+	alPriorityDeduct  = 3
+)
+
+type alChange struct {
+	date     utils.DateOnly
+	priority int
+	seq      int
+	hours    float64
+}
+
 func RebuildAnnualLeaveBalance(tx *gorm.DB, personID uint) error {
 	tx.Where("person_id = ?", personID).Delete(&model.AnnualLeaveBalanceSnapshot{})
 
@@ -37,29 +57,37 @@ func RebuildAnnualLeaveBalance(tx *gorm.DB, personID uint) error {
 		rows2.Close()
 	}
 
-	type ch struct {
-		date  utils.DateOnly
-		hours float64
-	}
-
-	var changes []ch
+	var changes []alChange
 	for _, e := range accountEvents {
 		h := e.Hours
-		if e.EventType == "carryover_deduct" {
+		priority := alPriorityManual
+		switch e.EventType {
+		case "carryover_deduct":
 			h = -h
+			priority = alPriorityDeduct
+		case "grant":
+			if e.SourceType == "system_period" {
+				priority = alPriorityGrant
+			}
 		}
-		changes = append(changes, ch{e.EffectiveDate, h})
+		changes = append(changes, alChange{e.EffectiveDate, priority, e.Seq, h})
 	}
 	for i, e := range attendEvents {
-		changes = append(changes, ch{attendDates[i], -e.Hours})
+		changes = append(changes, alChange{attendDates[i], alPriorityConsume, 0, -e.Hours})
 	}
 
 	if len(changes) == 0 {
 		return nil
 	}
 
-	sort.Slice(changes, func(i, j int) bool {
-		return changes[i].date.Time().Before(changes[j].date.Time())
+	sort.SliceStable(changes, func(i, j int) bool {
+		if !changes[i].date.Equal(changes[j].date) {
+			return changes[i].date.Time().Before(changes[j].date.Time())
+		}
+		if changes[i].priority != changes[j].priority {
+			return changes[i].priority < changes[j].priority
+		}
+		return changes[i].seq < changes[j].seq
 	})
 
 	var snapshots []model.AnnualLeaveBalanceSnapshot
@@ -111,6 +139,18 @@ func GetCurrentAnnualLeaveBalance(personID uint) (*model.AnnualLeaveBalanceSnaps
 	return &snapshot, nil
 }
 
+// GetAnnualLeaveBalanceAt 查询指定日期末的年假余额（快照段覆盖判定）。
+// 结转结算/徽章判定共用：结算月最后一日末余额 = 该日所在快照段的余额。
+func GetAnnualLeaveBalanceAt(tx *gorm.DB, personID uint, date utils.DateOnly) (float64, bool) {
+	var snap model.AnnualLeaveBalanceSnapshot
+	err := tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+		personID, date, date).First(&snap).Error
+	if err != nil {
+		return 0, false
+	}
+	return snap.BalanceHours, true
+}
+
 func GetAnnualLeaveBalanceHistory(personID uint) ([]model.AnnualLeaveBalanceSnapshot, error) {
 	var snapshots []model.AnnualLeaveBalanceSnapshot
 	err := dao.DB.Where("person_id = ?", personID).Order("effective_start_date ASC").Find(&snapshots).Error
@@ -159,7 +199,8 @@ func RebuildLeaveInLieuBalance(tx *gorm.DB, personID uint) error {
 		changes = append(changes, ch{eventDates[i], h})
 	}
 
-	sort.Slice(changes, func(i, j int) bool {
+	// 调休无系统事件，同日期按序累加（稳定排序保序，语义无歧义）
+	sort.SliceStable(changes, func(i, j int) bool {
 		return changes[i].date.Time().Before(changes[j].date.Time())
 	})
 

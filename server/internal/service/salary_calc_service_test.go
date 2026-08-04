@@ -50,6 +50,8 @@ func withSalaryDB(t *testing.T, fn func(db *gorm.DB)) {
 }
 
 func seedEmployee(db *gorm.DB, personID uint, entryDate string, baseSalary, perfSalary, meal, post, salaryDays float64) {
+	// 确保 Person 记录存在（人员查询/徽章接口以 persons 为基表）
+	db.Exec("INSERT OR IGNORE INTO persons (id, name, created_at, updated_at) VALUES (?, '测试员工', datetime('now'), datetime('now'))", personID)
 	d, _ := utils.ParseDate(entryDate)
 	dOnly := utils.DateOnlyFromTime(d)
 	db.Create(&model.PositionEvent{

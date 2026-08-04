@@ -68,6 +68,7 @@ import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getDailyProjections, getDailyProjectionBadges, getEventsByDate, exportDailyProjections } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 import { downloadBlob } from '@/utils/download'
 import { hoursToDays } from '@/utils'
 
@@ -75,7 +76,7 @@ const router = useRouter()
 const tableRef = ref()
 const { viewMode, isList } = usePageView('cards')
 // 徽章映射：personId → 颜色点（上月无投影 gray / 同月事假+加班 orange / 正常 green）
-const dotMap = ref<Record<number, string>>({})
+const { dotMap, loadDots } = useBadges()
 
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
@@ -115,8 +116,7 @@ async function handleExport() {
 }
 
 onMounted(async () => {
-  const badges = (await getDailyProjectionBadges()) as any[] || []
-  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+  await loadDots('attendance-daily-badges', getDailyProjectionBadges)
 })
 </script>
 <style scoped>

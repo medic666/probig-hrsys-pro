@@ -23,7 +23,14 @@
         :url-driven="true"
         :fetch-fn="(p: any) => getLILEvents(p)"
         date-field="event_date"
+        :aggregate="'year'"
+        badge-position="meta"
       >
+        <template #person-badge="{ person }">
+          <div class="balance-line" :class="{ 'is-zero': !(balanceMap[person.id] ?? 0) }">
+            调休 {{ hoursToDays(balanceMap[person.id] ?? 0).toFixed(2) }} 天
+          </div>
+        </template>
         <template #day="{ items }">
           <div class="ev-grid">
             <LILEventCard v-for="e in items" :key="e.id" :event="e" @edit="editDaily" />
@@ -35,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
@@ -48,11 +55,14 @@ import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
 const tableRef = ref()
 const { viewMode } = usePageView('cards')
 const timePanelRef = ref()
+// 调休余额映射（meta 位徽章）
+const { balanceMap, loadBalances } = useBadges()
 
 const columns = [
   { prop: 'person_name', label: '人员', width: '80' },
@@ -70,6 +80,10 @@ async function fetchOpts(k?: string) { const l = await getAllPersons() as any[];
 async function fetchEvents(p: any) {
   return (await getLILEvents(p)) as any
 }
+
+onMounted(async () => {
+  await loadBalances('lil-balances', '/lil-balances')
+})
 
 function handleAction(k: string) {
   if (k === 'add') {
@@ -95,4 +109,7 @@ function editDaily(item: any) {
   flex-wrap: wrap;
   gap: 12px;
 }
+
+.balance-line { font-size: 13px; color: #67c23a; font-weight: 600; line-height: 20px; }
+.balance-line.is-zero { color: #c0c4cc; font-weight: 400; }
 </style>

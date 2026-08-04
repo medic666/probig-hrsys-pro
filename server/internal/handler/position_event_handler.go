@@ -123,6 +123,11 @@ func CreatePositionEvent(c *gin.Context) {
 		utils.BadRequest(c, "人员、事件类型、生效日期为必填项")
 		return
 	}
+	// 入职事件必须配置计薪天数（工资核算前置），且必须大于 0
+	if req.EventType == "入职" && (req.SalaryDays == nil || *req.SalaryDays <= 0) {
+		utils.BadRequest(c, "入职事件必须填写计薪天数，且必须大于 0")
+		return
+	}
 
 	e := reqToModel(req)
 	if err := service.CreatePositionEvent(c.Request.Context(), &e); err != nil {
@@ -141,6 +146,11 @@ func UpdatePositionEvent(c *gin.Context) {
 	}
 	if req.EventType == "" || req.EffectiveDate == "" {
 		utils.BadRequest(c, "事件类型、生效日期为必填项")
+		return
+	}
+	// 编辑时若提供计薪天数，必须大于 0（入职与调薪调岗共用）
+	if req.SalaryDays != nil && *req.SalaryDays <= 0 {
+		utils.BadRequest(c, "计薪天数必须大于 0")
 		return
 	}
 

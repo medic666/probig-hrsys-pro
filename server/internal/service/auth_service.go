@@ -144,10 +144,8 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		children := []map[string]interface{}{}
 		if has("annual_leave.read") {
 			children = append(children, map[string]interface{}{"path": "/annual-leave-events", "title": "年假事件", "icon": "Clock"})
-			children = append(children, map[string]interface{}{"path": "/annual-leave-balance", "title": "年假余额", "icon": "Clock"})
-			children = append(children, map[string]interface{}{"path": "/annual-leave-carryover", "title": "周年结转", "icon": "Clock"})
 			children = append(children, map[string]interface{}{"path": "/lil-events", "title": "调休事件", "icon": "Clock"})
-			children = append(children, map[string]interface{}{"path": "/lil-balance", "title": "调休余额", "icon": "Clock"})
+			children = append(children, map[string]interface{}{"path": "/annual-leave-carryover", "title": "年假配发结转", "icon": "Clock"})
 		}
 		menus = append(menus, map[string]interface{}{
 			"path": "/leave-group", "title": "假期管理", "icon": "Clock", "children": children,

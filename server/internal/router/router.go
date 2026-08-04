@@ -167,6 +167,7 @@ func SetupRouter() *gin.Engine {
 	annualLeave.Use(middleware.AuthRequired())
 	{
 		annualLeave.GET("", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEvents)
+		annualLeave.GET("/badges", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEventBadges)
 		annualLeave.GET("/export", middleware.RequirePermission("annual_leave.export"), handler.ExportAnnualLeaveEvents)
 		annualLeave.GET("/trash", middleware.RequirePermission("annual_leave.read"), handler.GetDeletedAnnualLeaveEvents)
 		annualLeave.GET("/:id", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEventByID)

@@ -16,8 +16,13 @@
             :key="p.id"
             :person="p"
             :dot-color="personDotMap?.[p.id] || ''"
+            :badge-position="badgePosition"
             @click="openPerson"
-          />
+          >
+            <template #badge>
+              <slot name="person-badge" :person="p" />
+            </template>
+          </PersonCard>
         </div>
         <el-empty v-if="!loading && visiblePersonCards.length === 0" description="暂无数据" :image-size="60" />
       </template>
@@ -66,6 +71,7 @@ const props = withDefaults(
     pendingValues?: string[]
     aggregate?: PeriodAggregate
     personDotMap?: Record<number, string>
+    badgePosition?: 'name' | 'meta'
     // URL 驱动模式：卡片→时段→日期层级状态同步到路由 query，返回/刷新后层级可恢复
     urlDriven?: boolean
     // 时段点击跳转的业务逻辑页路由生成器（优先级高于内部日期层），如 `/module/:personId/:month`
@@ -79,6 +85,7 @@ const props = withDefaults(
     pendingValues: () => [],
     aggregate: 'month',
     personDotMap: undefined,
+    badgePosition: 'name',
     urlDriven: false,
     detailRoute: undefined,
   },

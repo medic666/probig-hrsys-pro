@@ -341,12 +341,17 @@ func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) 
 }
 
 // GetAttendanceMonthlyBadges 月度考勤核算徽章（指定月份）：无核算记录 gray；
-// 核算过期（IsAttendanceMonthlyStale = data_changed）orange；已核算未过期 green。
-// stale 判定复用既有核算状态逻辑（投影/快照 last_calc_at 比较），仅对有核算记录的人员执行。
+// 核算过期（投影/快照 last_calc_at 晚于核算时间）orange；已核算未过期 green。
+// stale 判定与 IsAttendanceMonthlyStale 语义等价，但按人员批量聚合派生层最后计算时间，
+// 消除逐人循环查询（N+1）。
 func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
-	if _, err := utils.MonthStart(month); err != nil {
+	monthStart, err := utils.MonthStart(month)
+	if err != nil {
 		return nil, err
 	}
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthStart.AddDate(0, 1, -1))
+
 	var calcs []model.AttendanceCalculationMonthly
 	if err := dao.DB.Where("belong_month = ?", month).Find(&calcs).Error; err != nil {
 		return nil, err
@@ -354,6 +359,38 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 	calcMap := make(map[uint]model.AttendanceCalculationMonthly, len(calcs))
 	for _, c := range calcs {
 		calcMap[c.PersonID] = c
+	}
+
+	type calcTimeRow struct {
+		PersonID   uint
+		LastCalcAt time.Time
+	}
+	// 批量拉取当月投影 / 覆盖当月的职务快照最后计算时间（一次查询 + Go 聚合，消除 N+1）
+	projLatest := make(map[uint]time.Time)
+	var projRows []calcTimeRow
+	if err := dao.DB.Model(&model.AttendanceDailyProjection{}).
+		Select("person_id, last_calc_at").
+		Where("work_date >= ? AND work_date <= ?", monthStartD, monthEndD).
+		Scan(&projRows).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range projRows {
+		if r.LastCalcAt.After(projLatest[r.PersonID]) {
+			projLatest[r.PersonID] = r.LastCalcAt
+		}
+	}
+	snapLatest := make(map[uint]time.Time)
+	var snapRows []calcTimeRow
+	if err := dao.DB.Model(&model.PositionSnapshot{}).
+		Select("person_id, last_calc_at").
+		Where("effective_start_date <= ? AND effective_end_date >= ?", monthEndD, monthStartD).
+		Scan(&snapRows).Error; err != nil {
+		return nil, err
+	}
+	for _, r := range snapRows {
+		if r.LastCalcAt.After(snapLatest[r.PersonID]) {
+			snapLatest[r.PersonID] = r.LastCalcAt
+		}
 	}
 
 	var personIDs []uint
@@ -368,7 +405,11 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 			continue
 		}
 		level := "green"
-		if IsAttendanceMonthlyStale(&calc) == "data_changed" {
+		latest := projLatest[pid]
+		if t, ok := snapLatest[pid]; ok && t.After(latest) {
+			latest = t
+		}
+		if latest.After(calc.LastCalcAt) {
 			level = "orange"
 		}
 		result = append(result, PersonBadge{PersonID: pid, Level: level})

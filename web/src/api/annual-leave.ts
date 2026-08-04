@@ -3,6 +3,10 @@ import request from '@/utils/request'
 export function getAnnualLeaveEvents(params: any) {
   return request.get('/annual-leave-events', { params })
 }
+// getAnnualLeaveEventBadges 年假事件徽章：周年月且上月未结转 → orange，否则 green
+export function getAnnualLeaveEventBadges() {
+  return request.get('/annual-leave-events/badges')
+}
 export function getAnnualLeaveEvent(id: number) {
   return request.get(`/annual-leave-events/${id}`)
 }

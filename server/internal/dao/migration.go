@@ -30,6 +30,7 @@ var migrations = []Migration{
 	{ID: "20260801_01_person_emergency_contacts_position_fields", Name: "人员紧急联系人表 + 职务公司/部门/职位字段", Func: migrateV1EmergencyContactsAndPositionFields},
 	{ID: "20260801_02_unify_punch_time", Name: "打卡时间统一到 daily.punch_time，清除打卡时间戳事件", Func: migrateV1UnifyPunchTime},
 	{ID: "20260802_01_config_key_classification", Name: "计薪小时基准配置归入考勤类", Func: migrateV1ConfigKeyClassification},
+	{ID: "20260804_01_annual_leave_tier_config", Name: "年假额度配置升级为阶梯交互", Func: migrateV1AnnualLeaveTierConfig},
 }
 
 // RunMigrations 顺序执行未应用的迁移；新库或未迁移库（无版本记录）从头执行全部
@@ -57,6 +58,12 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+// migrateV1AnnualLeaveTierConfig 年假额度配置升级为阶梯交互：
+// 仅更新 value_type（number → table），保留用户已配置的值（解析层兼容旧单值）
+func migrateV1AnnualLeaveTierConfig(db *gorm.DB) error {
+	return db.Exec(`UPDATE sys_config SET value_type = 'table' WHERE config_key = 'annual_leave.yearly_hours'`).Error
 }
 
 // migrateV1ConfigKeyClassification 计薪小时基准配置键归入考勤类（system.work_hours_per_day → attendance.work_hours_per_day）

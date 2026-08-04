@@ -38,6 +38,8 @@
         :detail-route="monthDetailRoute"
       />
     </template>
+
+    <BatchActionDrawer v-model:visible="calcVisible" title="批量核算" :submit-fn="submitFn" @done="onCalcDone" />
   </div>
 </template>
 
@@ -50,19 +52,22 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getMonthlyList, getAttendanceMonthlyBadges, exportAttendanceMonthly } from '@/api/attendance'
+import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
+import { getMonthlyList, getAttendanceMonthlyBadges, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
 const tableRef=ref()
+const calcVisible=ref(false)
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 // 徽章映射：personId → 颜色点（上月核算为空 gray / 核算过期 orange / 已核算 green）
-const dotMap = ref<Record<number, string>>({})
+const { dotMap, loadDots } = useBadges()
 
 const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
@@ -82,8 +87,7 @@ async function fetchMonthly(p:any){
 }
 
 onMounted(async () => {
-  const badges = (await getAttendanceMonthlyBadges()) as any[] || []
-  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+  await loadDots('attendance-monthly-badges', getAttendanceMonthlyBadges)
 })
 
 // 月份点击 → 业务逻辑页（URL 携带人员+月份，返回后可恢复层级）
@@ -92,8 +96,15 @@ function monthDetailRoute(person: { id: number; name: string }, month: string) {
 }
 
 function handleAction(k:string){
-  if(k==='calc'){ router.push('/attendance-monthly/calc') }
+  if(k==='calc'){ calcVisible.value=true }
   else if(k==='export'){handleExport()}
+}
+
+const submitFn = (data: any) => calculateMonthly(data)
+
+function onCalcDone(){
+  tableRef.value?.refresh()
+  timePanelRef.value?.reload()
 }
 async function handleExport(){
   const params = tableRef.value?.getSearchParams() || {}

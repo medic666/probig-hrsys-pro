@@ -32,10 +32,18 @@
         :url-driven="true"
         :fetch-fn="(p: any) => getAnnualLeaveEvents(p)"
         date-field="effective_date"
+        :aggregate="'year'"
+        :person-dot-map="dotMap"
+        badge-position="meta"
       >
+        <template #person-badge="{ person }">
+          <div class="balance-line" :class="{ 'is-zero': !(balanceMap[person.id] ?? 0) }">
+            年假 {{ hoursToDays(balanceMap[person.id] ?? 0).toFixed(2) }} 天
+          </div>
+        </template>
         <template #day="{ items }">
           <div class="ev-grid">
-            <AnnualLeaveEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEventClick" />
+            <AnnualLeaveEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEdit" />
           </div>
         </template>
       </TimeCardPanel>
@@ -50,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
@@ -60,12 +68,13 @@ import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import AnnualLeaveEventCard from '@/components/annual-leave/AnnualLeaveEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getAnnualLeaveEvents, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
+import { getAnnualLeaveEvents, getAnnualLeaveEventBadges, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
 import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
 const tableRef = ref()
@@ -74,6 +83,8 @@ const timePanelRef = ref()
 const tv = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
+// 徽章映射：周年月且上月未结转 → orange，否则 green；年假余额映射（meta 位徽章）
+const { dotMap, balanceMap, loadDots, loadBalances } = useBadges()
 
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
@@ -93,6 +104,13 @@ async function fetchPersonOpts(k?:string){ const l=await getAllPersons() as any[
 async function fetchEvents(p:any){ return (await getAnnualLeaveEvents(p)) as any }
 async function fd(p:any){ return (await getDeletedAnnualLeaveEvents(p)) as any }
 async function rst(id:number){ return restoreAnnualLeaveEvent(id) }
+
+onMounted(async () => {
+  await Promise.all([
+    loadDots('annual-leave-badges', getAnnualLeaveEventBadges),
+    loadBalances('al-balances', '/annual-leave-balances'),
+  ])
+})
 
 function handleAction(k:string){
   if(k==='add'){ router.push('/annual-leave-events/create') }
@@ -128,4 +146,7 @@ function onR(){ tableRef.value?.refresh() }
   flex-wrap: wrap;
   gap: 12px;
 }
+
+.balance-line { font-size: 13px; color: #409eff; font-weight: 600; line-height: 20px; }
+.balance-line.is-zero { color: #c0c4cc; font-weight: 400; }
 </style>

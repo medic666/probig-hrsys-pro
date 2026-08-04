@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"probig/server/internal/dao"
@@ -193,12 +192,12 @@ func GetPositionEventBadges() ([]PersonBadge, error) {
 		Level    string
 	}
 	err := dao.DB.Table("persons").
-		Select(fmt.Sprintf(`persons.id AS person_id,
+		Select(`persons.id AS person_id,
 			CASE
 				WHEN MAX(e.effective_date) IS NULL THEN 'gray'
-				WHEN MAX(e.effective_date) < '%s' THEN 'orange'
+				WHEN MAX(e.effective_date) < ? THEN 'orange'
 				ELSE 'green'
-			END AS level`, twoYearsAgo.String())).
+			END AS level`, twoYearsAgo).
 		Joins(`LEFT JOIN position_events e ON e.person_id = persons.id AND e.deleted_at IS NULL`).
 		Where("persons.deleted_at IS NULL").
 		Group("persons.id").

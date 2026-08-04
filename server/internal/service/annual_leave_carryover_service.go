@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"probig/server/internal/dao"
@@ -21,22 +22,52 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 	}
 	nextMonthStart := monthStart.AddDate(0, 1, 0)
 	nextMonthEnd := nextMonthStart.AddDate(0, 1, -1)
+	monthEnd := monthStart.AddDate(0, 1, -1)
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthEnd)
 
 	var snapshots []model.PositionSnapshot
 	dao.DB.Where("effective_start_date <= ? AND effective_end_date >= ? AND is_active = true",
-		utils.DateOnlyFromTime(nextMonthEnd), utils.DateOnlyFromTime(nextMonthStart)).Find(&snapshots)
+		utils.DateOnlyFromTime(nextMonthEnd), monthStartD).Find(&snapshots)
 
-	eligiblePersonIDs := make(map[uint]bool)
+	// 周年结算资格：所选月+1 == 员工入职周年月（入职次年同月），且当月在职。
+	// 离职结算边界：员工离职月 == 所选月 → 离职结算（仅结算不配发）。
+	type settlementKind int
+	const (
+		settleAnniversary settlementKind = iota
+		settleResignation
+	)
+	type candidate struct {
+		personID uint
+		kind     settlementKind
+	}
+	candidateMap := make(map[uint]settlementKind)
+	nextYear, nextMonthNum := nextMonthStart.Year(), int(nextMonthStart.Month())
+	nextMonths := nextYear*12 + nextMonthNum - 1
 	for _, s := range snapshots {
 		if s.EntryDate != nil {
-			entryMonth := s.EntryDate.Time().Month()
-			if entryMonth == nextMonthStart.Month() {
-				eligiblePersonIDs[s.PersonID] = true
+			entryMonths := s.EntryDate.Time().Year()*12 + int(s.EntryDate.Time().Month()) - 1
+			diff := nextMonths - entryMonths
+			// 周年月判定：所选月+1 与入职月同月（月份差为 12 的倍数）且已满一周年（差 ≥ 12）
+			if diff >= 12 && diff%12 == 0 {
+				candidateMap[s.PersonID] = settleAnniversary
 			}
 		}
 	}
 
-	if len(eligiblePersonIDs) == 0 {
+	// 离职月结算：离职发生在所选月内（含所选月末离岗）的离职人员
+	var leftSnaps []model.PositionSnapshot
+	dao.DB.Where("effective_start_date <= ? AND effective_end_date >= ? AND is_active = false",
+		monthEndD, monthStartD).
+		Where("leave_date IS NOT NULL AND strftime('%Y-%m', leave_date) = ?", month).
+		Find(&leftSnaps)
+	for _, s := range leftSnaps {
+		if _, exists := candidateMap[s.PersonID]; !exists {
+			candidateMap[s.PersonID] = settleResignation
+		}
+	}
+
+	if len(candidateMap) == 0 {
 		return nil, fmt.Errorf("当月无符合条件的在职人员")
 	}
 
@@ -48,7 +79,7 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 		OperatorID:     operatorID,
 		OperatorName:   operatorName,
 		Status:         1,
-		TotalCount:     len(eligiblePersonIDs),
+		TotalCount:     len(candidateMap),
 	}
 	if err := dao.DBFromContext(ctx).Create(&batch).Error; err != nil {
 		return nil, err
@@ -61,56 +92,63 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 			"annual_leave_carryover", nextMonthStart.Format("2006-01"), batch.ID).
 		Pluck("id", &oldBatchIDs)
 
-	yearlyHours := getYearlyAnnualLeaveHours()
-
 	success := 0
 	fail := 0
 	now := time.Now()
 
-	for personID := range eligiblePersonIDs {
+	for personID, kind := range candidateMap {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-			// 冲销历史同周期批次的系统事件，事件源删除由 GORM 审计自动留痕
+			// 冲销历史同周期批次的系统事件，事件源删除由 GORM 审计自动留痕；
+			// 冲销后立即重建余额快照，保证结算判定读到删除后（无旧 deduct/grant）的真实余额
 			if len(oldBatchIDs) > 0 {
 				if err := tx.Where("person_id = ? AND source_type = ? AND batch_id IN ?",
 					personID, "system_period", oldBatchIDs).Delete(&model.AnnualLeaveAccountEvent{}).Error; err != nil {
 					return err
 				}
+				if err := RebuildAnnualLeaveBalance(tx, personID); err != nil {
+					return err
+				}
 			}
 
-			balance := calculatePersonAnnualBalance(tx, personID)
-
-			if balance > 0 {
-				monthEnd := monthStart.AddDate(0, 1, -1)
+			// 结算：所选月（结算月）最后一日末的余额快照 > 0 → 结转扣除
+			balance, ok := GetAnnualLeaveBalanceAt(tx, personID, monthEndD)
+			if ok && balance > 0 {
+				remark := fmt.Sprintf("周年结算扣除 %s", nextMonthStart.Format("2006-01"))
+				if kind == settleResignation {
+					remark = fmt.Sprintf("离职结算扣除 %s", month)
+				}
 				deduct := model.AnnualLeaveAccountEvent{
 					PersonID:      personID,
 					EventType:     "carryover_deduct",
 					SourceType:    "system_period",
 					BatchID:       &batch.ID,
 					Hours:         balance,
-					EffectiveDate: utils.DateOnlyFromTime(monthEnd),
-					Remark:        fmt.Sprintf("周年结转扣除 %s", nextMonthStart.Format("2006-01")),
+					EffectiveDate: monthEndD,
+					Remark:        remark,
 				}
 				if err := createSystemLeaveEventInTx(tx, &deduct); err != nil {
 					return err
 				}
 			}
 
-			var curSnap model.PositionSnapshot
-			tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
-				personID, utils.DateOnlyFromTime(nextMonthEnd), utils.DateOnlyFromTime(nextMonthStart)).First(&curSnap)
-
-			if curSnap.HasAnnualLeave {
-				grant := model.AnnualLeaveAccountEvent{
-					PersonID:      personID,
-					EventType:     "grant",
-					SourceType:    "system_period",
-					BatchID:       &batch.ID,
-					Hours:         yearlyHours,
-					EffectiveDate: utils.DateOnlyFromTime(nextMonthStart),
-					Remark:        fmt.Sprintf("周年配发 %s", nextMonthStart.Format("2006-01")),
-				}
-				if err := createSystemLeaveEventInTx(tx, &grant); err != nil {
-					return err
+			// 配发：仅周年结算；入职周年月第一日末仍在职且享有年假 → 按司龄阶梯配发
+			if kind == settleAnniversary {
+				var curSnap model.PositionSnapshot
+				tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ? AND is_active = true",
+					personID, utils.DateOnlyFromTime(nextMonthEnd), utils.DateOnlyFromTime(nextMonthStart)).First(&curSnap)
+				if curSnap.HasAnnualLeave {
+					grant := model.AnnualLeaveAccountEvent{
+						PersonID:      personID,
+						EventType:     "grant",
+						SourceType:    "system_period",
+						BatchID:       &batch.ID,
+						Hours:         getYearlyAnnualLeaveHours(personID),
+						EffectiveDate: utils.DateOnlyFromTime(nextMonthStart),
+						Remark:        fmt.Sprintf("周年配发 %s", nextMonthStart.Format("2006-01")),
+					}
+					if err := createSystemLeaveEventInTx(tx, &grant); err != nil {
+						return err
+					}
 				}
 			}
 
@@ -144,7 +182,7 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 	if fail == 0 {
 		summaryJSON, _ := json.Marshal(map[string]interface{}{
 			"batch_no": batchNo, "business_period": nextMonthStart.Format("2006-01"),
-			"success": success, "total": len(eligiblePersonIDs),
+			"success": success, "total": len(candidateMap),
 		})
 		dao.WriteBusinessAudit(ctx, "结转", "annual_leave_carryover", batch.ID, batchNo, "", string(summaryJSON))
 	}
@@ -153,7 +191,7 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 		"batch_no": batchNo,
 		"success":  success,
 		"fail":     fail,
-		"total":    len(eligiblePersonIDs),
+		"total":    len(candidateMap),
 	}, nil
 }
 
@@ -233,10 +271,51 @@ func GetCarryoverBatches() ([]model.SysBatch, error) {
 	return batches, err
 }
 
-func getYearlyAnnualLeaveHours() float64 {
-	v := GetConfigValueOrDefault("annual_leave.yearly_hours", "40")
-	f, _ := strconv.ParseFloat(v, 64)
-	return f
+// AnnualLeaveTier 年假阶梯档位：司龄满 years 年后按 hours 配发
+type AnnualLeaveTier struct {
+	Years int     `json:"years"`
+	Hours float64 `json:"hours"`
+}
+
+// GetAnnualLeaveTiers 解析年假配发阶梯配置：
+// 兼容旧单值配置（纯数字 = 单档，所有司龄同一小时数）；新配置为 JSON 数组 [{years,hours}...]。
+func GetAnnualLeaveTiers() ([]AnnualLeaveTier, bool) {
+	v := GetConfigValueOrDefault("annual_leave.yearly_hours", "")
+	if v == "" {
+		return nil, false
+	}
+	if n, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil {
+		return []AnnualLeaveTier{{Years: 0, Hours: n}}, true
+	}
+	var tiers []AnnualLeaveTier
+	if err := json.Unmarshal([]byte(v), &tiers); err != nil || len(tiers) == 0 {
+		return nil, false
+	}
+	return tiers, true
+}
+
+// getYearlyAnnualLeaveHours 按员工司龄（入职年数）取年假配发小时数。
+func getYearlyAnnualLeaveHours(personID uint) float64 {
+	tiers, ok := GetAnnualLeaveTiers()
+	if !ok {
+		return 40
+	}
+	seniority := 0
+	var entry *utils.DateOnly
+	dao.DB.Table("position_snapshots").
+		Select("entry_date").
+		Where("person_id = ? AND effective_end_date = ?", personID, realFarFuture).
+		Scan(&entry)
+	if entry != nil {
+		seniority = time.Now().Year() - entry.Time().Year()
+	}
+	// 取第一个"司龄未达门槛"的档位（门槛从小到大排序）
+	for _, t := range tiers {
+		if seniority < t.Years || t.Years == 0 {
+			return t.Hours
+		}
+	}
+	return tiers[len(tiers)-1].Hours
 }
 
 func GetBatchEvents(batchID uint) ([]map[string]interface{}, error) {

@@ -3,13 +3,13 @@
     <el-form-item label="月份" required>
       <el-date-picker v-model="form.month" type="month" value-format="YYYY-MM" style="width:100%" />
     </el-form-item>
-    <el-form-item label="人员">
+    <el-form-item v-if="showPerson" label="人员">
       <PersonDomainSelect v-model="form.personIds" />
       <div class="hint">不选则核算全部在职人员</div>
     </el-form-item>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="doSubmit">开始核算</el-button>
+      <el-button type="primary" :loading="saving" @click="doSubmit">开始执行</el-button>
     </div>
   </el-form>
 </template>
@@ -19,13 +19,14 @@ import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 
-// 批量核算统一表单（考勤/工资共用）：月份 + 人员域多选，提交函数由页面注入。
-// 核算结果为三态提示：有结果（含 0）/ 空结果（置空）/ 失败（需人工干预）。
+// 批量操作统一表单（批量核算/批量结转共用）：月份必选，人员域多选可按需隐藏（showPerson=false）。
+// 提交函数由调用方注入，结果为三态提示：有结果（含 0）/ 空结果（置空）/ 失败（需人工干预）。
 const props = withDefaults(
   defineProps<{
     submitFn: (data: any) => Promise<any>
+    showPerson?: boolean
   }>(),
-  { submitFn: undefined },
+  { submitFn: undefined, showPerson: true },
 )
 
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
@@ -41,7 +42,12 @@ async function doSubmit() {
   saving.value = true
   try {
     const d = await props.submitFn({ month: form.month, person_ids: form.personIds })
-    ElMessage.success(`核算完成: 有结果${d.has_value}条, 空结果${d.empty}条, 失败${d.fail}条`)
+    if (d && (d.has_value !== undefined || d.success !== undefined)) {
+      const msg = d.has_value !== undefined
+        ? `完成: 有结果${d.has_value}条, 空结果${d.empty}条, 失败${d.fail}条`
+        : `完成: 成功${d.success}人, 失败${d.fail}人`
+      ElMessage.success(msg)
+    }
     emit('saved')
   } catch { /* handled */ } finally {
     saving.value = false

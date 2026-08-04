@@ -66,6 +66,7 @@ import PageToolbar from '@/components/PageToolbar.vue'
 import { getPositionEvents, getPositionEventBadges, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
 import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
+import { useBadges } from '@/composables/useBadges'
 
 import { usePageView } from '@/composables/usePageView'
 
@@ -77,7 +78,7 @@ const trashVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
 // 徽章映射：personId → 颜色点（超两年无职务变动为 orange，无事件 gray，正常 green）
-const dotMap = ref<Record<number, string>>({})
+const { dotMap, loadDots } = useBadges()
 
 const eventTypes = ['入职', '调薪调岗', '离职']
 
@@ -112,8 +113,7 @@ async function fetchDeleted(params: any) { return (await getDeletedPositionEvent
 async function restoreEvent(id: number) { return restorePositionEvent(id) }
 
 onMounted(async () => {
-  const badges = (await getPositionEventBadges()) as any[] || []
-  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+  await loadDots('position-events-badges', getPositionEventBadges)
 })
 
 function handleAction(key: string) {

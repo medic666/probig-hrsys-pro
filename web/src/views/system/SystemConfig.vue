@@ -14,6 +14,26 @@
             <el-checkbox-group v-else-if="row.value_type === 'select'" v-model="row.draftArr" size="small">
               <el-checkbox v-for="o in row.options" :key="o" :label="o" :value="o" />
             </el-checkbox-group>
+            <template v-else-if="row.value_type === 'table'">
+              <el-table :data="row.draftRows" border size="small">
+                <el-table-column label="司龄门槛(年)" width="130">
+                  <template #default="{ row: r }">
+                    <el-input-number v-model="r.years" :min="0" size="small" style="width:100%" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="配发小时数">
+                  <template #default="{ row: r }">
+                    <el-input-number v-model="r.hours" :min="0" :precision="1" size="small" style="width:100%" />
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="60">
+                  <template #default="{ $index }">
+                    <el-button type="danger" link size="small" @click="row.draftRows.splice($index, 1)">删</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-button size="small" style="margin-top:4px" @click="row.draftRows.push({ years: 0, hours: 40 })">+ 添加档位</el-button>
+            </template>
           </template>
         </el-table-column>
         <el-table-column prop="desc" label="说明" />
@@ -40,6 +60,7 @@ interface ConfigItem {
   group: string
   draft: any
   draftArr?: string[]
+  draftRows?: any[]
 }
 
 const configList = ref<ConfigItem[]>([])
@@ -63,8 +84,10 @@ onMounted(async () => {
       draft = item.value === 'true'
     } else if (item.value_type === 'select') {
       try { draft = JSON.parse(item.value) } catch { draft = [] }
+    } else if (item.value_type === 'table') {
+      try { draft = JSON.parse(item.value) } catch { draft = [{ years: 0, hours: 40 }] }
     }
-    return { ...item, draft, draftArr: Array.isArray(draft) ? draft : undefined }
+    return { ...item, draft, draftArr: Array.isArray(draft) ? draft : undefined, draftRows: item.value_type === 'table' ? (Array.isArray(draft) ? draft : [{ years: 0, hours: 40 }]) : undefined }
   })
 })
 
@@ -73,6 +96,7 @@ async function saveAll() {
   for (const item of configList.value) {
     let newVal: string
     if (item.value_type === 'select') newVal = JSON.stringify(item.draftArr || [])
+    else if (item.value_type === 'table') newVal = JSON.stringify(item.draftRows || [])
     else if (item.value_type === 'bool') newVal = String(item.draft)
     else newVal = String(item.draft)
     if (newVal !== item.value) {

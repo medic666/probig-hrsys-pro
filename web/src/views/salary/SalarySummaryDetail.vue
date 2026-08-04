@@ -290,8 +290,9 @@ onMounted(async () => {
   try {
     versions.value = (await getSalaryVersions(personId, month)) as any[] || []
     if (versions.value.length >= 2) {
-      compareA.value = versions.value[0].id
-      compareB.value = versions.value[1].id
+      // 默认次新对比最新：版本A=次新、版本B=最新，差异 = 最新 − 次新（本次核算的变化）
+      compareA.value = versions.value[1].id
+      compareB.value = versions.value[0].id
       buildCompare()
     }
   } catch {

@@ -75,6 +75,7 @@ import { getAllPersons } from '@/api/person'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
 const tableRef = ref()
@@ -82,7 +83,7 @@ const trashVisible = ref(false)
 const attachVisible = ref(false)
 const attachFileId = ref<number | null>(null)
 // 徽章映射：personId → 颜色点（上月无考勤事件 gray / 待确认 orange / 全确认 green）
-const dotMap = ref<Record<number, string>>({})
+const { dotMap, loadDots } = useBadges()
 
 const { viewMode, isList } = usePageView('blocks')
 const timePanelRef = ref()
@@ -169,8 +170,7 @@ async function handleDelete(row: any) {
 function onRefresh() { tableRef.value?.refresh() }
 
 onMounted(async () => {
-  const badges = (await getAttendanceEventBadges()) as any[] || []
-  dotMap.value = Object.fromEntries(badges.map((b: any) => [b.person_id, b.level]))
+  await loadDots('attendance-events-badges', getAttendanceEventBadges)
 })
 </script>
 <style lang="scss" scoped>

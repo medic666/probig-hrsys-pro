@@ -1,10 +1,7 @@
 <template>
-  <div class="page-container"><div class="page-header"><h2>年假周年结转</h2></div>
-    <el-button type="primary" style="margin-bottom:12px" @click="doCarryover">批量结转</el-button>
-    <el-dialog v-model="cv" title="批量结转" width="400px">
-      <el-form><el-form-item label="目标月份"><el-date-picker v-model="cm" type="month" value-format="YYYY-MM" style="width:100%"/></el-form-item></el-form>
-      <template #footer><el-button @click="cv=false">取消</el-button><el-button type="primary" :loading="s" @click="exec">开始结转</el-button></template>
-    </el-dialog>
+  <div class="page-container"><div class="page-header"><h2>年假配发结转</h2></div>
+    <el-button type="primary" style="margin-bottom:12px" @click="cv=true">批量结转</el-button>
+    <BatchActionDrawer v-model:visible="cv" title="批量结转" :submit-fn="(d: any) => executeCarryover(d.month)" :show-person="false" @done="loadBatches" />
 
     <el-table v-loading="bl" :data="batches" border>
       <el-table-column prop="batch_no" label="批次号" width="200"/>
@@ -39,10 +36,11 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { executeCarryover, cancelCarryover, getCarryoverBatches } from '@/api/annual-leave'
+import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'
 
-const cv=ref(false); const cm=ref(''); const s=ref(false); const batches=ref<any[]>([]); const bl=ref(false)
+const cv=ref(false); const batches=ref<any[]>([]); const bl=ref(false)
 const ev=ref(false); const batchEvents=ref<any[]>([])
 
 onMounted(()=>loadBatches())
@@ -56,12 +54,6 @@ async function loadBatches(){ bl.value=true; try{
   batches.value=data
 } catch{ /* */ } finally{ bl.value=false } }
 
-function doCarryover(){ cm.value=''; cv.value=true }
-async function exec(){
-  if(!cm.value){ ElMessage.warning('请选择月份'); return }
-  s.value=true
-  try{ const d=await executeCarryover(cm.value) as any; ElMessage.success(`成功${d.success}人, 失败${d.fail}人`); cv.value=false; loadBatches() } catch{ /* */ } finally{ s.value=false }
-}
 async function cancel(r:any){
   try{ await ElMessageBox.confirm('确认反结账?','提示',{type:'warning'}) } catch{ return }
   try{ await cancelCarryover(r.id); ElMessage.success('已冲销'); loadBatches() } catch{ /* */ }

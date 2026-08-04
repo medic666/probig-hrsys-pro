@@ -64,7 +64,7 @@
           <el-form-item label="绩效工资基数"><el-input-number v-model="eventForm.performance_salary" :min="0" :precision="2" style="width:100%" /></el-form-item>
         </el-col>
         <el-col :span="8">
-          <el-form-item label="计薪天数"><el-input-number v-model="eventForm.salary_days" :min="0" :precision="1" style="width:100%" /></el-form-item>
+          <el-form-item label="计薪天数" required><el-input-number v-model="eventForm.salary_days" :min="0" :precision="1" style="width:100%" /></el-form-item>
         </el-col>
       </el-row>
 
@@ -171,7 +171,7 @@ const emptyForm = () => ({
   has_attendance_bonus: true,
   base_salary: null,
   performance_salary: null,
-  salary_days: null,
+  salary_days: 26,
   post_allowance: null,
   meal_allowance: null,
   housing_allowance: null,
@@ -298,6 +298,7 @@ async function handleSubmit() {
 
   if (eventForm.event_type === '入职') {
     if (!eventForm.entry_date) { ElMessage.warning('请选择入职日期'); return }
+    if (eventForm.salary_days == null || eventForm.salary_days <= 0) { ElMessage.warning('请填写计薪天数，且必须大于 0'); return }
     data.entry_date = eventForm.entry_date
     data.effective_date = eventForm.entry_date
     for (const key of entryFields) {
@@ -317,6 +318,7 @@ async function handleSubmit() {
       const meta = fieldMeta.value[item.field]
       if (!meta) continue
       if (meta.type === 'text' && !item.value) continue
+      if (item.field === 'salary_days' && (item.value == null || item.value <= 0)) { ElMessage.warning('计薪天数必须大于 0'); return }
       data[item.field] = item.value
     }
   }

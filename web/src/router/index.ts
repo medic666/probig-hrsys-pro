@@ -161,12 +161,6 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '月度考勤核算', permissionKey: 'attendance.read' },
       },
       {
-        path: 'attendance-monthly/calc',
-        name: 'AttendanceMonthlyCalcForm',
-        component: () => import('@/views/attendance/AttendanceCalcPage.vue'),
-        meta: { title: '批量核算考勤', permissionKey: 'attendance.read', backTo: '/attendance-monthly' },
-      },
-      {
         path: 'attendance-monthly/:personId/:month',
         name: 'AttendanceMonthlyDetail',
         component: () => import('@/views/attendance/AttendanceMonthlyDetail.vue'),
@@ -191,28 +185,16 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '年假事件详情', permissionKey: 'annual_leave.read', backTo: '/annual-leave-events' },
       },
       {
-        path: 'annual-leave-balance',
-        name: 'AnnualLeaveBalance',
-        component: () => import('@/views/annual-leave/AnnualLeaveBalance.vue'),
-        meta: { title: '年假余额', permissionKey: 'annual_leave.read' },
-      },
-      {
         path: 'annual-leave-carryover',
         name: 'AnnualLeaveCarryover',
         component: () => import('@/views/annual-leave/AnnualLeaveCarryover.vue'),
-        meta: { title: '周年结转', permissionKey: 'annual_leave.read' },
+        meta: { title: '年假配发结转', permissionKey: 'annual_leave.read' },
       },
       {
         path: 'lil-events',
         name: 'LILEventFlow',
         component: () => import('@/views/annual-leave/LILEventFlow.vue'),
         meta: { title: '调休事件', permissionKey: 'annual_leave.read' },
-      },
-      {
-        path: 'lil-balance',
-        name: 'LILBalance',
-        component: () => import('@/views/annual-leave/LILBalance.vue'),
-        meta: { title: '调休余额', permissionKey: 'annual_leave.read' },
       },
       {
         path: 'salary-events',
@@ -237,12 +219,6 @@ const routes: RouteRecordRaw[] = [
         name: 'SalarySummary',
         component: () => import('@/views/salary/SalarySummary.vue'),
         meta: { title: '月度工资汇总', permissionKey: 'salary.read' },
-      },
-      {
-        path: 'salary-summaries/calc',
-        name: 'SalarySummariesCalcForm',
-        component: () => import('@/views/salary/SalaryCalcPage.vue'),
-        meta: { title: '批量核算工资', permissionKey: 'salary.read', backTo: '/salary-summaries' },
       },
       {
         path: 'salary-summaries/:personId/:month',

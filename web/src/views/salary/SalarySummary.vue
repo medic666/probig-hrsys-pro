@@ -39,6 +39,8 @@
         :detail-route="summaryDetailRoute"
       />
     </template>
+
+    <BatchActionDrawer v-model:visible="calcVisible" title="批量核算" :submit-fn="submitFn" @done="onCalcDone" />
   </div>
 </template>
 
@@ -50,7 +52,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getSalarySummaries, exportSalarySummaries } from '@/api/salary'
+import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
+import { getSalarySummaries, calculateSalaries, exportSalarySummaries } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
@@ -59,6 +62,7 @@ import { usePageView } from '@/composables/usePageView'
 
 const router = useRouter()
 const tableRef=ref()
+const calcVisible=ref(false)
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 
@@ -90,12 +94,19 @@ function openDetail(row: any, tab: string) {
 }
 
 function handleAction(k:string){
-  if(k==='calc'){ router.push('/salary-summaries/calc') }
+  if(k==='calc'){ calcVisible.value=true }
   else if(k==='export'){handleExport()}
 }
 async function handleExport(){
   const data = await exportSalarySummaries(tableRef.value?.getSearchParams() || {})
   downloadBlob(data)
+}
+
+const submitFn = (data: any) => calculateSalaries(data)
+
+function onCalcDone(){
+  tableRef.value?.refresh()
+  timePanelRef.value?.reload()
 }
 </script>
 <style scoped>.page-container{padding:0;background:transparent}</style>

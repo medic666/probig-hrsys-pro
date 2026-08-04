@@ -48,3 +48,12 @@ func GetAttendanceMonthlyBadges(c *gin.Context) {
 	}
 	utils.Success(c, badges)
 }
+
+func GetAnnualLeaveEventBadges(c *gin.Context) {
+	badges, err := service.GetAnnualLeaveEventBadges()
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, badges)
+}

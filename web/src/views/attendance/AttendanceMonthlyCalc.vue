@@ -125,7 +125,7 @@ async function doCalc(){
   if(!calcMonth.value){ElMessage.warning('请选择月份');return}
   saving.value=true
   try{const d=await calculateMonthly({month:calcMonth.value,person_ids:calcPersonIds.value}) as any
-    ElMessage.success(`核算完成: 成功${d.success}条, 失败${d.fail}条`);calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
+    ElMessage.success(`核算完成: 有结果${d.has_value}条, 空结果${d.empty}条, 失败${d.fail}条`);calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   }catch{/* */}finally{saving.value=false}
 }
 // 查看明细 = 进入月度考勤核算详情页（URL 携带人员+月份）

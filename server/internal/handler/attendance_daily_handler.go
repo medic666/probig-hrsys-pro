@@ -261,14 +261,14 @@ func DingTalkExecute(c *gin.Context) {
 		utils.Error(c, "上传文件已过期，请重新上传")
 		return
 	}
-	created, pending, err := service.DingTalkExecute(c.Request.Context(), req.FilePath, req.Month, req.Mappings)
+	created, pending, fail, err := service.DingTalkExecute(c.Request.Context(), req.FilePath, req.Month, req.Mappings)
 	if err != nil {
 		utils.Error(c, "导入失败:"+err.Error())
 		return
 	}
 	// 执行成功后清理本次导入临时文件
 	os.Remove(req.FilePath)
-	utils.Success(c, gin.H{"created": created, "pending": pending})
+	utils.Success(c, gin.H{"created": created, "pending": pending, "fail": fail})
 }
 
 // isDingTalkTempPath 校验导入文件位于上传目录内且为 dingtalk_*.xlsx 临时文件

@@ -32,6 +32,7 @@ func GetActivePersonIDsInMonth(month string) []uint {
 func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string) (*model.AttendanceCalculationMonthly, error) {
 	var result *model.AttendanceCalculationMonthly
 	var oldJSON, newJSON, personName string
+	var audited bool
 	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		monthStart, err := time.Parse("2006-01", month)
 		if err != nil {
@@ -41,20 +42,22 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 		monthStartDate := utils.DateOnlyFromTime(monthStart)
 		monthEndDate := utils.DateOnlyFromTime(monthEnd)
 
+		// ① 存在待确认日记工时 → 数据未定稿，跳过核算并置空（无值）
 		var pendingCount int64
 		tx.Model(&model.AttendanceDailyProjection{}).
 			Where("person_id = ? AND work_date >= ? AND work_date <= ? AND status = ?",
 				personID, monthStartDate, monthEndDate, "pending").Count(&pendingCount)
 		if pendingCount > 0 {
-			return fmt.Errorf("当月有 %d 天待确认的考勤记录，请先完成核实", pendingCount)
+			return clearMonthlyCalcInTx(tx, personID, month, &oldJSON, &personName, &audited)
 		}
 
 		var snapshots []model.PositionSnapshot
 		tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 			personID, monthEndDate, monthStartDate).Find(&snapshots)
 
+		// ② 当月无职务快照 → 无核算对象，置空（无值）
 		if len(snapshots) == 0 {
-			return fmt.Errorf("当月无在职记录")
+			return clearMonthlyCalcInTx(tx, personID, month, &oldJSON, &personName, &audited)
 		}
 
 		var totalDays float64
@@ -97,13 +100,19 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			salaryDaysTotal += s.SalaryDays * segDays
 		}
 
+		// ③ 当月无活跃在职段 → 置空（无值）
 		if totalDays == 0 {
-			return fmt.Errorf("当月无在职记录")
+			return clearMonthlyCalcInTx(tx, personID, month, &oldJSON, &personName, &audited)
 		}
 
 		weightedBase = (weightedBase / totalDays)
 		weightedMeal = (weightedMeal / totalDays)
 		avgSalaryDays := utils.RoundTwoDecimal(salaryDaysTotal / totalDays)
+
+		// ④ 计薪天数未配置 → 失败（需人工设置职务计薪天数后重新核算）
+		if avgSalaryDays == 0 {
+			return fmt.Errorf("计薪天数未设置，请先配置该人员的职务计薪天数后重新核算")
+		}
 
 		var totalWorkHours, overtimeWorkday, overtimeHoliday float64
 		var hasPersonalLeave bool
@@ -112,6 +121,11 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 		var dailyProjections []model.AttendanceDailyProjection
 		tx.Where("person_id = ? AND work_date >= ? AND work_date <= ?",
 			personID, monthStartDate, monthEndDate).Find(&dailyProjections)
+
+		// ⑤ 当月无任何日记工时投影 → 空结果，置空（无值）
+		if len(dailyProjections) == 0 {
+			return clearMonthlyCalcInTx(tx, personID, month, &oldJSON, &personName, &audited)
+		}
 
 		for _, d := range dailyProjections {
 			totalWorkHours += d.WorkHours
@@ -169,8 +183,7 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			LastCalcAt: time.Now(),
 		}
 
-		// 核算前旧结果快照（审计 before）
-		oldJSON = ""
+		// ⑥ 有值：物理删旧记录 + 新建（幂等覆盖，历史由审计快照留存）
 		var oldCalc model.AttendanceCalculationMonthly
 		if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldCalc).Error; err == nil {
 			if b, err := json.Marshal(oldCalc); err == nil {
@@ -187,14 +200,33 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 
 		b, _ := json.Marshal(calc); newJSON = string(b)
 		tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
+		audited = true
 		result = &calc
 		return nil
 	})
 	// 核算审计（每人一条），事务提交后写入，避免与业务事务的 SQLite 写锁竞争
-	if err == nil {
+	if err == nil && audited {
 		dao.WriteBusinessAudit(ctx, "核算", "attendance_calculation_monthly", personID, personName, oldJSON, newJSON)
 	}
 	return result, err
+}
+
+// clearMonthlyCalcInTx 置空月考勤核算（无值语义）：物理删除旧记录（如有），
+// 返回 nil 表示"核算完成但结果为空"；仅当存在旧记录时登记置空审计。
+func clearMonthlyCalcInTx(tx *gorm.DB, personID uint, month string, oldJSON, personName *string, audited *bool) error {
+	var oldCalc model.AttendanceCalculationMonthly
+	hasOld := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldCalc).Error == nil
+	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.AttendanceCalculationMonthly{}).Error; err != nil {
+		return err
+	}
+	if hasOld {
+		if b, err := json.Marshal(oldCalc); err == nil {
+			*oldJSON = string(b)
+		}
+		tx.Table("persons").Select("name").Where("id = ?", personID).Scan(personName)
+		*audited = true
+	}
+	return nil
 }
 
 // MonthlyListQuery 月度考勤核算列表查询（列表与导出共用）
@@ -292,16 +324,20 @@ func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
 	return "calculated"
 }
 
-func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) (int, int, error) {
-	success, fail := 0, 0
+// CalculateMonthlyBatch 批量考勤核算：三态计数——
+// hasValue 有结果（含 0）/ empty 空结果（置空）/ fail 失败（需人工干预）
+func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) (hasValue, empty, fail int, err error) {
 	for _, pid := range personIDs {
-		if _, err := CalculateMonthlyAttendance(ctx, pid, month); err != nil {
+		r, calcErr := CalculateMonthlyAttendance(ctx, pid, month)
+		if calcErr != nil {
 			fail++
+		} else if r == nil {
+			empty++
 		} else {
-			success++
+			hasValue++
 		}
 	}
-	return success, fail, nil
+	return hasValue, empty, fail, nil
 }
 
 // GetAttendanceMonthlyBadges 月度考勤核算徽章（指定月份）：无核算记录 gray；

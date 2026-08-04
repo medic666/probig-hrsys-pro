@@ -96,7 +96,7 @@ async function doImport() {
   try {
     const mappings = preview.value.map((p: any) => ({ excel_name: p.excel_name, person_id: p.person_id }))
     const d = await dingTalkExecute(month.value, filePath.value, mappings) as any
-    ElMessage.success(`导入完成: 创建${d.created}条, 待确认${d.pending}条`)
+    ElMessage.success(`导入完成: 创建${d.created}条, 待确认${d.pending}条${d.fail ? `, 失败${d.fail}条(已标记待处理)` : ''}`)
     emit('saved')
   } catch { /* handled */ } finally { importing.value = false }
 }

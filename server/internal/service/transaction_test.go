@@ -18,7 +18,7 @@ func TestCalculateSalaryRollbackOnFailure(t *testing.T) {
 		if _, err := CalculateMonthlyAttendance(context.Background(), 20, "2026-06"); err != nil {
 			t.Fatalf("calc attendance: %v", err)
 		}
-		if err := CalculateSalary(context.Background(), 20, "2026-06", 1, "admin"); err != nil {
+		if _, err := CalculateSalary(context.Background(), 20, "2026-06", 1, "admin"); err != nil {
 			t.Fatalf("calc salary: %v", err)
 		}
 
@@ -34,7 +34,7 @@ func TestCalculateSalaryRollbackOnFailure(t *testing.T) {
 		}
 		defer db.Exec("DROP TRIGGER IF EXISTS test_fail_summary")
 
-		if err := CalculateSalary(context.Background(), 20, "2026-06", 1, "admin"); err == nil {
+		if _, err := CalculateSalary(context.Background(), 20, "2026-06", 1, "admin"); err == nil {
 			t.Fatalf("expected failure, got nil")
 		}
 
@@ -56,15 +56,18 @@ func TestCalculateSalaryRollbackOnFailure(t *testing.T) {
 	})
 }
 
-func TestCalculateMonthlyAttendanceKeepsOldResultOnFailure(t *testing.T) {
+// TestCalculateMonthlyAttendanceClearsOnPending 存在 pending 日记工时 → 核算结果置空（无值语义）：
+// 不报错、不保留旧结果，旧核算记录被物理删除，等待确认后重新核算
+func TestCalculateMonthlyAttendanceClearsOnPending(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
 		seedEmployee(db, 21, "2026-01-01", 8000, 2000, 300, 500, 26)
 		seedAttendanceDays(db, 21, "2026-06", 26, 8)
-		if _, err := CalculateMonthlyAttendance(context.Background(), 21, "2026-06"); err != nil {
-			t.Fatalf("calc attendance: %v", err)
+		r, err := CalculateMonthlyAttendance(context.Background(), 21, "2026-06")
+		if err != nil || r == nil {
+			t.Fatalf("calc attendance: result=%v err=%v", r, err)
 		}
 
-		// 新增一条 pending 记录 → 重算必须失败且不破坏旧结果
+		// 新增一条 pending 记录 → 重算：结果置空（无值）
 		d, _ := utils.ParseDate("2026-06-20")
 		dOnly := utils.DateOnlyFromTime(d)
 		db.Create(&model.AttendanceDailyProjection{
@@ -74,16 +77,18 @@ func TestCalculateMonthlyAttendanceKeepsOldResultOnFailure(t *testing.T) {
 			LastCalcAt: time.Now(),
 		})
 
-		if _, err := CalculateMonthlyAttendance(context.Background(), 21, "2026-06"); err == nil {
-			t.Fatalf("expected failure with pending records, got nil")
+		r2, err2 := CalculateMonthlyAttendance(context.Background(), 21, "2026-06")
+		if err2 != nil {
+			t.Fatalf("pending should be empty result, got err: %v", err2)
+		}
+		if r2 != nil {
+			t.Fatalf("pending should yield nil result, got %v", r2)
 		}
 
-		var calc model.AttendanceCalculationMonthly
-		if err := db.Where("person_id = ? AND belong_month = ?", 21, "2026-06").First(&calc).Error; err != nil {
-			t.Fatalf("old calc should be preserved: %v", err)
-		}
-		if calc.TotalWorkHours == 0 {
-			t.Errorf("old calc result lost, got TotalWorkHours=0")
+		var count int64
+		db.Model(&model.AttendanceCalculationMonthly{}).Where("person_id = ? AND belong_month = ?", 21, "2026-06").Count(&count)
+		if count != 0 {
+			t.Errorf("old calc should be cleared (empty), got %d records", count)
 		}
 	})
 }

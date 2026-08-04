@@ -119,7 +119,7 @@ func TestSalaryFullMonthNormal(t *testing.T) {
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(context.Background(), 1, "2026-06", 1, "admin")
+		_, err = CalculateSalary(context.Background(), 1, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -166,7 +166,7 @@ func TestSalaryMidMonthLeave(t *testing.T) {
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(context.Background(), 2, "2026-06", 1, "admin")
+		_, err = CalculateSalary(context.Background(), 2, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -202,7 +202,7 @@ func TestSalaryPersonalLeaveZeroBonus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(context.Background(), 3, "2026-06", 1, "admin")
+		_, err = CalculateSalary(context.Background(), 3, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -231,7 +231,7 @@ func TestSalaryViolationsBonus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(context.Background(), 4, "2026-06", 1, "admin")
+		_, err = CalculateSalary(context.Background(), 4, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -260,7 +260,7 @@ func TestSalaryCarryover(t *testing.T) {
 		if err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		err = CalculateSalary(context.Background(), 5, "2026-06", 1, "admin")
+		_, err = CalculateSalary(context.Background(), 5, "2026-06", 1, "admin")
 		if err != nil {
 			t.Fatalf("salary: %v", err)
 		}
@@ -298,7 +298,7 @@ func TestSalaryPerfCoeff(t *testing.T) {
 		seedAttendanceDays(db, 6, "2026-06", 26, 8)
 		seedSalaryEvent(db, 6, "2026-06", "绩效系数", 1.2)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 6, "2026-06")
-		_ = CalculateSalary(context.Background(), 6, "2026-06", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 6, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 6, "2026-06").First(&s)
@@ -321,7 +321,7 @@ func TestSalaryAdjustments(t *testing.T) {
 		seedSalaryEvent(db, 7, "2026-06", "借款还款", 1500)
 		seedSalaryEvent(db, 7, "2026-06", "个税扣除", 800)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 7, "2026-06")
-		_ = CalculateSalary(context.Background(), 7, "2026-06", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 7, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 7, "2026-06").First(&s)
@@ -360,7 +360,7 @@ func TestSalaryHighTempMonth(t *testing.T) {
 		// June = high-temp month (config: ["06","07","08","09"])
 		seedAttendanceDays(db, 8, "2026-06", 26, 8)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 8, "2026-06")
-		_ = CalculateSalary(context.Background(), 8, "2026-06", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 8, "2026-06", 1, "admin")
 		var sJune model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 8, "2026-06").First(&sJune)
 
@@ -371,7 +371,7 @@ func TestSalaryHighTempMonth(t *testing.T) {
 		// January = not high-temp
 		seedAttendanceDays(db, 8, "2026-01", 26, 8)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 8, "2026-01")
-		_ = CalculateSalary(context.Background(), 8, "2026-01", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 8, "2026-01", 1, "admin")
 		var sJan model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 8, "2026-01").First(&sJan)
 
@@ -408,7 +408,7 @@ func TestSalaryMidMonthAdjust(t *testing.T) {
 
 		seedAttendanceDays(db, 9, "2026-06", 26, 8)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 9, "2026-06")
-		_ = CalculateSalary(context.Background(), 9, "2026-06", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 9, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 9, "2026-06").First(&s)
@@ -447,7 +447,7 @@ func TestSalaryComplexCombo(t *testing.T) {
 		seedAnnualLeaveDeduct(db, 10, "2026-06-15", 8)
 
 		_, _ = CalculateMonthlyAttendance(context.Background(), 10, "2026-06")
-		_ = CalculateSalary(context.Background(), 10, "2026-06", 1, "admin")
+		_, _ = CalculateSalary(context.Background(), 10, "2026-06", 1, "admin")
 
 		var s model.SalarySummary
 		db.Where("person_id = ? AND belong_month = ?", 10, "2026-06").First(&s)

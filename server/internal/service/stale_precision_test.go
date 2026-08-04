@@ -61,7 +61,7 @@ func TestSalaryStaleDetectionOnEventChange(t *testing.T) {
 		if _, err := CalculateMonthlyAttendance(context.Background(), 61, "2026-06"); err != nil {
 			t.Fatalf("calc: %v", err)
 		}
-		if err := CalculateSalary(context.Background(), 61, "2026-06", 1, "admin"); err != nil {
+		if _, err := CalculateSalary(context.Background(), 61, "2026-06", 1, "admin"); err != nil {
 			t.Fatalf("calc salary: %v", err)
 		}
 

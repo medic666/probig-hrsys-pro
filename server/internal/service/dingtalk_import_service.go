@@ -161,10 +161,10 @@ func DingTalkPreview(filePath string) ([]DingTalkPreviewResult, error) {
 	return result, nil
 }
 
-func DingTalkExecute(ctx context.Context, filePath, month string, mappings []DingTalkImportMapping) (created, pending int, err error) {
+func DingTalkExecute(ctx context.Context, filePath, month string, mappings []DingTalkImportMapping) (created, pending, fail int, err error) {
 	_, persons, err := ParseDingTalkExcel(filePath)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	personMap := make(map[string]uint)
 	for _, m := range mappings {
@@ -186,15 +186,16 @@ func DingTalkExecute(ctx context.Context, filePath, month string, mappings []Din
 			}
 			date := monthStart.AddDate(0, 0, dayIdx)
 			dateOnly := utils.DateOnlyFromTime(date)
-			c, p := parseDailyCell(ctx, cell, pid, dateOnly)
+			c, p, f := parseDailyCell(ctx, cell, pid, dateOnly)
 			created += c
 			pending += p
+			fail += f
 		}
 	}
-	return created, pending, nil
+	return created, pending, fail, nil
 }
 
-func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.DateOnly) (created, pending int) {
+func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.DateOnly) (created, pending, fail int) {
 	status := "confirmed"
 	var events []model.AttendanceEventDetail
 
@@ -203,7 +204,7 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	// 纯休息日：以"休息"开头且不含加班/打卡/外勤/请假，才视为休息日跳过
 	isRest := strings.HasPrefix(cell, "休息") && !hasOT && !strings.Contains(cell, "打卡") && !strings.Contains(cell, "外勤") && !hasLeave
 	if isRest {
-		return 0, 0
+		return 0, 0, 0
 	}
 
 	isRestOT := strings.Contains(cell, "休息并打卡")
@@ -216,7 +217,7 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 
 	punchTime := extractPunchTime(cell)
 
-	createEvents := func() (int, int) {
+	createEvents := func() (int, int, int) {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 			// 颗粒化 upsert（提供即覆盖，与单条/批量录入同一规则）：
 			// 明细/打卡时间/状态按解析结果写入；导入数据不含备注（nil 保持原值）。
@@ -232,9 +233,22 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 			})
 		})
 		if err != nil {
-			return 0, 0
+			// 失败兜底：覆盖为 pending 空日记录（无事件明细），管理员可在待确认页分辨导入失败项；
+			// 覆盖当天已有记录（与导入"覆盖当天"语义一致，强制人工处理）
+			pStatus, pPunch, pRemark := "pending", "", ""
+			_ = utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+				return UpsertAttendanceDaily(tx, AttendanceDailyUpsert{
+					PersonID:  personID,
+					Date:      date,
+					Status:    &pStatus,
+					PunchTime: &pPunch,
+					Remark:    &pRemark,
+					Details:   []model.AttendanceEventDetail{},
+				})
+			})
+			return 0, 0, 1
 		}
-		return created, pending
+		return created, pending, 0
 	}
 
 	if isAbsent {

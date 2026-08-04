@@ -17,27 +17,21 @@ import (
 
 var ErrAttendanceNotCalculated = errors.New("未完成月度考勤核算，请先进行考勤核算")
 
-func CalculateSalary(ctx context.Context, personID uint, month string, operatorID uint, operatorName string) error {
+func CalculateSalary(ctx context.Context, personID uint, month string, operatorID uint, operatorName string) (*model.SalarySummary, error) {
+	var result *model.SalarySummary
 	var oldJSON, newJSON, personName string
+	var audited bool
 	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		monthStart, _ := time.Parse("2006-01", month)
 		monthEnd := monthStart.AddDate(0, 1, -1)
 		monthStartD := utils.DateOnlyFromTime(monthStart)
 		monthEndD := utils.DateOnlyFromTime(monthEnd)
 
-		// L1 状态检查：当月存在待确认日记工时投影时禁止核算（与考勤核算一致，形成 L0→L1→L2→L3 完整控制链）
-		var pendingCount int64
-		tx.Model(&model.AttendanceDailyProjection{}).
-			Where("person_id = ? AND work_date >= ? AND work_date <= ? AND status = ?",
-				personID, monthStartD, monthEndD, "pending").Count(&pendingCount)
-		if pendingCount > 0 {
-			return fmt.Errorf("当月有 %d 天待确认的考勤记录，请先完成核实", pendingCount)
-		}
-
 		var calc model.AttendanceCalculationMonthly
 		err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc).Error
 		if err != nil {
-			return fmt.Errorf("%w", ErrAttendanceNotCalculated)
+			// 考勤核算为空（无值）→ 空值传递：删除旧工资汇总，结果置空
+			return clearSalarySummaryInTx(tx, personID, month, &oldJSON, &personName, &audited)
 		}
 
 	var snapshots []model.PositionSnapshot
@@ -262,31 +256,52 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 
 	b, _ := json.Marshal(summary); newJSON = string(b)
 	tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
+	audited = true
+	result = &summary
 	return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// 核算审计（每人一条），事务提交后写入，避免与业务事务的 SQLite 写锁竞争
-	dao.WriteBusinessAudit(ctx, "核算", "salary_summaries", personID, personName, oldJSON, newJSON)
+	if audited {
+		dao.WriteBusinessAudit(ctx, "核算", "salary_summaries", personID, personName, oldJSON, newJSON)
+	}
+	return result, nil
+}
+
+// clearSalarySummaryInTx 置空工资汇总（空值传递语义）：物理删除旧汇总（如有），
+// 返回 nil 表示"核算完成但结果为空"；仅当存在旧记录时登记置空审计。
+func clearSalarySummaryInTx(tx *gorm.DB, personID uint, month string, oldJSON, personName *string, audited *bool) error {
+	var oldSummary model.SalarySummary
+	hasOld := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldSummary).Error == nil
+	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.SalarySummary{}).Error; err != nil {
+		return err
+	}
+	if hasOld {
+		if b, err := json.Marshal(oldSummary); err == nil {
+			*oldJSON = string(b)
+		}
+		tx.Table("persons").Select("name").Where("id = ?", personID).Scan(personName)
+		*audited = true
+	}
 	return nil
 }
 
-func CalculateSalaryBatch(ctx context.Context, month string, personIDs []uint, operatorID uint, operatorName string) (int, int, int, error) {
-	success, fail, skip := 0, 0, 0
+// CalculateSalaryBatch 批量工资核算：三态计数——
+// hasValue 有结果 / empty 空结果（考勤空→置空）/ fail 失败（需人工干预）
+func CalculateSalaryBatch(ctx context.Context, month string, personIDs []uint, operatorID uint, operatorName string) (hasValue, empty, fail int, err error) {
 	for _, pid := range personIDs {
-		err := CalculateSalary(ctx, pid, month, operatorID, operatorName)
-		if err != nil {
-			if errors.Is(err, ErrAttendanceNotCalculated) {
-				skip++
-			} else {
-				fail++
-			}
+		r, calcErr := CalculateSalary(ctx, pid, month, operatorID, operatorName)
+		if calcErr != nil {
+			fail++
+		} else if r == nil {
+			empty++
 		} else {
-			success++
+			hasValue++
 		}
 	}
-	return success, fail, skip, nil
+	return hasValue, empty, fail, nil
 }
 
 // SalarySummaryListQuery 工资汇总列表查询（列表与导出共用）

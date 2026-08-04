@@ -52,13 +52,13 @@ func CalculateSalarySummaries(c *gin.Context) {
 
 	userID := c.GetUint("userID")
 	userName := c.GetString("username")
-	success, fail, skip, err := service.CalculateSalaryBatch(c.Request.Context(), req.Month, req.PersonIDs, userID, userName)
+	hasValue, empty, fail, err := service.CalculateSalaryBatch(c.Request.Context(), req.Month, req.PersonIDs, userID, userName)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
 	utils.Success(c, map[string]interface{}{
-		"success": success, "fail": fail, "skip": skip,
+		"has_value": hasValue, "empty": empty, "fail": fail,
 	})
 }
 

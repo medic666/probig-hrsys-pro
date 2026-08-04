@@ -52,12 +52,12 @@ func CalculateMonthly(c *gin.Context) {
 		}
 	}
 
-	success, fail, err := service.CalculateMonthlyBatch(c.Request.Context(), req.Month, req.PersonIDs)
+	hasValue, empty, fail, err := service.CalculateMonthlyBatch(c.Request.Context(), req.Month, req.PersonIDs)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	utils.SuccessWithMsg(c, "核算完成", gin.H{"success": success, "fail": fail})
+	utils.SuccessWithMsg(c, "核算完成", gin.H{"has_value": hasValue, "empty": empty, "fail": fail})
 }
 
 // monthlyExportFilters 月度考勤核算导出文件名筛选摘要

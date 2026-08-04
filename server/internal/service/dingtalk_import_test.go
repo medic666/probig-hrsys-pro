@@ -66,7 +66,7 @@ func TestDingTalkParseMultiLeave(t *testing.T) {
 		date := utils.DateOnlyFromTime(d)
 
 		cell := "病假05-18 08:30到05-18 12:00 3.5小时,病假05-18 13:30到05-18 18:00 4.5小时"
-		c, _ := parseDailyCell(ctx, cell, 200, date)
+		c, _, _ := parseDailyCell(ctx, cell, 200, date)
 		if c == 0 {
 			t.Fatalf("multi-leave cell: created=0, want >0")
 		}
@@ -88,7 +88,7 @@ func TestDingTalkParseMultiLeave(t *testing.T) {
 
 		// 休息+病假：不得被休息日分支丢弃
 		cell2 := "休息,病假05-22 08:30到05-29 18:30 56小时"
-		c2, _ := parseDailyCell(ctx, cell2, 201, date)
+		c2, _, _ := parseDailyCell(ctx, cell2, 201, date)
 		if c2 == 0 {
 			t.Fatalf("rest+leave cell: created=0, want >0 (病假不应被丢弃)")
 		}
@@ -120,7 +120,7 @@ func TestDingTalkImportIdempotent(t *testing.T) {
 
 		cell := "正常(08:30,18:30)"
 		for i := 0; i < 2; i++ {
-			c, _ := parseDailyCell(ctx, cell, 300, date)
+			c, _, _ := parseDailyCell(ctx, cell, 300, date)
 			if c == 0 {
 				t.Fatalf("round %d: created=0", i+1)
 			}
@@ -137,6 +137,41 @@ func TestDingTalkImportIdempotent(t *testing.T) {
 	})
 }
 
+// TestDingTalkImportFailFallback 单元格写入失败：fail 计数 + 兜底生成 pending 空日记录（覆盖当天）
+func TestDingTalkImportFailFallback(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		migrateBalanceSnapshots(t, db)
+		ctx := context.Background()
+		d, _ := utils.ParseDate("2026-06-10")
+		date := utils.DateOnlyFromTime(d)
+
+		// 注入：考勤明细插入失败（模拟真实 SQL 错误）
+		if err := db.Exec("CREATE TRIGGER test_fail_detail BEFORE INSERT ON attendance_event_details BEGIN SELECT RAISE(ABORT, 'injected failure'); END").Error; err != nil {
+			t.Fatalf("create trigger: %v", err)
+		}
+		defer db.Exec("DROP TRIGGER IF EXISTS test_fail_detail")
+
+		cell := "正常(08:30,18:30)"
+		c, p, f := parseDailyCell(ctx, cell, 400, date)
+		if c != 0 || p != 0 || f != 1 {
+			t.Fatalf("expected fail=1 only, got created=%d pending=%d fail=%d", c, p, f)
+		}
+
+		// 兜底 pending 空日记录已生成（无事件明细）
+		var daily model.AttendanceDaily
+		if err := db.Where("person_id = 400 AND event_date = ?", date).First(&daily).Error; err != nil {
+			t.Fatalf("fallback pending daily should exist: %v", err)
+		}
+		if daily.Status != "pending" {
+			t.Errorf("fallback daily status = %s, want pending", daily.Status)
+		}
+		var details []model.AttendanceEventDetail
+		db.Where("daily_id = ?", daily.ID).Find(&details)
+		if len(details) != 0 {
+			t.Errorf("fallback daily should have no details, got %d", len(details))
+		}
+	})
+}
 // TestDingTalkSampleFilesPunchCoverage 真实样本文件：非休息单元格打卡时间覆盖率
 func TestDingTalkSampleFilesPunchCoverage(t *testing.T) {
 	matches, err := filepath.Glob("../../../examples/广州*月度汇总*.xlsx")
@@ -218,7 +253,7 @@ func TestDingTalkParseDailyCell(t *testing.T) {
 		}
 		for i, tc := range cases {
 			pid := uint(100 + i)
-			c, p := parseDailyCell(ctx, tc.cell, pid, date)
+			c, p, _ := parseDailyCell(ctx, tc.cell, pid, date)
 			if c != tc.created || p != tc.pending {
 				t.Errorf("cell %q: created=%d pending=%d, want %d/%d", tc.cell, c, p, tc.created, tc.pending)
 			}

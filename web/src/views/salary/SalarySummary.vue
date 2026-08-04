@@ -111,7 +111,7 @@ async function doCalc(){
   if(!calcMonth.value){ElMessage.warning('请选择月份');return}
   saving.value=true
   try{const d=await calculateSalaries({month:calcMonth.value,person_ids:calcPersonIds.value}) as any
-    ElMessage.success(`核算完成: 成功${d.success}, 失败${d.fail}, 跳过${d.skip}`)
+    ElMessage.success(`核算完成: 有结果${d.has_value}条, 空结果${d.empty}条, 失败${d.fail}条`)
     calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
   }catch{/* */}finally{saving.value=false}
 }

@@ -1,6 +1,12 @@
 import request from '@/utils/request'
 
 export function getSalaryEvents(params: any) { return request.get('/salary-events', { params }) }
+// getSalaryAdvanceBalances 工资预支余额：person_id → balance（SUM 工资预支）
+export function getSalaryAdvanceBalances() { return request.get('/salary-events/advance-balances') }
+// getSalarySummariesBadges 工资汇总徽章（默认上月）：person_id → gray/green/orange
+export function getSalarySummariesBadges(month?: string) {
+  return request.get('/salary-summaries/badges', { params: month ? { month } : {} })
+}
 export function getSalaryEvent(id: number) { return request.get(`/salary-events/${id}`) }
 export function exportSalaryEvents(params: any) { return request.get('/salary-events/export', { params, responseType: 'blob' }) }
 export function createSalaryEvent(data: any) { return request.post('/salary-events', data) }

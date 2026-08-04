@@ -31,6 +31,7 @@ var migrations = []Migration{
 	{ID: "20260801_02_unify_punch_time", Name: "打卡时间统一到 daily.punch_time，清除打卡时间戳事件", Func: migrateV1UnifyPunchTime},
 	{ID: "20260802_01_config_key_classification", Name: "计薪小时基准配置归入考勤类", Func: migrateV1ConfigKeyClassification},
 	{ID: "20260804_01_annual_leave_tier_config", Name: "年假额度配置升级为阶梯交互", Func: migrateV1AnnualLeaveTierConfig},
+	{ID: "20260804_03_salary_advance_types", Name: "借款还款拆分工资预支/预支还款", Func: migrateV1SalaryAdvanceTypes},
 }
 
 // RunMigrations 顺序执行未应用的迁移；新库或未迁移库（无版本记录）从头执行全部
@@ -58,6 +59,14 @@ func RunMigrations(db *gorm.DB) error {
 		}
 	}
 	return nil
+}
+
+// migrateV1SalaryAdvanceTypes 借款还款拆分：按金额正负拆分历史事件
+// （正 = 工资预支，负 = 预支还款，符合拆分后的业务语义）
+func migrateV1SalaryAdvanceTypes(db *gorm.DB) error {
+	return db.Exec(`UPDATE salary_events
+		SET event_type = CASE WHEN amount >= 0 THEN '工资预支' ELSE '预支还款' END
+		WHERE event_type = '借款还款'`).Error
 }
 
 // migrateV1AnnualLeaveTierConfig 年假额度配置升级为阶梯交互：

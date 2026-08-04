@@ -36,6 +36,7 @@
         status-field="status"
         :pending-values="['data_changed']"
         :has-day-level="false"
+        :person-dot-map="dotMap"
         :detail-route="summaryDetailRoute"
       />
     </template>
@@ -45,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -53,18 +54,21 @@ import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
-import { getSalarySummaries, calculateSalaries, exportSalarySummaries } from '@/api/salary'
+import { getSalarySummaries, getSalarySummariesBadges, calculateSalaries, exportSalarySummaries } from '@/api/salary'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
 const tableRef=ref()
 const calcVisible=ref(false)
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
+// 徽章映射：personId → 颜色点（上月无核算 gray / 汇总过期 orange / 正常 green）
+const { dotMap, loadDots } = useBadges()
 
 const columns=[
   {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
@@ -108,5 +112,9 @@ function onCalcDone(){
   tableRef.value?.refresh()
   timePanelRef.value?.reload()
 }
+
+onMounted(async () => {
+  await loadDots('salary-summaries-badges', getSalarySummariesBadges)
+})
 </script>
 <style scoped>.page-container{padding:0;background:transparent}</style>

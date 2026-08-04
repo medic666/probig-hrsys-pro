@@ -1,0 +1,68 @@
+<template>
+  <div class="salary-event-card">
+    <div class="sec-header">
+      <span class="sec-person">{{ event.person_name }}</span>
+      <el-tag size="small">{{ event.event_type }}</el-tag>
+    </div>
+    <div class="sec-line">金额：{{ formatMoney(event.amount || 0) }} 元</div>
+    <div class="sec-line">归属月份：{{ event.belong_month }}</div>
+    <div class="sec-line" :class="{ 'sec-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
+    <div class="sec-actions">
+      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { formatMoney } from '@/utils'
+
+// 工资事件原子卡片：与其它模块原子卡片同构（编辑入口，删除走列表/回收站，卡片保持轻量）
+defineProps<{ event: any }>()
+defineEmits<{ (e: 'edit', event: any): void }>()
+</script>
+
+<style lang="scss" scoped>
+.salary-event-card {
+  width: 260px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px 12px;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .sec-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+
+    .sec-person {
+      font-weight: 600;
+      font-size: 14px;
+      color: #303133;
+    }
+  }
+
+  .sec-line {
+    font-size: 12px;
+    line-height: 22px;
+    color: #606266;
+
+    &.sec-empty {
+      color: #c0c4cc;
+    }
+  }
+
+  .sec-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 6px;
+    border-top: 1px dashed #ebeef5;
+    padding-top: 6px;
+  }
+}
+</style>

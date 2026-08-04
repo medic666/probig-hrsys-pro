@@ -320,7 +320,7 @@ func TestSalaryAdjustments(t *testing.T) {
 		seedAttendanceDays(db, 7, "2026-06", 26, 8)
 		seedSalaryEvent(db, 7, "2026-06", "提成", 3000)
 		seedSalaryEvent(db, 7, "2026-06", "奖惩", -200)
-		seedSalaryEvent(db, 7, "2026-06", "借款还款", 1500)
+		seedSalaryEvent(db, 7, "2026-06", "预支还款", 1500)
 		seedSalaryEvent(db, 7, "2026-06", "个税扣除", 800)
 		_, _ = CalculateMonthlyAttendance(context.Background(), 7, "2026-06")
 		_, _ = CalculateSalary(context.Background(), 7, "2026-06", 1, "admin")

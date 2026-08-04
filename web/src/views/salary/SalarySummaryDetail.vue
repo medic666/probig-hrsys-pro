@@ -24,7 +24,7 @@
             <el-descriptions-item label="公积金补偿">{{ summaryRow.fund_compensation }}</el-descriptions-item>
             <el-descriptions-item label="提成">{{ summaryRow.sales_commission }}</el-descriptions-item>
             <el-descriptions-item label="奖惩">{{ summaryRow.reward_punishment }}</el-descriptions-item>
-            <el-descriptions-item label="借款还款">{{ summaryRow.borrowing_repayment }}</el-descriptions-item>
+            <el-descriptions-item label="预支还款">{{ summaryRow.borrowing_repayment }}</el-descriptions-item>
             <el-descriptions-item label="社保代扣">{{ summaryRow.social_security_deduct }}</el-descriptions-item>
             <el-descriptions-item label="公积金代扣">{{ summaryRow.housing_fund_deduct }}</el-descriptions-item>
             <el-descriptions-item label="个税代扣">{{ summaryRow.tax_deduct }}</el-descriptions-item>
@@ -60,7 +60,7 @@
                 <el-descriptions-item label="公积金补偿">{{ row.fund_compensation }}</el-descriptions-item>
                 <el-descriptions-item label="提成">{{ row.sales_commission }}</el-descriptions-item>
                 <el-descriptions-item label="奖惩">{{ row.reward_punishment }}</el-descriptions-item>
-                <el-descriptions-item label="借款还款">{{ row.borrowing_repayment }}</el-descriptions-item>
+                <el-descriptions-item label="预支还款">{{ row.borrowing_repayment }}</el-descriptions-item>
                 <el-descriptions-item label="社保代扣">{{ row.social_security_deduct }}</el-descriptions-item>
                 <el-descriptions-item label="公积金代扣">{{ row.housing_fund_deduct }}</el-descriptions-item>
                 <el-descriptions-item label="个税代扣">{{ row.tax_deduct }}</el-descriptions-item>
@@ -132,7 +132,7 @@
               <el-descriptions-item label="公积金补偿">{{ traceData.summary.fund_compensation }}</el-descriptions-item>
               <el-descriptions-item label="提成">{{ traceData.summary.sales_commission }}</el-descriptions-item>
               <el-descriptions-item label="奖惩">{{ traceData.summary.reward_punishment }}</el-descriptions-item>
-              <el-descriptions-item label="借款还款">{{ traceData.summary.borrowing_repayment }}</el-descriptions-item>
+              <el-descriptions-item label="预支还款">{{ traceData.summary.borrowing_repayment }}</el-descriptions-item>
               <el-descriptions-item label="社保代扣">{{ traceData.summary.social_security_deduct }}</el-descriptions-item>
               <el-descriptions-item label="公积金代扣">{{ traceData.summary.housing_fund_deduct }}</el-descriptions-item>
               <el-descriptions-item label="个税代扣">{{ traceData.summary.tax_deduct }}</el-descriptions-item>
@@ -252,7 +252,7 @@ const compareFields = [
   { key: 'fund_compensation', label: '公积金补偿' },
   { key: 'sales_commission', label: '提成' },
   { key: 'reward_punishment', label: '奖惩' },
-  { key: 'borrowing_repayment', label: '借款还款' },
+  { key: 'borrowing_repayment', label: '预支还款' },
   { key: 'social_security_deduct', label: '社保代扣' },
   { key: 'housing_fund_deduct', label: '公积金代扣' },
   { key: 'tax_deduct', label: '个税代扣' },

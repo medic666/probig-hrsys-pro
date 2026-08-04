@@ -126,7 +126,7 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 			salesCommission = utils.DecimalAdd(salesCommission, e.Amount)
 		case "奖惩":
 			rewardPunishment = utils.DecimalAdd(rewardPunishment, e.Amount)
-		case "借款还款":
+		case "预支还款":
 			borrowingRepayment = utils.DecimalAdd(borrowingRepayment, e.Amount)
 		case "个税扣除":
 			taxDeduct = utils.DecimalAdd(taxDeduct, e.Amount)
@@ -487,4 +487,105 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 		SalaryEvents:         salaryEvents,
 		AnnualLeaveCarryover: alCarryover,
 	}, nil
+}
+
+// GetSalarySummariesBadges 月度工资汇总徽章（指定月份）：无汇总记录 gray；
+// 汇总过期（IsSalarySummaryStale = data_changed 语义）orange；已核算未过期 green。
+// stale 判定按人员批量聚合 4 类源（考勤核算/职务快照/工资事件/年假事件）的最后变更时间，
+// 与 IsSalarySummaryStale 语义等价（Select 原列 + Go 聚合，规避 MAX 聚合 Scan 类型坑）。
+func GetSalarySummariesBadges(month string) ([]PersonBadge, error) {
+	monthStart, err := utils.MonthStart(month)
+	if err != nil {
+		return nil, err
+	}
+	monthStartD := utils.DateOnlyFromTime(monthStart)
+	monthEndD := utils.DateOnlyFromTime(monthStart.AddDate(0, 1, -1))
+
+	var summaries []model.SalarySummary
+	if err := dao.DB.Where("belong_month = ?", month).Find(&summaries).Error; err != nil {
+		return nil, err
+	}
+	sumMap := make(map[uint]model.SalarySummary, len(summaries))
+	for _, s := range summaries {
+		sumMap[s.PersonID] = s
+	}
+
+	type timeRow struct {
+		PersonID uint
+		At       time.Time
+	}
+	latest := make(map[uint]time.Time)
+	collect := func(rows []timeRow) {
+		for _, r := range rows {
+			if r.At.After(latest[r.PersonID]) {
+				latest[r.PersonID] = r.At
+			}
+		}
+	}
+	// 1. 考勤核算（belong_month 匹配）
+	var calcRows []timeRow
+	if err := dao.DB.Model(&model.AttendanceCalculationMonthly{}).
+		Select("person_id, last_calc_at AS at").Where("belong_month = ?", month).
+		Scan(&calcRows).Error; err != nil {
+		return nil, err
+	}
+	collect(calcRows)
+	// 2. 职务快照（覆盖当月）
+	var snapRows []timeRow
+	if err := dao.DB.Model(&model.PositionSnapshot{}).
+		Select("person_id, last_calc_at AS at").
+		Where("effective_start_date <= ? AND effective_end_date >= ?", monthEndD, monthStartD).
+		Scan(&snapRows).Error; err != nil {
+		return nil, err
+	}
+	collect(snapRows)
+	// 3. 工资事件（软删除时间纳入 stale 检测）
+	var evRows []timeRow
+	if err := dao.DB.Model(&model.SalaryEvent{}).Unscoped().
+		Select("person_id, updated_at AS at").Where("belong_month = ?", month).
+		Scan(&evRows).Error; err != nil {
+		return nil, err
+	}
+	collect(evRows)
+	var evDelRows []timeRow
+	if err := dao.DB.Model(&model.SalaryEvent{}).Unscoped().
+		Select("person_id, deleted_at AS at").Where("belong_month = ? AND deleted_at IS NOT NULL", month).
+		Scan(&evDelRows).Error; err != nil {
+		return nil, err
+	}
+	collect(evDelRows)
+	// 4. 年假事件（结转影响当月工资）
+	var alRows []timeRow
+	if err := dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
+		Select("person_id, updated_at AS at").Where("effective_date >= ? AND effective_date <= ?", monthStartD, monthEndD).
+		Scan(&alRows).Error; err != nil {
+		return nil, err
+	}
+	collect(alRows)
+	var alDelRows []timeRow
+	if err := dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
+		Select("person_id, deleted_at AS at").Where("effective_date >= ? AND effective_date <= ? AND deleted_at IS NOT NULL", monthStartD, monthEndD).
+		Scan(&alDelRows).Error; err != nil {
+		return nil, err
+	}
+	collect(alDelRows)
+
+	var personIDs []uint
+	if err := dao.DB.Table("persons").Where("deleted_at IS NULL").Pluck("id", &personIDs).Error; err != nil {
+		return nil, err
+	}
+	result := make([]PersonBadge, 0, len(personIDs))
+	for _, pid := range personIDs {
+		s, ok := sumMap[pid]
+		if !ok {
+			result = append(result, PersonBadge{PersonID: pid, Level: "gray"})
+			continue
+		}
+		level := "green"
+		if latest[pid].After(s.LastCalcAt) {
+			level = "orange"
+		}
+		result = append(result, PersonBadge{PersonID: pid, Level: level})
+	}
+	return result, nil
 }

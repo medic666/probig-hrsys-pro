@@ -117,3 +117,25 @@ func GetDeletedSalaryEvents(pageNum, pageSize int) ([]model.SalaryEvent, int64, 
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
 	return list, total, nil
 }
+
+// GetSalaryAdvanceBalances 工资预支余额：SUM(工资预支事件)，正累加。
+// 薪资类余额走汇总（与工资核算直接 SUM 事件的既有口径一致），不做快照。
+func GetSalaryAdvanceBalances() ([]PersonBalance, error) {
+	var rows []struct {
+		PersonID uint
+		Balance  float64
+	}
+	err := dao.DB.Table("salary_events").
+		Select("person_id, SUM(amount) AS balance").
+		Where("event_type = ? AND deleted_at IS NULL", "工资预支").
+		Group("person_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]PersonBalance, 0, len(rows))
+	for _, r := range rows {
+		result = append(result, PersonBalance{PersonID: r.PersonID, Balance: r.Balance})
+	}
+	return result, nil
+}

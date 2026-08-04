@@ -57,3 +57,22 @@ func GetAnnualLeaveEventBadges(c *gin.Context) {
 	}
 	utils.Success(c, badges)
 }
+
+func GetSalaryAdvanceBalances(c *gin.Context) {
+	balances, err := service.GetSalaryAdvanceBalances()
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, balances)
+}
+
+func GetSalarySummariesBadges(c *gin.Context) {
+	month := c.DefaultQuery("month", service.DefaultBadgeMonth())
+	badges, err := service.GetSalarySummariesBadges(month)
+	if err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
+	utils.Success(c, badges)
+}

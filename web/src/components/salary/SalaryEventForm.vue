@@ -37,7 +37,7 @@ const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
 const saving = ref(false)
-const types = ['绩效系数', '提成', '奖惩', '借款还款', '个税扣除']
+const types = ['绩效系数', '提成', '奖惩', '工资预支', '预支还款', '个税扣除']
 const form = reactive({ person_id: null as any, belong_month: '', event_type: '绩效系数', amount: 1, remark: '' })
 
 onMounted(async () => {

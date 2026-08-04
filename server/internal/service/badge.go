@@ -16,6 +16,12 @@ type PersonBadge struct {
 	Level    string `json:"level"`
 }
 
+// PersonBalance 人员数值型余额（如工资预支累计），meta 位徽章/展示通用
+type PersonBalance struct {
+	PersonID uint    `json:"person_id"`
+	Balance  float64 `json:"balance"`
+}
+
 // DefaultBadgeMonth 徽章默认统计月份：当前时间的上一个月（考勤核算必核月份）
 func DefaultBadgeMonth() string {
 	return time.Now().AddDate(0, -1, 0).Format("2006-01")

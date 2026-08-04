@@ -204,6 +204,7 @@ func SetupRouter() *gin.Engine {
 	salaryEvents.Use(middleware.AuthRequired())
 	{
 		salaryEvents.GET("", middleware.RequirePermission("salary.read"), handler.GetSalaryEvents)
+		salaryEvents.GET("/advance-balances", middleware.RequirePermission("salary.read"), handler.GetSalaryAdvanceBalances)
 		salaryEvents.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalaryEvents)
 		salaryEvents.GET("/trash", middleware.RequirePermission("salary.read"), handler.GetDeletedSalaryEvents)
 		salaryEvents.GET("/:id", middleware.RequirePermission("salary.read"), handler.GetSalaryEventByID)
@@ -217,6 +218,7 @@ func SetupRouter() *gin.Engine {
 	salarySummaries.Use(middleware.AuthRequired())
 	{
 		salarySummaries.GET("", middleware.RequirePermission("salary.read"), handler.GetSalarySummaries)
+		salarySummaries.GET("/badges", middleware.RequirePermission("salary.read"), handler.GetSalarySummariesBadges)
 		salarySummaries.POST("/calculate", middleware.RequirePermission("salary.write"), handler.CalculateSalarySummaries)
 		salarySummaries.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalarySummaries)
 		salarySummaries.GET("/:personId/:month/versions", middleware.RequirePermission("salary.read"), handler.GetSalaryVersions)

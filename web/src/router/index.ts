@@ -161,6 +161,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '月度考勤核算', permissionKey: 'attendance.read' },
       },
       {
+        path: 'attendance-monthly/calc',
+        name: 'AttendanceMonthlyCalcForm',
+        component: () => import('@/views/attendance/AttendanceCalcPage.vue'),
+        meta: { title: '批量核算考勤', permissionKey: 'attendance.read', backTo: '/attendance-monthly' },
+      },
+      {
         path: 'attendance-monthly/:personId/:month',
         name: 'AttendanceMonthlyDetail',
         component: () => import('@/views/attendance/AttendanceMonthlyDetail.vue'),
@@ -231,6 +237,12 @@ const routes: RouteRecordRaw[] = [
         name: 'SalarySummary',
         component: () => import('@/views/salary/SalarySummary.vue'),
         meta: { title: '月度工资汇总', permissionKey: 'salary.read' },
+      },
+      {
+        path: 'salary-summaries/calc',
+        name: 'SalarySummariesCalcForm',
+        component: () => import('@/views/salary/SalaryCalcPage.vue'),
+        meta: { title: '批量核算工资', permissionKey: 'salary.read', backTo: '/salary-summaries' },
       },
       {
         path: 'salary-summaries/:personId/:month',

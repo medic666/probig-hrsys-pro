@@ -38,33 +38,19 @@
         :detail-route="monthDetailRoute"
       />
     </template>
-
-    <el-dialog v-model="calcVisible" title="批量核算" width="450px">
-      <el-form label-width="80px">
-        <el-form-item label="月份"><el-date-picker v-model="calcMonth" type="month" value-format="YYYY-MM" style="width:100%" /></el-form-item>
-        <el-form-item label="人员">
-          <PersonDomainSelect v-model="calcPersonIds" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="calcVisible=false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="doCalc">开始核算(不选则全部在职人员)</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
-import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getMonthlyList, getAttendanceMonthlyBadges, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
+import { getMonthlyList, getAttendanceMonthlyBadges, exportAttendanceMonthly } from '@/api/attendance'
 import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
@@ -72,7 +58,7 @@ import { downloadBlob } from '@/utils/download'
 import { usePageView } from '@/composables/usePageView'
 
 const router = useRouter()
-const tableRef=ref(), calcVisible=ref(false), saving=ref(false), calcMonth=ref(''), calcPersonIds=ref<number[]>([])
+const tableRef=ref()
 const { viewMode, isList } = usePageView('cards')
 const timePanelRef=ref()
 // 徽章映射：personId → 颜色点（上月核算为空 gray / 核算过期 orange / 已核算 green）
@@ -106,7 +92,7 @@ function monthDetailRoute(person: { id: number; name: string }, month: string) {
 }
 
 function handleAction(k:string){
-  if(k==='calc'){calcMonth.value='';calcPersonIds.value=[];calcVisible.value=true}
+  if(k==='calc'){ router.push('/attendance-monthly/calc') }
   else if(k==='export'){handleExport()}
 }
 async function handleExport(){
@@ -120,13 +106,6 @@ async function handleExport(){
   }
   const data = await exportAttendanceMonthly(params)
   downloadBlob(data)
-}
-async function doCalc(){
-  if(!calcMonth.value){ElMessage.warning('请选择月份');return}
-  saving.value=true
-  try{const d=await calculateMonthly({month:calcMonth.value,person_ids:calcPersonIds.value}) as any
-    ElMessage.success(`核算完成: 有结果${d.has_value}条, 空结果${d.empty}条, 失败${d.fail}条`);calcVisible.value=false;tableRef.value?.refresh();timePanelRef.value?.reload()
-  }catch{/* */}finally{saving.value=false}
 }
 // 查看明细 = 进入月度考勤核算详情页（URL 携带人员+月份）
 function showDetail(row: any) {

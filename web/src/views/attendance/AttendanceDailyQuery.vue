@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="日记工时查询">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
@@ -64,12 +61,12 @@ import { ElMessage } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getDailyProjections, getDailyProjectionBadges, getEventsByDate, exportDailyProjections } from '@/api/attendance'
-import { getAllPersons } from '@/api/person'
 import { usePageView } from '@/composables/usePageView'
+import { useExport } from '@/composables/useExport'
 import { useBadges } from '@/composables/useBadges'
-import { downloadBlob } from '@/utils/download'
 import { hoursToDays } from '@/utils'
 
 const router = useRouter()
@@ -90,11 +87,12 @@ const columns = [
   { prop:'remark', label:'备注' },
 ]
 const searchFields = [
-  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
+  { prop:'person_id', label:'人员', type:'person-select' as const },
   { prop:'date', label:'日期范围', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 
-async function fetchPersonOptions(k?: string) { const l=(await getAllPersons()) as any[]||[]; return k?l.filter((p:any)=>p.name.includes(k)):l }
+const { run: handleExport } = useExport(exportDailyProjections, () => tableRef.value?.getSearchParams() || {})
+
 async function fetchDaily(p: any) {
   return (await getDailyProjections(p)) as any
 }
@@ -110,10 +108,7 @@ async function showEvents(row: any) {
     }
   } catch { /* handled */ }
 }
-async function handleExport() {
-  const data = await exportDailyProjections(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+
 
 onMounted(async () => {
   await loadDots('attendance-daily-badges', getDailyProjectionBadges)

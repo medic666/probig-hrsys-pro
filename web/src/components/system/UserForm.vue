@@ -7,7 +7,7 @@
       <el-input v-model="form.password" placeholder="留空使用默认密码 admin123" />
     </el-form-item>
     <el-form-item label="关联人员">
-      <NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" />
+      <NameSelect v-model="form.person_id" />
     </el-form-item>
     <el-form-item label="启用">
       <el-switch v-model="form.is_active" />
@@ -24,7 +24,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { getUser, createUser, updateUser } from '@/api/user'
-import { getAllPersons } from '@/api/person'
 
 // 新增=编辑统一表单：id 缺失 → 新增；{id} → 编辑
 const props = defineProps<{ id?: number | null }>()
@@ -44,11 +43,6 @@ onMounted(async () => {
     } catch { /* handled */ }
   }
 })
-
-async function fetchPersonOpts(k?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  return k ? list.filter(p => p.name.includes(k)) : list
-}
 
 async function doSave() {
   if (!form.username) { ElMessage.warning('请填写用户名'); return }

@@ -1,7 +1,7 @@
 <template>
   <el-form :model="eventForm" label-width="110px">
     <el-form-item label="人员" required>
-      <NameSelect v-model="eventForm.person_id" :fetch-api="fetchPersonOptions" placeholder="选择人员" :disabled="isEdit" />
+      <NameSelect v-model="eventForm.person_id" placeholder="选择人员" :disabled="isEdit" />
     </el-form-item>
     <el-form-item label="事件类型" required>
       <el-select v-model="eventForm.event_type" style="width:100%" :disabled="isEdit">
@@ -137,7 +137,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { createPositionEvent, updatePositionEvent, getPositionEvent } from '@/api/position-event'
-import { getAllPersons } from '@/api/person'
 import { getAllCompanies } from '@/api/company'
 
 // 新增=编辑=查看统一表单：event 为 null 或 {id} 缺失 → 新增；{id} → 编辑（打开即回显全部原值）
@@ -282,12 +281,6 @@ onMounted(async () => {
 
 function addAdjustItem() {
   adjustItems.value.push({ field: '', value: null })
-}
-
-async function fetchPersonOptions(keyword?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  if (!keyword) return list
-  return list.filter(p => p.name.includes(keyword))
 }
 
 async function handleSubmit() {

@@ -3,7 +3,7 @@
     <el-row :gutter="16">
       <el-col :xs="24" :sm="8">
         <el-form-item label="人员" required>
-          <NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" :disabled="isEdit || readonly" />
+          <NameSelect v-model="form.person_id" placeholder="选择人员" :disabled="isEdit || readonly" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="8">
@@ -44,8 +44,6 @@ import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import AttendanceDetailsEditor from '@/components/attendance/AttendanceDetailsEditor.vue'
 import { getAttendanceEvent, createAttendanceEvent, confirmAttendanceDaily } from '@/api/attendance'
-import { getAllPersons } from '@/api/person'
-
 // 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）。
 // 状态自选（已确认/待确认）：新增随创建提交，编辑随确认接口提交。
 // readonly 只读模式：日记工时模块进入的查看入口，无编辑/确认能力。
@@ -71,11 +69,6 @@ onMounted(async () => {
     } catch { /* handled */ }
   }
 })
-
-async function fetchPersonOpts(k?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  return k ? list.filter(p => p.name.includes(k)) : list
-}
 
 async function doSave() {
   if (!form.person_id) { ElMessage.warning('请选择人员'); return }

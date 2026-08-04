@@ -21,6 +21,13 @@ export function getAllPersons(): Promise<PersonOption[]> {
   return request.get('/persons/all') as Promise<PersonOption[]>
 }
 
+// searchPersonOptions 人员名称模糊搜索：姓名选择组件（NameSelect/ProTable person-select）统一默认数据源
+export async function searchPersonOptions(keyword?: string): Promise<PersonOption[]> {
+  const list = (await getAllPersons()) || []
+  if (!keyword) return list
+  return list.filter((p) => p.name.includes(keyword))
+}
+
 export function getPersonCards() {
   return request.get('/persons/cards')
 }

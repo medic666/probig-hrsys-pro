@@ -13,7 +13,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ProTable from '@/components/ProTable.vue'
 import { getAuditLogs, exportAuditLogs } from '@/api/audit'
-import { downloadBlob } from '@/utils/download'
+import { useExport } from '@/composables/useExport'
 
 const router = useRouter()
 const tableRef=ref()
@@ -48,7 +48,8 @@ async function fetchLogs(p:any){
   return { list:(d.list||[]).map((r:any)=>({...r,target_type:targetTypeName(r.target_type)})), total:d.total||0 }
 }
 
-async function handleAction(k:string){ if(k==='export'){ const data = await exportAuditLogs(tableRef.value?.getSearchParams() || {}); downloadBlob(data) } }
+const { run: handleExport } = useExport(exportAuditLogs, () => tableRef.value?.getSearchParams() || {})
+async function handleAction(k:string){ if(k==='export'){ handleExport() } }
 function showDetail(r:any){ router.push(`/audit-logs/${r.id}`) }
 </script>
 <style scoped>.page-container{padding:0;background:transparent}.page-header{margin-bottom:16px}h2{font-size:18px;font-weight:600;color:#303133}</style>

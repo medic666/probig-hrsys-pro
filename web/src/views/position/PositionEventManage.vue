@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="职务事件管理">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
 
@@ -46,9 +43,7 @@
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restoreEvent" :columns="trashColumns" @restored="onRefresh" />
 
-    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
-      <FileAttachPanel :target-type="'position_event'" :target-id="attachFileId" />
-    </el-dialog>
+    <FileAttachDialog v-model:visible="attachVisible" target-type="position_event" :target-id="attachFileId" />
   </div>
 </template>
 
@@ -59,16 +54,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import FileAttachDialog from '@/components/FileAttachDialog.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PositionEventCard from '@/components/position/PositionEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getPositionEvents, getPositionEventBadges, deletePositionEvent, restorePositionEvent, getDeletedPositionEvents, exportPositionEvents } from '@/api/position-event'
-import { getAllPersons } from '@/api/person'
-import { downloadBlob } from '@/utils/download'
 import { useBadges } from '@/composables/useBadges'
 
 import { usePageView } from '@/composables/usePageView'
+import { useExport } from '@/composables/useExport'
 
 const router = useRouter()
 const tableRef = ref()
@@ -91,7 +86,7 @@ const columns = [
 ]
 
 const searchFields = [
-  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOptions },
+  { prop:'person_id', label:'人员', type:'person-select' as const },
   { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t => ({ label: t, value: t })) },
   { prop:'date', label:'生效日期', type:'date-range' as const, startKey: 'start_date', endKey: 'end_date' },
 ]
@@ -102,12 +97,6 @@ const trashColumns = [
   { prop: 'effective_date', label: '生效日期' },
 ]
 
-async function fetchPersonOptions(keyword?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  if (!keyword) return list
-  return list.filter(p => p.name.includes(keyword))
-}
-
 async function fetchEvents(params: any) { return (await getPositionEvents(params)) as any }
 async function fetchDeleted(params: any) { return (await getDeletedPositionEvents(params)) as any }
 async function restoreEvent(id: number) { return restorePositionEvent(id) }
@@ -115,6 +104,8 @@ async function restoreEvent(id: number) { return restorePositionEvent(id) }
 onMounted(async () => {
   await loadDots('position-events-badges', getPositionEventBadges)
 })
+
+const { run: handleExport } = useExport(exportPositionEvents, () => tableRef.value?.getSearchParams() || {})
 
 function handleAction(key: string) {
   if (key === 'add') {
@@ -124,10 +115,7 @@ function handleAction(key: string) {
   else if (key === 'export') { handleExport() }
 }
 
-async function handleExport() {
-  const data = await exportPositionEvents(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+
 
 function handleEdit(row: any) {
   router.push(`/position-events/${row.id}`)

@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="人员管理">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
 
@@ -44,10 +41,11 @@ import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import PersonCardGrid from '@/components/cards/PersonCardGrid.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getPersons, deletePerson, restorePerson, getDeletedPersons, getPersonCards, exportPersons } from '@/api/person'
 import { getAllCompanies } from '@/api/company'
 import { usePageView } from '@/composables/usePageView'
-import { downloadBlob } from '@/utils/download'
+import { useExport } from '@/composables/useExport'
 
 const router = useRouter()
 const tableRef = ref()
@@ -112,11 +110,8 @@ function handleDetail(row: any) {
   router.push(`/person/${row.id}`)
 }
 
-async function handleExport() {
-  // 导出严格关联列表视图的当前筛选（导出按钮仅列表视图展示）
-  const data = await exportPersons(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+// 导出严格关联列表视图的当前筛选（导出按钮仅列表视图展示）
+const { run: handleExport } = useExport(exportPersons, () => tableRef.value?.getSearchParams() || {})
 
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm(`确认删除「${row.name}」？`, '提示', { type: 'warning' }) } catch { return }

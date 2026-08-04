@@ -13,15 +13,12 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ProTable from '@/components/ProTable.vue'
 import { getPendingDailies } from '@/api/attendance'
-import { getAllPersons } from '@/api/person'
 
 const router = useRouter()
 const tableRef=ref()
 
 const columns=[{prop:'person_name',label:'人员',width:'80'},{prop:'event_date',label:'日期',width:'110'},{prop:'punch_time',label:'打卡时间',width:'110'},{prop:'status',label:'状态',width:'80',slot:'status'}]
-const searchFields=[{prop:'person_id',label:'人员',type:'person-select' as const,fetchApi: fetchPersonOpts}]
 
-async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchPending(p:any){
   return (await getPendingDailies(p)) as any
 }

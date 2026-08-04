@@ -25,7 +25,7 @@
         </el-table-column>
         <el-table-column label="匹配人员">
           <template #default="{ row }">
-            <NameSelect v-model="row.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" />
+            <NameSelect v-model="row.person_id" placeholder="选择人员" />
           </template>
         </el-table-column>
         <el-table-column prop="matched_name" label="建议匹配" width="110" />
@@ -57,8 +57,6 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { dingTalkPreview, dingTalkExecute } from '@/api/attendance'
-import { getAllPersons } from '@/api/person'
-
 // 钉钉月度汇总导入三步向导：上传解析 → 人员匹配确认 → 月份与执行。
 // 文件解析预览与幂等执行均由后端承担，页面只编排流程。
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
@@ -73,11 +71,6 @@ const importing = ref(false)
 const uploadRef = ref()
 
 function onFileChange(file: any) { importFile.value = file.raw || null }
-
-async function fetchPersonOpts(k?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  return k ? list.filter(p => p.name.includes(k)) : list
-}
 
 async function doPreview() {
   if (!importFile.value) return

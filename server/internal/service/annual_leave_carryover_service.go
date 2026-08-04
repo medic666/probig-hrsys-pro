@@ -213,32 +213,6 @@ func createSystemLeaveEventInTx(tx *gorm.DB, event *model.AnnualLeaveAccountEven
 	return tx.Create(event).Error
 }
 
-func calculatePersonAnnualBalance(tx *gorm.DB, personID uint) float64 {
-	var accountEvents []model.AnnualLeaveAccountEvent
-	tx.Where("person_id = ?", personID).Find(&accountEvents)
-
-	var attendEvents []model.AttendanceEventDetail
-	tx.Table("attendance_event_details").
-		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
-		Where("attendance_event_details.deleted_at IS NULL AND attendance_daily.person_id = ? AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", personID, "休假", "年假").
-		Select("attendance_event_details.hours").
-		Scan(&attendEvents)
-
-	var balance float64
-	for _, e := range accountEvents {
-		switch e.EventType {
-		case "grant", "adjust":
-			balance += e.Hours
-		case "carryover_deduct":
-			balance -= e.Hours
-		}
-	}
-	for _, e := range attendEvents {
-		balance -= e.Hours
-	}
-	return balance
-}
-
 func CancelCarryover(ctx context.Context, batchID uint) error {
 	var batch model.SysBatch
 	if err := dao.DBFromContext(ctx).First(&batch, batchID).Error; err != nil {

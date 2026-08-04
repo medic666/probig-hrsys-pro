@@ -1,7 +1,7 @@
 <template>
   <el-form label-width="90px">
     <el-form-item label="人员" required>
-      <NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" placeholder="选择" :disabled="isEdit" />
+      <NameSelect v-model="form.person_id" placeholder="选择" :disabled="isEdit" />
     </el-form-item>
     <el-form-item label="类型" required>
       <el-select v-model="form.event_type" style="width:100%">
@@ -29,8 +29,6 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { getAnnualLeaveEvent, createAnnualLeaveEvent, updateAnnualLeaveEvent } from '@/api/annual-leave'
-import { getAllPersons } from '@/api/person'
-
 // 新增=编辑统一表单：id 缺失 → 新增；{id} → 编辑
 const props = defineProps<{ id?: number | null }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
@@ -52,11 +50,6 @@ onMounted(async () => {
     } catch { /* handled */ }
   }
 })
-
-async function fetchPersonOpts(k?: string) {
-  const list = (await getAllPersons()) as { id: number; name: string }[]
-  return k ? list.filter(p => p.name.includes(k)) : list
-}
 
 async function doSave() {
   if (!form.person_id) { ElMessage.warning('请选择人员'); return }

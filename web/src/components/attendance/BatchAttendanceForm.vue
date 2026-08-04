@@ -16,15 +16,17 @@
       <el-input v-model="form.punch_time" placeholder="如 08:30,18:00" style="width:240px" />
     </el-form-item>
     <el-form-item label="备注"><el-input v-model="form.remark" /></el-form-item>
-    <el-form-item label="事件明细">
-      <AttendanceDetailsEditor v-model="form.details" />
-    </el-form-item>
-    <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天；当天已有记录将被整体覆盖。</div>
+  </el-form>
+
+  <div class="details-block">
+    <div class="details-title">事件明细</div>
+    <AttendanceDetailsEditor v-model="form.details" />
+  </div>
+  <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天；当天已有记录将被整体覆盖。</div>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
       <el-button type="primary" :loading="saving" @click="doSubmit">确定</el-button>
     </div>
-  </el-form>
 </template>
 
 <script setup lang="ts">
@@ -72,6 +74,17 @@ async function doSubmit() {
 </script>
 
 <style scoped>
+.details-block {
+  margin-top: 16px;
+}
+
+.details-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 8px;
+}
+
 .hint {
   margin-top: 8px;
   font-size: 12px;

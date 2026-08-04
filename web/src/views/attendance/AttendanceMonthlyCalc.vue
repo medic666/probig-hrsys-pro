@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="月度考勤核算">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
@@ -52,9 +49,9 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import { getMonthlyList, getAttendanceMonthlyBadges, calculateMonthly, exportAttendanceMonthly } from '@/api/attendance'
-import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
 import { downloadBlob } from '@/utils/download'
 
@@ -77,11 +74,10 @@ const columns=[
   {prop:'last_calc_at',label:'核算时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
 ]
 const searchFields=[
-  {prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchPersonOpts},
+  {prop:'person_id',label:'人员',type:'person-select' as const},
   {prop:'month',label:'月份',type:'month' as const},
 ]
 
-async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchMonthly(p:any){
   return (await getMonthlyList(p)) as any
 }

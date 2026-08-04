@@ -1,26 +1,26 @@
 <template>
   <div class="attendance-details-editor">
     <el-table :data="rows" border size="small">
-      <el-table-column label="类型" width="110">
+      <el-table-column label="类型" min-width="110">
         <template #default="{ row }">
           <el-select v-model="row.event_type" size="small" style="width:100%" :disabled="readonly" @change="onTypeChange(row)">
             <el-option v-for="t in eventTypes" :key="t" :label="t" :value="t" />
           </el-select>
         </template>
       </el-table-column>
-      <el-table-column label="子类型" width="140">
+      <el-table-column label="子类型" min-width="130">
         <template #default="{ row }">
           <el-select v-model="row.sub_type" size="small" style="width:100%" :disabled="readonly">
             <el-option v-for="s in subTypeMap[row.event_type] || []" :key="s" :label="s" :value="s" />
           </el-select>
         </template>
       </el-table-column>
-      <el-table-column label="时长(小时)" width="120">
+      <el-table-column label="时长(小时)" min-width="100">
         <template #default="{ row }">
           <el-input-number v-if="row.event_type !== '违纪'" v-model="row.hours" :min="0" :precision="1" size="small" style="width:100%" :disabled="readonly" />
         </template>
       </el-table-column>
-      <el-table-column label="分钟" width="100">
+      <el-table-column label="分钟" min-width="90">
         <template #default="{ row }">
           <el-input-number v-if="row.sub_type === '迟到' || row.sub_type === '早退'" v-model="row.minutes" :min="0" size="small" style="width:100%" :disabled="readonly" />
         </template>

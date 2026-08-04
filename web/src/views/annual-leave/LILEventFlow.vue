@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="调休事件流水">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
 
@@ -50,8 +47,8 @@ import PageHeader from '@/components/PageHeader.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import LILEventCard from '@/components/annual-leave/LILEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getLILEvents } from '@/api/annual-leave'
-import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
 
 import { usePageView } from '@/composables/usePageView'
@@ -72,11 +69,10 @@ const columns = [
   { prop: 'remark', label: '备注' },
 ]
 const searchFields = [
-  { prop: 'person_id', label: '人员', type: 'person-select' as const, fetchApi: fetchOpts },
+  { prop: 'person_id', label: '人员', type: 'person-select' as const },
   { prop: 'date', label: '时间范围', type: 'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 
-async function fetchOpts(k?: string) { const l = await getAllPersons() as any[]; return k ? l.filter(p => p.name.includes(k)) : l }
 async function fetchEvents(p: any) {
   return (await getLILEvents(p)) as any
 }

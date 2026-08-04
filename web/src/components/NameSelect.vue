@@ -23,11 +23,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { searchPersonOptions } from '@/api/person'
 
 const props = withDefaults(
   defineProps<{
     modelValue: number | number[] | null
-    fetchApi: (keyword?: string) => Promise<{ id: number; name: string }[]>
+    fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
     placeholder?: string
     disabled?: boolean
     clearable?: boolean
@@ -36,6 +37,7 @@ const props = withDefaults(
   }>(),
   {
     modelValue: null,
+    fetchApi: searchPersonOptions,
     placeholder: '请选择',
     disabled: false,
     clearable: true,

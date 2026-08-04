@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="月度工资汇总">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
@@ -53,14 +50,14 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import { getSalarySummaries, getSalarySummariesBadges, calculateSalaries, exportSalarySummaries } from '@/api/salary'
-import { getAllPersons } from '@/api/person'
 import { formatDateTime } from '@/utils'
-import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
+import { useExport } from '@/composables/useExport'
 
 const router = useRouter()
 const tableRef=ref()
@@ -78,11 +75,10 @@ const columns=[
   {prop:'last_calc_at',label:'核算时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
 ]
 const searchFields=[
-  {prop:'person_id',label:'人员',type:'person-select' as const,fetchApi:fetchPersonOpts},
+  {prop:'person_id',label:'人员',type:'person-select' as const},
   {prop:'month',label:'月份',type:'month' as const},
 ]
 
-async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchSummaries(p:any){
   return (await getSalarySummaries(p)) as any
 }
@@ -101,10 +97,7 @@ function handleAction(k:string){
   if(k==='calc'){ calcVisible.value=true }
   else if(k==='export'){handleExport()}
 }
-async function handleExport(){
-  const data = await exportSalarySummaries(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+const { run: handleExport } = useExport(exportSalarySummaries, () => tableRef.value?.getSearchParams() || {})
 
 const submitFn = (data: any) => calculateSalaries(data)
 

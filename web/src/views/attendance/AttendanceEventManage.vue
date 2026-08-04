@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="考勤事件管理">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="blocks">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="blocks" />
       </template>
     </PageHeader>
 
@@ -52,9 +49,7 @@
 
     <RecycleBinDrawer v-model:visible="trashVisible" :fetch-api="fetchDeleted" :restore-api="restore" :columns="trashCols" @restored="onRefresh" />
 
-    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
-      <FileAttachPanel :target-type="'attendance_event'" :target-id="attachFileId" />
-    </el-dialog>
+    <FileAttachDialog v-model:visible="attachVisible" target-type="attendance_event" :target-id="attachFileId" />
   </div>
 </template>
 
@@ -65,16 +60,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import FileAttachDialog from '@/components/FileAttachDialog.vue'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import { getAttendanceEvents, getAttendanceEventBadges, deleteAttendanceEvent, restoreAttendanceEvent, getDeletedAttendanceEvents, exportAttendanceEvents, confirmAttendanceDaily } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
-import { getAllPersons } from '@/api/person'
-import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useExport } from '@/composables/useExport'
 import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
@@ -110,7 +105,7 @@ const columns = [
   { prop:'punch_time', label:'打卡时间', width:'110', formatter:(r:any)=>r.punch_time || '-' },
 ]
 const searchFields = [
-  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi: fetchPersonOpts },
+  { prop:'person_id', label:'人员', type:'person-select' as const },
   {
     prop:'status', label:'状态', type:'select' as const,
     options: [
@@ -122,8 +117,8 @@ const searchFields = [
 ]
 const trashCols = [{ prop:'id', label:'ID', width:'60' },{ prop:'event_type', label:'类型' },{ prop:'event_date', label:'日期' }]
 
-async function fetchPersonOpts(k?: string) { const l = await getAllPersons() as any[]; return k ? l.filter(p=>p.name.includes(k)) : l }
 async function fetchEvents(p: any) { return (await getAttendanceEvents(p)) as any }
+const { run: handleExport } = useExport(exportAttendanceEvents, () => tableRef.value?.getSearchParams() || {})
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
 
@@ -153,10 +148,7 @@ function handleAction(key: string) {
   else if (key==='export') { handleExport() }
 }
 
-async function handleExport() {
-  const data = await exportAttendanceEvents(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+
 
 async function handleEdit(row: any) {
   // 编辑统一为整日编辑（与卡片视图一致），跳业务逻辑页

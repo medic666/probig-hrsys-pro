@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="年假事件流水">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
@@ -51,9 +48,7 @@
 
     <RecycleBinDrawer v-model:visible="tv" :fetch-api="fd" :restore-api="rst" :columns="tc" @restored="onR" />
 
-    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
-      <FileAttachPanel :target-type="'annual_leave_event'" :target-id="attachFileId" />
-    </el-dialog>
+    <FileAttachDialog v-model:visible="attachVisible" target-type="annual_leave_event" :target-id="attachFileId" />
   </div>
 </template>
 
@@ -64,16 +59,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import FileAttachDialog from '@/components/FileAttachDialog.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import AnnualLeaveEventCard from '@/components/annual-leave/AnnualLeaveEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getAnnualLeaveEvents, getAnnualLeaveEventBadges, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
-import { getAllPersons } from '@/api/person'
 import { hoursToDays } from '@/utils'
-import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useExport } from '@/composables/useExport'
 import { useBadges } from '@/composables/useBadges'
 
 const router = useRouter()
@@ -95,13 +90,13 @@ const columns = [
   { prop:'remark', label:'备注' },
 ]
 const searchFields = [
-  { prop:'person_id', label:'人员', type:'person-select' as const, fetchApi:fetchPersonOpts },
+  { prop:'person_id', label:'人员', type:'person-select' as const },
   { prop:'date', label:'时间范围', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 const tc = [{ prop:'event_type', label:'类型' },{ prop:'effective_date', label:'生效日期' }]
 
-async function fetchPersonOpts(k?:string){ const l=await getAllPersons() as any[]; return k?l.filter(p=>p.name.includes(k)):l }
 async function fetchEvents(p:any){ return (await getAnnualLeaveEvents(p)) as any }
+const { run: handleExport } = useExport(exportAnnualLeaveEvents, () => tableRef.value?.getSearchParams() || {})
 async function fd(p:any){ return (await getDeletedAnnualLeaveEvents(p)) as any }
 async function rst(id:number){ return restoreAnnualLeaveEvent(id) }
 
@@ -118,10 +113,7 @@ function handleAction(k:string){
   else if(k==='export') handleExport()
 }
 
-async function handleExport() {
-  const data = await exportAnnualLeaveEvents(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+
 
 // 新增=编辑=查看统一跳业务逻辑页：考勤来源 → 该日考勤整日页；manual → 年假事件页
 function handleEdit(r: any) {

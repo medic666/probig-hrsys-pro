@@ -2,10 +2,7 @@
   <div class="page-container">
     <PageHeader title="工资事件管理">
       <template #actions>
-        <el-radio-group v-model="viewMode" size="small">
-        <el-radio-button value="cards">卡片</el-radio-button>
-        <el-radio-button value="list">列表</el-radio-button>
-      </el-radio-group>
+        <ViewModeSwitch v-model="viewMode" card-value="cards" />
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
@@ -49,9 +46,7 @@
 
     <RecycleBinDrawer v-model:visible="tv" :fetch-api="fd" :restore-api="rst" :columns="tc" @restored="onR"/>
 
-    <el-dialog v-model="attachVisible" title="文件附件" width="500px">
-      <FileAttachPanel :target-type="'salary_event'" :target-id="attachFileId" />
-    </el-dialog>
+    <FileAttachDialog v-model:visible="attachVisible" target-type="salary_event" :target-id="attachFileId" />
   </div>
 </template>
 
@@ -62,16 +57,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
-import FileAttachPanel from '@/components/FileAttachPanel.vue'
+import FileAttachDialog from '@/components/FileAttachDialog.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
 import SalaryEventCard from '@/components/salary/SalaryEventCard.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
+import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getSalaryEvents, getSalaryAdvanceBalances, deleteSalaryEvent, restoreSalaryEvent, getDeletedSalaryEvents, exportSalaryEvents } from '@/api/salary'
-import { getAllPersons } from '@/api/person'
 import { formatMoney } from '@/utils'
-import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
+import { useExport } from '@/composables/useExport'
 import { useBadges, fetchBadges } from '@/composables/useBadges'
 
 const router = useRouter()
@@ -87,13 +82,13 @@ const columns=[
   {prop:'remark',label:'备注'},
 ]
 const searchFields=[
-  {prop:'person_id',label:'人员',type:'person-select' as const, fetchApi:fetchPersonOpts},
+  {prop:'person_id',label:'人员',type:'person-select' as const},
   {prop:'event_type',label:'类型',type:'select' as const,options:['绩效系数','提成','奖惩','工资预支','预支还款','个税扣除'].map(t=>({label:t,value:t}))},
 ]
 const tc=[{prop:'event_type',label:'类型'},{prop:'belong_month',label:'月份'}]
 
-async function fetchPersonOpts(k?:string){const l=await getAllPersons() as any[];return k?l.filter(p=>p.name.includes(k)):l}
 async function fetchEvents(p:any){return (await getSalaryEvents(p)) as any}
+const { run: handleExport } = useExport(exportSalaryEvents, () => tableRef.value?.getSearchParams() || {})
 async function fd(p:any){return (await getDeletedSalaryEvents(p)) as any}
 async function rst(id:number){return restoreSalaryEvent(id)}
 
@@ -112,10 +107,7 @@ function handleAction(k:string){
   else if(k==='export') handleExport()
 }
 
-async function handleExport() {
-  const data = await exportSalaryEvents(tableRef.value?.getSearchParams() || {})
-  downloadBlob(data)
-}
+
 function handleEdit(r:any){ router.push(`/salary-events/${r.id}`) }
 async function handleDelete(r:any){try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteSalaryEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ }}
 function onR(){tableRef.value?.refresh()}

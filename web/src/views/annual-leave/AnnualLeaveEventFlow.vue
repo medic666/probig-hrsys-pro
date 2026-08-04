@@ -138,13 +138,13 @@ async function handleDelete(r:any){
 }
 function onR(){ tableRef.value?.refresh() }
 </script>
-<style scoped>
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .page-container{padding:0;background:transparent}
 
 .ev-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  @include card-grid(260px);
 }
 
 .balance-line { font-size: 13px; color: #409eff; font-weight: 600; line-height: 20px; }

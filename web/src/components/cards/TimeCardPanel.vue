@@ -338,6 +338,8 @@ defineExpose({ reload })
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .time-card-panel {
   .panel-nav {
     display: flex;
@@ -352,9 +354,7 @@ defineExpose({ reload })
   }
 
   .panel-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    @include card-grid;
   }
 }
 </style>

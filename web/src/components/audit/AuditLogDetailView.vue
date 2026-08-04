@@ -1,6 +1,6 @@
 <template>
   <div v-loading="loading">
-    <el-descriptions v-if="detail" :column="2" border size="small">
+    <AppDescriptions v-if="detail" :column="2" border size="small">
       <el-descriptions-item label="操作人">{{ detail.operator_name }}</el-descriptions-item>
       <el-descriptions-item label="操作类型">{{ detail.action }}</el-descriptions-item>
       <el-descriptions-item label="对象类型">{{ detail.target_type }}</el-descriptions-item>
@@ -8,20 +8,20 @@
       <el-descriptions-item label="对象ID">{{ detail.target_id }}</el-descriptions-item>
       <el-descriptions-item label="IP">{{ detail.ip || '-' }}</el-descriptions-item>
       <el-descriptions-item label="操作时间" :span="2">{{ formatDateTime(detail.created_at) }}</el-descriptions-item>
-    </el-descriptions>
+    </AppDescriptions>
     <el-empty v-else-if="!loading" description="记录不存在" :image-size="60" />
 
     <template v-if="detail">
       <el-divider content-position="left">操作前快照</el-divider>
-      <el-descriptions v-if="beforeRows.length" :column="1" border size="small">
+      <AppDescriptions v-if="beforeRows.length" :column="1" border size="small">
         <el-descriptions-item v-for="(v, k) in beforeRows" :key="k" :label="k">{{ v }}</el-descriptions-item>
-      </el-descriptions>
+      </AppDescriptions>
       <p v-else style="color:#909399">(无)</p>
 
       <el-divider content-position="left">操作后快照</el-divider>
-      <el-descriptions v-if="afterRows.length" :column="1" border size="small">
+      <AppDescriptions v-if="afterRows.length" :column="1" border size="small">
         <el-descriptions-item v-for="(v, k) in afterRows" :key="k" :label="k">{{ v }}</el-descriptions-item>
-      </el-descriptions>
+      </AppDescriptions>
       <p v-else style="color:#909399">(无)</p>
     </template>
   </div>
@@ -31,6 +31,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getAuditLogDetail } from '@/api/audit'
 import { formatDateTime } from '@/utils'
+import AppDescriptions from '@/components/AppDescriptions.vue'
 
 const props = defineProps<{ id: number | null }>()
 const loading = ref(false)

@@ -35,7 +35,7 @@
         v-model:page-size="pageSize"
         :page-sizes="[10, 20, 50]"
         :total="total"
-        layout="total, sizes, prev, pager, next"
+        :layout="paginationLayout"
         @size-change="loadData"
         @current-change="loadData"
       />
@@ -45,8 +45,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useBreakpoint } from '@/composables/useBreakpoint'
 
 export interface TrashColumn {
   prop: string
@@ -73,6 +74,10 @@ const tableData = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
+
+// 分页自适应：移动端精简布局，避免抽屉内溢出
+const { isMobile } = useBreakpoint()
+const paginationLayout = computed(() => (isMobile.value ? 'prev, pager, next' : 'total, sizes, prev, pager, next'))
 
 async function loadData() {
   loading.value = true
@@ -131,9 +136,15 @@ watch(
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .trash-pagination {
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+
+  @include mobile {
+    justify-content: center;
+  }
 }
 </style>

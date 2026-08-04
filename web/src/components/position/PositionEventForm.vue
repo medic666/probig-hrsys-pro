@@ -27,62 +27,62 @@
     <template v-if="eventForm.event_type === '入职'">
       <el-divider content-position="left">岗位信息</el-divider>
       <el-row :gutter="12">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="公司组">
             <el-select v-model="eventForm.company_id" clearable placeholder="选择公司组" style="width:100%">
               <el-option v-for="c in companyList" :key="c.id" :label="c.name" :value="c.id" />
             </el-select>
           </el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="部门"><el-input v-model="eventForm.department" placeholder="部门名称" /></el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="职位"><el-input v-model="eventForm.position" placeholder="职位名称" /></el-form-item>
         </el-col>
       </el-row>
 
       <el-divider content-position="left">考勤/福利</el-divider>
       <el-row :gutter="12">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="考勤组"><el-input v-model="eventForm.attendance_group" placeholder="考勤组名称" /></el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="享有年假"><el-switch v-model="eventForm.has_annual_leave" /></el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="享有全勤奖"><el-switch v-model="eventForm.has_attendance_bonus" /></el-form-item>
         </el-col>
       </el-row>
 
       <el-divider content-position="left">薪资参数</el-divider>
       <el-row :gutter="12">
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="基本工资"><el-input-number v-model="eventForm.base_salary" :min="0" :precision="2" style="width:100%" /></el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="绩效工资基数"><el-input-number v-model="eventForm.performance_salary" :min="0" :precision="2" style="width:100%" /></el-form-item>
         </el-col>
-        <el-col :span="8">
+        <el-col :xs="24" :sm="12" :md="8">
           <el-form-item label="计薪天数" required><el-input-number v-model="eventForm.salary_days" :min="0" :precision="1" style="width:100%" /></el-form-item>
         </el-col>
       </el-row>
 
       <el-divider content-position="left">补贴</el-divider>
       <el-row :gutter="12">
-        <el-col :span="8"><el-form-item label="职位津贴"><el-input-number v-model="eventForm.post_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="餐补"><el-input-number v-model="eventForm.meal_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="房补"><el-input-number v-model="eventForm.housing_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="交通补贴"><el-input-number v-model="eventForm.transport_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="高温补贴"><el-input-number v-model="eventForm.high_temp_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="职位津贴"><el-input-number v-model="eventForm.post_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="餐补"><el-input-number v-model="eventForm.meal_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="房补"><el-input-number v-model="eventForm.housing_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="交通补贴"><el-input-number v-model="eventForm.transport_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="高温补贴"><el-input-number v-model="eventForm.high_temp_allowance" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
       </el-row>
 
       <el-divider content-position="left">补偿/代扣</el-divider>
       <el-row :gutter="12">
-        <el-col :span="8"><el-form-item label="保险补偿"><el-input-number v-model="eventForm.insurance_compensation" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="公积金补偿"><el-input-number v-model="eventForm.fund_compensation" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="社保代扣"><el-input-number v-model="eventForm.social_security_deduct" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
-        <el-col :span="8"><el-form-item label="公积金代扣"><el-input-number v-model="eventForm.housing_fund_deduct" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="保险补偿"><el-input-number v-model="eventForm.insurance_compensation" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="公积金补偿"><el-input-number v-model="eventForm.fund_compensation" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="社保代扣"><el-input-number v-model="eventForm.social_security_deduct" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
+        <el-col :xs="24" :sm="12" :md="8"><el-form-item label="公积金代扣"><el-input-number v-model="eventForm.housing_fund_deduct" :min="0" :precision="2" style="width:100%" /></el-form-item></el-col>
       </el-row>
     </template>
 

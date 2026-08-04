@@ -87,7 +87,7 @@
         v-model:page-size="currentPageSize"
         :page-sizes="pageSizes"
         :total="total"
-        layout="total, sizes, prev, pager, next, jumper"
+        :layout="paginationLayout"
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
       />
@@ -100,6 +100,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import type { Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NameSelect from '@/components/NameSelect.vue'
+import { useBreakpoint } from '@/composables/useBreakpoint'
 
 export interface TableColumn {
   prop: string
@@ -342,6 +343,12 @@ function getSearchParams() {
 
 const showActions = computed(() => props.actions && props.actions.length > 0)
 
+// 分页自适应：移动端精简（仅上一页/页码/下一页），桌面完整布局
+const { isMobile } = useBreakpoint()
+const paginationLayout = computed(() =>
+  isMobile.value ? 'prev, pager, next' : 'total, sizes, prev, pager, next, jumper',
+)
+
 defineExpose({ refresh, clearSelection, getSelected, getSearchParams })
 
 onMounted(() => {
@@ -354,6 +361,8 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .pro-table {
   .search-bar {
     background: #fff;
@@ -368,6 +377,7 @@ onMounted(() => {
 
   .action-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-bottom: 12px;
   }
@@ -375,6 +385,7 @@ onMounted(() => {
   .batch-bar {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 10px 16px;
     background: #ecf5ff;
@@ -399,6 +410,11 @@ onMounted(() => {
     background: #fff;
     margin-top: -1px;
     border-radius: 0 0 4px 4px;
+
+    @include mobile {
+      justify-content: center;
+      padding-bottom: 4px;
+    }
   }
 }
 </style>

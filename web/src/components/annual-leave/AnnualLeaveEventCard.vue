@@ -31,16 +31,20 @@ const typeText = computed(() => typeMap[props.event.event_type] || props.event.e
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .annual-leave-card {
-  width: 260px;
+  width: 100%;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
   transition: box-shadow 0.2s;
 
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  @include hover-capable {
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
   }
 
   .alc-header {

@@ -92,24 +92,34 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 			"annual_leave_carryover", nextMonthStart.Format("2006-01"), batch.ID).
 		Pluck("id", &oldBatchIDs)
 
+	// 幂等冲销：删除旧批次全部系统事件（不按本次候选名单过滤，避免旧批次人员
+	// 不在新名单时产生孤儿事件——事件残留但批次已删，仍参与余额计算却不可见），
+	// 受影响人员逐个事务删除并重建余额，保证后续结算读到删除后的真实余额
+	if len(oldBatchIDs) > 0 {
+		var affected []uint
+		dao.DBFromContext(ctx).Model(&model.AnnualLeaveAccountEvent{}).
+			Where("source_type = ? AND batch_id IN ?", "system_period", oldBatchIDs).
+			Distinct().Pluck("person_id", &affected)
+		for _, pid := range affected {
+			err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+				if err := tx.Where("person_id = ? AND source_type = ? AND batch_id IN ?",
+					pid, "system_period", oldBatchIDs).Delete(&model.AnnualLeaveAccountEvent{}).Error; err != nil {
+					return err
+				}
+				return RebuildAnnualLeaveBalance(tx, pid)
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	success := 0
 	fail := 0
 	now := time.Now()
 
 	for personID, kind := range candidateMap {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-			// 冲销历史同周期批次的系统事件，事件源删除由 GORM 审计自动留痕；
-			// 冲销后立即重建余额快照，保证结算判定读到删除后（无旧 deduct/grant）的真实余额
-			if len(oldBatchIDs) > 0 {
-				if err := tx.Where("person_id = ? AND source_type = ? AND batch_id IN ?",
-					personID, "system_period", oldBatchIDs).Delete(&model.AnnualLeaveAccountEvent{}).Error; err != nil {
-					return err
-				}
-				if err := RebuildAnnualLeaveBalance(tx, personID); err != nil {
-					return err
-				}
-			}
-
 			// 结算：所选月（结算月）最后一日末的余额快照 > 0 → 结转扣除
 			balance, ok := GetAnnualLeaveBalanceAt(tx, personID, monthEndD)
 			if ok && balance > 0 {
@@ -142,7 +152,7 @@ func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operat
 						EventType:     "grant",
 						SourceType:    "system_period",
 						BatchID:       &batch.ID,
-						Hours:         getYearlyAnnualLeaveHours(personID),
+						Hours:         getYearlyAnnualLeaveHours(personID, nextMonthStart.Year()),
 						EffectiveDate: utils.DateOnlyFromTime(nextMonthStart),
 						Remark:        fmt.Sprintf("周年配发 %s", nextMonthStart.Format("2006-01")),
 					}
@@ -295,7 +305,10 @@ func GetAnnualLeaveTiers() ([]AnnualLeaveTier, bool) {
 }
 
 // getYearlyAnnualLeaveHours 按员工司龄（入职年数）取年假配发小时数。
-func getYearlyAnnualLeaveHours(personID uint) float64 {
+// 下界语义：司龄满 t.Years 年即按 t.Hours 配发，取最高满足档；
+// 未达任何门槛时回退第一档。grantYear 为配发生效年（结算月+1 所在年），
+// 与执行结转的日期无关，保证同一结算月任何时间执行结果一致。
+func getYearlyAnnualLeaveHours(personID uint, grantYear int) float64 {
 	tiers, ok := GetAnnualLeaveTiers()
 	if !ok {
 		return 40
@@ -307,15 +320,18 @@ func getYearlyAnnualLeaveHours(personID uint) float64 {
 		Where("person_id = ? AND effective_end_date = ?", personID, realFarFuture).
 		Scan(&entry)
 	if entry != nil {
-		seniority = time.Now().Year() - entry.Time().Year()
+		seniority = grantYear - entry.Time().Year()
 	}
-	// 取第一个"司龄未达门槛"的档位（门槛从小到大排序）
+	// 门槛从小到大排序，取最后一个"司龄已满门槛"的档位
+	hours := tiers[0].Hours
 	for _, t := range tiers {
-		if seniority < t.Years || t.Years == 0 {
-			return t.Hours
+		if seniority >= t.Years {
+			hours = t.Hours
+		} else {
+			break
 		}
 	}
-	return tiers[len(tiers)-1].Hours
+	return hours
 }
 
 func GetBatchEvents(batchID uint) ([]map[string]interface{}, error) {

@@ -28,3 +28,33 @@
   padding: 16px;
   border-radius: 4px;
 }
+
+// 安全区适配（刘海屏 / 底部手势条）
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+// 移动端侧滑菜单抽屉（MainLayout 共用）
+.menu-drawer {
+  background: #304156;
+
+  .drawer-logo {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .el-drawer__body {
+    padding: 0;
+    background: #304156;
+  }
+}

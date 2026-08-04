@@ -1,1 +1,58 @@
-// Element Plus theme overrides
+@use './variables.scss' as *;
+
+// Element Plus 响应式覆盖（桌面优先，移动端叠加）
+
+// 对话框窄屏不超出视口
+.el-dialog {
+  max-width: calc(100vw - 32px);
+}
+
+// 移动端左右侧抽屉全宽（底部抽屉保持百分比高度；侧滑菜单抽屉按自身 size）
+@include mobile {
+  .el-drawer.rtl,
+  .el-drawer.ltr:not(.menu-drawer) {
+    width: 100% !important;
+  }
+}
+
+// 移动端表单：标签顶部对齐、控件全宽（label-position 语义由 CSS 覆盖，无需逐表改造）
+@include mobile {
+  .el-form--inline {
+    display: block;
+
+    .el-form-item {
+      width: 100%;
+      margin-right: 0;
+      margin-bottom: 16px;
+    }
+  }
+
+  .el-form-item {
+    display: block;
+    margin-bottom: 18px;
+
+    .el-form-item__label {
+      display: block;
+      width: auto !important;
+      text-align: left;
+      line-height: 1.4;
+      padding-bottom: 4px;
+    }
+
+    .el-form-item__content {
+      width: 100%;
+      margin-left: 0 !important;
+    }
+  }
+
+  .el-input,
+  .el-select,
+  .el-date-editor {
+    width: 100% !important;
+  }
+
+  // 触屏目标：移动端按钮最小点击区域
+  .el-button--small {
+    min-height: 32px;
+  }
+}

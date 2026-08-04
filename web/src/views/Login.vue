@@ -74,6 +74,8 @@ function onPwdChanged() {
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .login-page {
   display: flex;
   justify-content: center;
@@ -83,7 +85,7 @@ function onPwdChanged() {
 }
 
 .login-card {
-  width: 400px;
+  width: min(400px, calc(100vw - 32px));
   padding: 40px;
   background: #fff;
   border-radius: 8px;
@@ -98,6 +100,14 @@ function onPwdChanged() {
 
   .login-btn {
     width: 100%;
+  }
+
+  @include mobile {
+    padding: 24px 20px;
+
+    h2 {
+      font-size: 18px;
+    }
   }
 }
 </style>

@@ -18,11 +18,18 @@ function handleChange(v: PersonScope) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .person-scope-switch {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 100;
+
+  @include mobile {
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+  }
 }
 </style>

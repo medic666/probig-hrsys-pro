@@ -36,6 +36,8 @@ function periodLabel(period: string, aggregate: PeriodAggregate = 'month') {
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .period-card {
   .pc-title {
     font-size: 14px;
@@ -58,8 +60,10 @@ function periodLabel(period: string, aggregate: PeriodAggregate = 'month') {
       cursor: pointer;
       transition: box-shadow 0.2s;
 
-      &:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      @include hover-capable {
+        &:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
       }
 
       .pc-label {
@@ -87,6 +91,12 @@ function periodLabel(period: string, aggregate: PeriodAggregate = 'month') {
         background: #f4f4f5;
         border-color: #e4e7ed;
       }
+    }
+  }
+
+  @include mobile {
+    .pc-grid {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 }

@@ -32,6 +32,7 @@ var migrations = []Migration{
 	{ID: "20260802_01_config_key_classification", Name: "计薪小时基准配置归入考勤类", Func: migrateV1ConfigKeyClassification},
 	{ID: "20260804_01_annual_leave_tier_config", Name: "年假额度配置升级为阶梯交互", Func: migrateV1AnnualLeaveTierConfig},
 	{ID: "20260804_03_salary_advance_types", Name: "借款还款拆分工资预支/预支还款", Func: migrateV1SalaryAdvanceTypes},
+	{ID: "20260804_04_annual_leave_tier_lower_bound", Name: "年假阶梯配置改下界语义（满X司龄年配发）并迁移默认值", Func: migrateV1AnnualLeaveTierLowerBound},
 }
 
 // RunMigrations 顺序执行未应用的迁移；新库或未迁移库（无版本记录）从头执行全部
@@ -73,6 +74,16 @@ func migrateV1SalaryAdvanceTypes(db *gorm.DB) error {
 // 仅更新 value_type（number → table），保留用户已配置的值（解析层兼容旧单值）
 func migrateV1AnnualLeaveTierConfig(db *gorm.DB) error {
 	return db.Exec(`UPDATE sys_config SET value_type = 'table' WHERE config_key = 'annual_leave.yearly_hours'`).Error
+}
+
+// migrateV1AnnualLeaveTierLowerBound 年假阶梯配置改下界语义（满X司龄年配发）：
+// years 由"档位上限"改为"配发门槛"，仅当配置值精确等于旧默认种子时重写为新默认；
+// 用户自定义配置（语义已随代码切换为下界）一律不动。
+func migrateV1AnnualLeaveTierLowerBound(db *gorm.DB) error {
+	const oldSeed = `[{"years":10,"hours":40},{"years":20,"hours":80},{"years":999,"hours":120}]`
+	const newSeed = `[{"years":1,"hours":40},{"years":10,"hours":80},{"years":20,"hours":120}]`
+	return db.Exec(`UPDATE sys_config SET config_value = ?
+		WHERE config_key = 'annual_leave.yearly_hours' AND config_value = ?`, newSeed, oldSeed).Error
 }
 
 // migrateV1ConfigKeyClassification 计薪小时基准配置键归入考勤类（system.work_hours_per_day → attendance.work_hours_per_day）

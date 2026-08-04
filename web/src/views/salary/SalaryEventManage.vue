@@ -120,13 +120,13 @@ function handleEdit(r:any){ router.push(`/salary-events/${r.id}`) }
 async function handleDelete(r:any){try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteSalaryEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ }}
 function onR(){tableRef.value?.refresh()}
 </script>
-<style scoped>
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .page-container{padding:0;background:transparent}
 
 .ev-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  @include card-grid(260px);
 }
 
 .advance-line { font-size: 13px; color: #e6a23c; font-weight: 600; line-height: 20px; }

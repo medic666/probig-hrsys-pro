@@ -4,7 +4,7 @@
       <!-- 工资明细 -->
       <el-tab-pane label="工资明细" name="summary">
         <div v-loading="loading" class="detail-wrap">
-          <el-descriptions v-if="summaryRow" :column="2" border size="small">
+          <AppDescriptions v-if="summaryRow" :column="2" border size="small">
             <el-descriptions-item label="计薪天数">{{ summaryRow.salary_days }}</el-descriptions-item>
             <el-descriptions-item label="状态">
               <StatusTag :status="summaryRow.status || 'not_calculated'" />
@@ -32,7 +32,7 @@
               <strong style="color:#e6a23c;font-size:16px">{{ summaryRow.final_salary }}</strong>
             </el-descriptions-item>
             <el-descriptions-item label="核算时间">{{ formatDateTime(summaryRow.last_calc_at) }}</el-descriptions-item>
-          </el-descriptions>
+          </AppDescriptions>
           <el-empty v-else-if="!loading" description="当月未核算工资，请先在工资汇总页执行核算" :image-size="60" />
         </div>
       </el-tab-pane>
@@ -42,7 +42,7 @@
         <el-table v-loading="versionsLoading" :data="versions" border size="small">
           <el-table-column type="expand">
             <template #default="{ row }">
-              <el-descriptions :column="3" border size="small" class="expand-desc">
+              <AppDescriptions :column="3" border size="small" class="expand-desc">
                 <el-descriptions-item label="计薪天数">{{ row.salary_days }}</el-descriptions-item>
                 <el-descriptions-item label="加权基本工资">{{ row.weighted_base_salary }}</el-descriptions-item>
                 <el-descriptions-item label="出勤工资">{{ row.attendance_salary }}</el-descriptions-item>
@@ -65,7 +65,7 @@
                 <el-descriptions-item label="公积金代扣">{{ row.housing_fund_deduct }}</el-descriptions-item>
                 <el-descriptions-item label="个税代扣">{{ row.tax_deduct }}</el-descriptions-item>
                 <el-descriptions-item label="实发工资"><strong style="color:#e6a23c">{{ row.final_salary }}</strong></el-descriptions-item>
-              </el-descriptions>
+              </AppDescriptions>
             </template>
           </el-table-column>
           <el-table-column prop="version" label="版本" width="70" />
@@ -114,7 +114,7 @@
         <div v-if="!traceData" v-loading="traceLoading" class="detail-wrap" />
         <el-tabs v-else v-model="traceTab">
           <el-tab-pane label="工资汇总" name="summary">
-            <el-descriptions :column="2" border size="small">
+            <AppDescriptions :column="2" border size="small">
               <el-descriptions-item label="计薪天数">{{ traceData.summary.salary_days }}</el-descriptions-item>
               <el-descriptions-item label="加权基本工资">{{ traceData.summary.weighted_base_salary }}</el-descriptions-item>
               <el-descriptions-item label="出勤工资">{{ traceData.summary.attendance_salary }}</el-descriptions-item>
@@ -137,7 +137,7 @@
               <el-descriptions-item label="公积金代扣">{{ traceData.summary.housing_fund_deduct }}</el-descriptions-item>
               <el-descriptions-item label="个税代扣">{{ traceData.summary.tax_deduct }}</el-descriptions-item>
               <el-descriptions-item label="实发工资"><strong style="color:#e6a23c">{{ traceData.summary.final_salary }}</strong></el-descriptions-item>
-            </el-descriptions>
+            </AppDescriptions>
           </el-tab-pane>
 
           <el-tab-pane label="考勤核算" name="calc">
@@ -206,6 +206,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import BusinessPage from '@/components/BusinessPage.vue'
+import AppDescriptions from '@/components/AppDescriptions.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import AttendanceCalcDescriptions from '@/components/attendance/AttendanceCalcDescriptions.vue'
 import { getSalarySummaries, getSalaryVersions, getSalaryTrace } from '@/api/salary'
@@ -319,6 +320,8 @@ onMounted(async () => {
 .compare-picker {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 12px;
 }
 .cell-changed {

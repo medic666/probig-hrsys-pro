@@ -12,3 +12,49 @@ $header-height: 56px;
 
 // spacing
 $content-padding: 20px;
+
+// responsive breakpoints（桌面优先：默认样式面向桌面，断点内叠加移动/平板适配）
+$bp-mobile-max: 767px;
+$bp-desktop-min: 768px;
+$bp-tablet-max: 1199px;
+$bp-wide-min: 1200px;
+
+// 移动端（<768px）
+@mixin mobile {
+  @media (max-width: $bp-mobile-max) {
+    @content;
+  }
+}
+
+// 平板（768px-1199px）
+@mixin tablet {
+  @media (min-width: $bp-desktop-min) and (max-width: $bp-tablet-max) {
+    @content;
+  }
+}
+
+// 桌面（≥1200px）
+@mixin desktop {
+  @media (min-width: $bp-wide-min) {
+    @content;
+  }
+}
+
+// 仅具备悬停能力的设备（鼠标）才展示 hover 反馈，触屏设备避免伪态残影
+@mixin hover-capable {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
+// 卡片网格：自动填充列数；桌面/平板最小列宽 $min，
+// 移动端最小列宽 160px（窄屏保持双排，极窄 <356px 视口才单排）
+@mixin card-grid($min: 220px) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, $min), 1fr));
+  gap: 12px;
+
+  @include mobile {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  }
+}

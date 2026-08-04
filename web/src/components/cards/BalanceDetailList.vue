@@ -1,16 +1,18 @@
 <template>
   <div>
     <h4 v-if="title" class="lb-title">{{ title }}</h4>
-    <el-descriptions v-if="rows.length" :column="1" border size="small" label-width="110px">
+    <AppDescriptions v-if="rows.length" :column="1" border size="small" label-width="110px">
       <el-descriptions-item v-for="r in rows" :key="r.label" :label="r.label">
         {{ r.value }}
       </el-descriptions-item>
-    </el-descriptions>
+    </AppDescriptions>
     <el-empty v-else :description="emptyText" :image-size="50" />
   </div>
 </template>
 
 <script setup lang="ts">
+import AppDescriptions from '@/components/AppDescriptions.vue'
+
 withDefaults(
   defineProps<{
     title?: string

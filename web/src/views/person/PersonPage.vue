@@ -13,7 +13,7 @@
             <div class="toolbar">
               <el-button type="primary" size="small" @click="editMode = true">编辑档案</el-button>
             </div>
-            <el-descriptions v-if="person" :column="2" border size="small">
+            <AppDescriptions v-if="person" :column="2" border size="small">
               <el-descriptions-item label="姓名">{{ person.name }}</el-descriptions-item>
               <el-descriptions-item label="身份证号">{{ person.id_card || '-' }}</el-descriptions-item>
               <el-descriptions-item label="性别">{{ genderMap[person.gender] || '未设置' }}</el-descriptions-item>
@@ -24,7 +24,7 @@
               <el-descriptions-item label="政治面貌">{{ person.political_status || '-' }}</el-descriptions-item>
               <el-descriptions-item label="婚姻状态">{{ maritalMap[person.marital_status] || '未设置' }}</el-descriptions-item>
               <el-descriptions-item label="别名" :span="2">{{ person.alias || '-' }}</el-descriptions-item>
-            </el-descriptions>
+            </AppDescriptions>
 
             <h4 class="sub-title">电话</h4>
             <el-table :data="person?.phones || []" border size="small" class="sub-table">
@@ -57,7 +57,7 @@
             <div v-if="positionLoading" v-loading="positionLoading" style="min-height:100px" />
             <template v-else>
               <h4>当前职务</h4>
-              <el-descriptions v-if="currentPosition" :column="3" border size="small">
+              <AppDescriptions v-if="currentPosition" :column="3" border size="small">
                 <el-descriptions-item label="在职状态">{{ currentPosition.is_active ? '在职' : '已离职' }}</el-descriptions-item>
                 <el-descriptions-item label="入职日期">{{ currentPosition.entry_date || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="离职日期">{{ currentPosition.leave_date || '-' }}</el-descriptions-item>
@@ -79,7 +79,7 @@
                 <el-descriptions-item label="公积金补偿">{{ currentPosition.fund_compensation || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="社保代扣">{{ currentPosition.social_security_deduct || '-' }}</el-descriptions-item>
                 <el-descriptions-item label="公积金代扣">{{ currentPosition.housing_fund_deduct || '-' }}</el-descriptions-item>
-              </el-descriptions>
+              </AppDescriptions>
               <el-empty v-else description="暂无职务信息" :image-size="40" />
 
               <h4 class="sub-title">变动历史（职务事件）</h4>
@@ -114,6 +114,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import BusinessPage from '@/components/BusinessPage.vue'
+import AppDescriptions from '@/components/AppDescriptions.vue'
 import PersonProfileForm from '@/components/person/PersonProfileForm.vue'
 import LeaveBalanceDetail from '@/components/cards/LeaveBalanceDetail.vue'
 import FileAttachPanel from '@/components/FileAttachPanel.vue'

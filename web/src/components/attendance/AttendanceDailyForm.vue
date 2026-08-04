@@ -1,17 +1,17 @@
 <template>
   <el-form label-width="90px">
     <el-row :gutter="16">
-      <el-col :span="8">
+      <el-col :xs="24" :sm="8">
         <el-form-item label="人员" required>
           <NameSelect v-model="form.person_id" :fetch-api="fetchPersonOpts" placeholder="选择人员" :disabled="isEdit || readonly" />
         </el-form-item>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="24" :sm="8">
         <el-form-item label="日期" required>
           <el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" :disabled="isEdit || readonly" />
         </el-form-item>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="24" :sm="8">
         <el-form-item label="状态">
           <el-radio-group v-model="form.status" size="small" :disabled="readonly">
             <el-radio-button value="confirmed">已确认</el-radio-button>
@@ -19,10 +19,10 @@
           </el-radio-group>
         </el-form-item>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12">
         <el-form-item label="打卡时间"><el-input v-model="form.punch_time" placeholder="如 08:30,18:00" :disabled="readonly" /></el-form-item>
       </el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12">
         <el-form-item label="备注"><el-input v-model="form.remark" :disabled="readonly" /></el-form-item>
       </el-col>
     </el-row>

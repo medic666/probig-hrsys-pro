@@ -55,9 +55,9 @@ defineExpose({ reload })
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .card-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  @include card-grid;
 }
 </style>

@@ -48,9 +48,11 @@ const showWidget = computed(() => isActivePerson(props.person))
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .person-card {
   position: relative;
-  width: 220px;
+  width: 100%;
   border: 1px solid #e4e7ed;
   border-radius: 8px;
   background: #fff;
@@ -58,9 +60,11 @@ const showWidget = computed(() => isActivePerson(props.person))
   cursor: pointer;
   transition: box-shadow 0.2s, transform 0.2s;
 
-  &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+  @include hover-capable {
+    &:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-2px);
+    }
   }
 
   .pc-dot {

@@ -1,45 +1,25 @@
 <template>
   <div class="main-layout">
     <el-container>
-      <el-aside :width="isCollapsed ? '64px' : '220px'" class="layout-sidebar">
+      <el-aside v-if="!isMobile" :width="isCollapsed ? '64px' : '220px'" class="layout-sidebar">
         <div class="sidebar-logo">
           <span v-if="!isCollapsed" class="logo-text">人事管理系统</span>
           <span v-else class="logo-text-small">HR</span>
         </div>
-        <el-menu
-          :default-active="activeMenu"
-          :collapse="isCollapsed"
-          :collapse-transition="false"
-          router
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409eff"
-        >
-          <template v-for="menu in displayMenus" :key="menu.path">
-            <el-sub-menu v-if="menu.children && menu.children.length" :index="menu.path">
-              <template #title>
-                <el-icon><component :is="getIcon(menu.icon)" /></el-icon>
-                <span>{{ menu.title }}</span>
-              </template>
-              <el-menu-item v-for="child in menu.children" :key="child.path" :index="child.path">
-                <span>{{ child.title }}</span>
-              </el-menu-item>
-            </el-sub-menu>
-            <el-menu-item v-else :index="menu.path">
-              <el-icon><component :is="getIcon(menu.icon)" /></el-icon>
-              <span>{{ menu.title }}</span>
-            </el-menu-item>
-          </template>
-        </el-menu>
+        <SideMenu :collapse="isCollapsed" />
       </el-aside>
 
       <el-container>
         <el-header class="layout-header">
           <div class="header-left">
-            <el-icon class="collapse-btn" @click="toggleCollapse">
+            <el-icon v-if="isMobile" class="collapse-btn" @click="mobileDrawer = true">
+              <Menu />
+            </el-icon>
+            <el-icon v-else class="collapse-btn" @click="toggleCollapse">
               <Fold v-if="!isCollapsed" />
               <Expand v-else />
             </el-icon>
+            <span v-if="isMobile" class="header-title">{{ pageTitle }}</span>
           </div>
           <div class="header-right">
             <el-dropdown trigger="click" @command="handleCommand">
@@ -67,61 +47,51 @@
         </el-main>
       </el-container>
     </el-container>
+
+    <el-drawer
+      v-model="mobileDrawer"
+      direction="ltr"
+      size="min(80vw, 300px)"
+      class="menu-drawer"
+      :with-header="false"
+    >
+      <div class="drawer-logo">人事管理系统</div>
+      <SideMenu @select="mobileDrawer = false" />
+    </el-drawer>
+
     <ChangePasswordDialog v-model:visible="showPwdDialog" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { usePermissionStore } from '@/stores/permission'
-import {
-  HomeFilled,
-  Fold,
-  Expand,
-  ArrowDown,
-  User,
-  OfficeBuilding,
-  Clock,
-  Money,
-  Document,
-  Setting,
-} from '@element-plus/icons-vue'
+import { Menu, Fold, Expand, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue'
+import SideMenu from '@/components/SideMenu.vue'
+import { useBreakpoint } from '@/composables/useBreakpoint'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const permissionStore = usePermissionStore()
+const { isMobile } = useBreakpoint()
 const isCollapsed = ref(false)
 const showPwdDialog = ref(false)
+const mobileDrawer = ref(false)
 
-const activeMenu = computed(() => route.path)
+const pageTitle = computed(() => String(route.meta.title || ''))
 
-const iconMap: Record<string, any> = {
-  HomeFilled,
-  User,
-  OfficeBuilding,
-  Clock,
-  Money,
-  Document,
-  Setting,
-}
-
-function getIcon(name: string) {
-  return iconMap[name] || HomeFilled
-}
-
-const displayMenus = computed(() => {
-  const storeMenus = permissionStore.menus
-  if (storeMenus.length > 0) return storeMenus
-
-  return [
-    { path: '/home', title: '首页', icon: 'HomeFilled' },
-  ]
-})
+// 移动抽屉内选择菜单后自动收起（路由变化即关闭）
+watch(
+  () => route.path,
+  () => {
+    mobileDrawer.value = false
+  },
+)
 
 function toggleCollapse() {
   isCollapsed.value = !isCollapsed.value
@@ -201,6 +171,7 @@ function handleCommand(command: string) {
   .header-left {
     display: flex;
     align-items: center;
+    gap: 8px;
 
     .collapse-btn {
       font-size: 20px;
@@ -210,6 +181,12 @@ function handleCommand(command: string) {
       &:hover {
         color: $primary-color;
       }
+    }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #303133;
     }
   }
 
@@ -230,11 +207,19 @@ function handleCommand(command: string) {
       }
     }
   }
+
+  @include mobile {
+    padding: 0 12px;
+  }
 }
 
 .layout-main {
   background: #f5f7fa;
   overflow-y: auto;
+
+  @include mobile {
+    padding: 12px;
+  }
 }
 
 .fade-enter-active,

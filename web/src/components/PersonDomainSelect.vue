@@ -159,6 +159,7 @@ loadOptions()
 <style scoped>
 .person-domain-select {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }

@@ -19,6 +19,8 @@ defineProps<{ title: string }>()
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 16px;
 
   .page-header-left {
@@ -37,6 +39,7 @@ defineProps<{ title: string }>()
   .page-header-actions {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
   }
 }

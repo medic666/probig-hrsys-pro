@@ -24,13 +24,19 @@ withDefaults(
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 12px;
 
   .toolbar-left,
   .toolbar-right {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .toolbar-right {
+    margin-left: auto;
   }
 }
 </style>

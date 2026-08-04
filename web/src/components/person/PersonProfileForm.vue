@@ -1,9 +1,9 @@
 <template>
   <el-form label-width="90px">
     <el-row :gutter="16">
-      <el-col :span="12"><el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item></el-col>
-      <el-col :span="12"><el-form-item label="身份证号"><el-input v-model="form.id_card" /></el-form-item></el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12"><el-form-item label="姓名" required><el-input v-model="form.name" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12"><el-form-item label="身份证号"><el-input v-model="form.id_card" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12">
         <el-form-item label="性别">
           <el-select v-model="form.gender" placeholder="请选择" style="width:100%">
             <el-option label="未设置" :value="0" />
@@ -12,12 +12,12 @@
           </el-select>
         </el-form-item>
       </el-col>
-      <el-col :span="12"><el-form-item label="生日"><el-date-picker v-model="form.birthday" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
-      <el-col :span="12"><el-form-item label="民族"><el-input v-model="form.nation" /></el-form-item></el-col>
-      <el-col :span="12"><el-form-item label="籍贯"><el-input v-model="form.native_place" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12"><el-form-item label="生日"><el-date-picker v-model="form.birthday" type="date" value-format="YYYY-MM-DD" style="width:100%" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12"><el-form-item label="民族"><el-input v-model="form.nation" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12"><el-form-item label="籍贯"><el-input v-model="form.native_place" /></el-form-item></el-col>
       <el-col :span="24"><el-form-item label="住址"><el-input v-model="form.address" /></el-form-item></el-col>
-      <el-col :span="12"><el-form-item label="政治面貌"><el-input v-model="form.political_status" /></el-form-item></el-col>
-      <el-col :span="12">
+      <el-col :xs="24" :sm="12"><el-form-item label="政治面貌"><el-input v-model="form.political_status" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12">
         <el-form-item label="婚姻状态">
           <el-select v-model="form.marital_status" placeholder="请选择" style="width:100%">
             <el-option label="未设置" :value="0" />
@@ -26,7 +26,7 @@
           </el-select>
         </el-form-item>
       </el-col>
-      <el-col :span="12"><el-form-item label="别名"><el-input v-model="form.alias" /></el-form-item></el-col>
+      <el-col :xs="24" :sm="12"><el-form-item label="别名"><el-input v-model="form.alias" /></el-form-item></el-col>
     </el-row>
   </el-form>
 

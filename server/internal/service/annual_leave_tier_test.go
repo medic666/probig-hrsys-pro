@@ -198,23 +198,46 @@ func TestAnnualLeaveTiers(t *testing.T) {
 			t.Fatalf("legacy single value parse: %v %v", tiers, ok)
 		}
 
-		// 阶梯配置（默认 seed 已是阶梯 JSON）
+		// 阶梯配置（下界语义：满 X 司龄年配发；默认 seed 已是新语义阶梯 JSON）
 		db.Model(&model.SysConfig{}).Where("config_key = ?", "annual_leave.yearly_hours").
-			Update("config_value", `[{"years":10,"hours":40},{"years":20,"hours":80},{"years":999,"hours":120}]`)
+			Update("config_value", `[{"years":1,"hours":40},{"years":10,"hours":80},{"years":20,"hours":120}]`)
 		RefreshConfig(db, "annual_leave.yearly_hours")
 
-		// 司龄 1 年 → 40h；司龄 15 年 → 80h；司龄 25 年 → 120h
+		// 司龄 1 年 → 40h；司龄 15 年 → 80h；司龄 25 年 → 120h（配发生效年 2026）
 		seedEmployee(db, 90, "2025-01-01", 8000, 2000, 300, 500, 26)
 		seedEmployee(db, 91, "2011-01-01", 8000, 2000, 300, 500, 26)
 		seedEmployee(db, 92, "2001-01-01", 8000, 2000, 300, 500, 26)
-		if h := getYearlyAnnualLeaveHours(90); h != 40 {
+		if h := getYearlyAnnualLeaveHours(90, 2026); h != 40 {
 			t.Errorf("seniority 1y want 40, got %v", h)
 		}
-		if h := getYearlyAnnualLeaveHours(91); h != 80 {
+		if h := getYearlyAnnualLeaveHours(91, 2026); h != 80 {
 			t.Errorf("seniority 15y want 80, got %v", h)
 		}
-		if h := getYearlyAnnualLeaveHours(92); h != 120 {
+		if h := getYearlyAnnualLeaveHours(92, 2026); h != 120 {
 			t.Errorf("seniority 25y want 120, got %v", h)
+		}
+
+		// 边界：恰满 10 / 20 年命中对应档；未达任何门槛回退第一档
+		seedEmployee(db, 93, "2016-01-01", 8000, 2000, 300, 500, 26)
+		seedEmployee(db, 94, "2006-01-01", 8000, 2000, 300, 500, 26)
+		seedEmployee(db, 95, "2026-01-01", 8000, 2000, 300, 500, 26)
+		if h := getYearlyAnnualLeaveHours(93, 2026); h != 80 {
+			t.Errorf("seniority 10y (boundary) want 80, got %v", h)
+		}
+		if h := getYearlyAnnualLeaveHours(94, 2026); h != 120 {
+			t.Errorf("seniority 20y (boundary) want 120, got %v", h)
+		}
+		if h := getYearlyAnnualLeaveHours(95, 2026); h != 40 {
+			t.Errorf("seniority 0y (fallback first tier) want 40, got %v", h)
+		}
+
+		// 执行年无关性：配发额度由配发生效年（结算月+1）决定，与操作时间无关
+		seedEmployee(db, 96, "2015-01-01", 8000, 2000, 300, 500, 26)
+		if h := getYearlyAnnualLeaveHours(96, 2025); h != 80 {
+			t.Errorf("grant year 2025 (seniority 10y) want 80, got %v", h)
+		}
+		if h := getYearlyAnnualLeaveHours(96, 2024); h != 40 {
+			t.Errorf("grant year 2024 (seniority 9y) want 40, got %v", h)
 		}
 	})
 }

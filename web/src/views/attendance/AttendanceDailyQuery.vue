@@ -119,20 +119,26 @@ onMounted(async () => {
   await loadDots('attendance-daily-badges', getDailyProjectionBadges)
 })
 </script>
-<style scoped>
+<style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .page-container{padding:0;background:transparent}
 
 .proj-card {
-  width: 260px;
+  width: 100%;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
   cursor: pointer;
   transition: box-shadow 0.2s;
-  &:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  @include hover-capable {
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
   }
+
   .pc-header {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
     .pc-date { font-weight: 600; font-size: 14px; color: #303133; }

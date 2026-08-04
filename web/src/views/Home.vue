@@ -7,7 +7,7 @@
         <el-divider />
         <div class="feature-list">
           <el-row :gutter="20">
-            <el-col v-for="item in features" :key="item.title" :span="6">
+            <el-col v-for="item in features" :key="item.title" :xs="12" :sm="6">
               <el-card shadow="hover" class="feature-card">
                 <el-icon :size="32" :color="item.color">
                   <component :is="item.icon" />
@@ -35,6 +35,8 @@ const features = [
 </script>
 
 <style lang="scss" scoped>
+@use '@/styles/variables.scss' as *;
+
 .home-page {
   .welcome-container {
     text-align: center;
@@ -59,6 +61,7 @@ const features = [
   .feature-card {
     text-align: center;
     cursor: pointer;
+    margin-bottom: 12px;
 
     h4 {
       margin: 12px 0 8px;
@@ -69,6 +72,12 @@ const features = [
     p {
       font-size: 12px;
       color: #909399;
+    }
+
+    @include hover-capable {
+      &:hover {
+        transform: translateY(-2px);
+      }
     }
   }
 }

@@ -5,9 +5,8 @@
 
     <el-table v-loading="bl" :data="batches" border>
       <el-table-column prop="batch_no" label="批次号" width="200"/>
-      <el-table-column prop="business_period" label="业务周期" width="100"/>
+      <el-table-column prop="business_period" label="业务周期" width="150" :formatter="(r:any)=>periodRange(r.business_period)"/>
       <el-table-column prop="person_names" label="处理人员" />
-      <el-table-column prop="total_count" label="人数" width="70"/>
       <el-table-column prop="status" label="状态" width="90"><template #default="{row}">{{ {1:'待执行',2:'已生效',4:'失败'}[row.status]||row.status }}</template></el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="160"/>
       <el-table-column label="操作" width="140">
@@ -35,6 +34,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import dayjs from 'dayjs'
 import { executeCarryover, cancelCarryover, getCarryoverBatches } from '@/api/annual-leave'
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import request from '@/utils/request'
@@ -42,6 +42,13 @@ import { hoursToDays } from '@/utils'
 
 const cv=ref(false); const batches=ref<any[]>([]); const bl=ref(false)
 const ev=ref(false); const batchEvents=ref<any[]>([])
+
+// business_period 存配发月（结算月+1），展示为 "结转月-配发月"，如 2024-12-2025-01
+function periodRange(period: string): string {
+  if (!period) return '-'
+  const d = dayjs(period + '-01').subtract(1, 'month')
+  return `${d.format('YYYY-MM')}-${period}`
+}
 
 onMounted(()=>loadBatches())
 async function loadBatches(){ bl.value=true; try{

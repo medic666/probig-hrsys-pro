@@ -37,11 +37,12 @@
         :person-dot-map="dotMap"
       >
         <template #day="{ items }">
-          <AttendanceDailyBlock
+          <AttendanceDailyDeck
             v-if="items.length > 0"
-            :daily="items[0]"
+            :items="items"
             @edit="openEdit"
             @confirm="confirmDaily"
+            @delete="handleDeleteDaily"
           />
         </template>
       </TimeCardPanel>
@@ -61,7 +62,7 @@ import ProTable from '@/components/ProTable.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import FileAttachDialog from '@/components/FileAttachDialog.vue'
-import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
+import AttendanceDailyDeck from '@/components/attendance/AttendanceDailyDeck.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import TimeCardPanel from '@/components/cards/TimeCardPanel.vue'
@@ -100,6 +101,7 @@ function detailSummary(r: any): string {
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
   { prop:'event_date', label:'日期', width:'110' },
+  { prop:'seq', label:'组号', width:'60' },
   { prop:'status', label:'状态', width:'80', formatter:(r:any)=>({pending:'待确认',confirmed:'已确认'}[r.status]||r.status||'-') },
   { prop:'summary', label:'事件摘要', minWidth:'220', formatter:(r:any)=>detailSummary(r) },
   { prop:'punch_time', label:'打卡时间', width:'110', formatter:(r:any)=>r.punch_time || '-' },
@@ -128,15 +130,26 @@ function openEdit(row: any) {
 }
 
 
-// 卡片"确认"：提示后直接确认生效（与编辑页保存同一确认入口，不再跳页二次操作）
+// 卡片"确认"：提示后直接确认生效（就地转正：目标组提升为当日最新版，其余组降级待确认）
 async function confirmDaily(row: any) {
   try {
-    await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 的整日事件？提交后状态将置为已确认。`, '确认整日', { type: 'warning' })
+    await ElMessageBox.confirm(`确认提交 ${row.person_name} ${row.event_date} 第${row.seq}组的整日事件？提交后该组将成为当日最新版并置为已确认，当日其它组将标记为待确认。`, '确认整日', { type: 'warning' })
   } catch { return }
   try {
     await confirmAttendanceDaily(row.id, row.details || [], row.punch_time || '', row.remark || '')
     ElMessage.success('确认成功')
     timePanelRef.value?.reload()
+    await loadDots('attendance-events-badges', getAttendanceEventBadges)
+  } catch { /* handled */ }
+}
+
+// 套卡"删除"：软删除当前显示的考勤组（仅套卡提供）
+async function handleDeleteDaily(row: any) {
+  try {
+    await deleteAttendanceEvent(row.id)
+    ElMessage.success('已删除')
+    timePanelRef.value?.reload()
+    await loadDots('attendance-events-badges', getAttendanceEventBadges)
   } catch { /* handled */ }
 }
 

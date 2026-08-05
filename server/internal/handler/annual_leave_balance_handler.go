@@ -62,6 +62,10 @@ func GetLILEvents(c *gin.Context) {
 	}
 	var filtered []map[string]interface{}
 	for _, daily := range list {
+		// 同日多版本：仅已确认（当日最新）组的补班/调休视为有效消费，陈旧 pending 不读入
+		if daily["status"] != "confirmed" {
+			continue
+		}
 		if details, ok := daily["details"].([]map[string]interface{}); ok {
 			for _, d := range details {
 				sub, _ := d["sub_type"].(string)

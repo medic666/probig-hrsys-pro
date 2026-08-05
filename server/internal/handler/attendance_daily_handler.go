@@ -85,7 +85,7 @@ func CreateAttendanceEvent(c *gin.Context) {
 
 	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
 		// 颗粒化 upsert（提供即覆盖）：明细/打卡时间/备注/状态按本次提交值写入，当天已有记录被替换
-		return service.UpsertAttendanceDaily(tx, service.AttendanceDailyUpsert{
+		return service.AppendAttendanceDaily(tx, service.AttendanceDailyUpsert{
 			PersonID:  req.PersonID,
 			Date:      dateOnly,
 			Status:    &status,
@@ -200,12 +200,8 @@ func ConfirmAttendanceDaily(c *gin.Context) {
 		return
 	}
 	err = utils.WithTransaction(dao.DBFromContext(c.Request.Context()), func(tx *gorm.DB) error {
-		// 确认时同步应用打卡时间/备注（编辑弹窗"确定"一次提交）
-		if err := tx.Model(&model.AttendanceDaily{}).Where("id = ?", id).
-			Updates(map[string]interface{}{"punch_time": req.PunchTime, "remark": req.Remark}).Error; err != nil {
-			return err
-		}
-		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details, status)
+		// 编辑/确认统一入口：目标组就地转正为当日最新版，打卡时间/备注随新内容一并提交
+		return service.ConfirmDaily(c.Request.Context(), tx, uint(id), req.Details, status, req.PunchTime, req.Remark)
 	})
 	if err != nil {
 		utils.Error(c, err.Error())

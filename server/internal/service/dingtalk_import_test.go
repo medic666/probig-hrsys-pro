@@ -110,10 +110,12 @@ func TestDingTalkParseMultiLeave(t *testing.T) {
 	})
 }
 
-// TestDingTalkImportIdempotent 重复导入同一日：明细不重复
+// TestDingTalkImportIdempotent 重复导入同一日：追加新版本——旧组降级 pending、新组 confirmed，
+// 各 1 条明细不重复；年假消费只按最新确认组计一次
 func TestDingTalkImportIdempotent(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
 		migrateBalanceSnapshots(t, db)
+		seedGrant(t, db, 300, 40)
 		ctx := context.Background()
 		d, _ := utils.ParseDate("2026-06-10")
 		date := utils.DateOnlyFromTime(d)
@@ -125,15 +127,28 @@ func TestDingTalkImportIdempotent(t *testing.T) {
 				t.Fatalf("round %d: created=0", i+1)
 			}
 		}
-		var daily model.AttendanceDaily
-		if err := db.Where("person_id = 300 AND event_date = ?", date).First(&daily).Error; err != nil {
-			t.Fatalf("daily not written: %v", err)
+		var dailies []model.AttendanceDaily
+		if err := db.Where("person_id = 300 AND event_date = ?", date).Order("seq ASC").Find(&dailies).Error; err != nil {
+			t.Fatalf("load dailies: %v", err)
 		}
-		var details []model.AttendanceEventDetail
-		db.Where("daily_id = ?", daily.ID).Find(&details)
-		if len(details) != 1 {
-			t.Errorf("idempotent: details count = %d, want 1", len(details))
+		if len(dailies) != 2 {
+			t.Fatalf("second import should append a new version, got %d dailies", len(dailies))
 		}
+		if dailies[0].Seq != 1 || dailies[0].Status != "pending" {
+			t.Errorf("old version should be seq=1 pending, got seq=%d status=%s", dailies[0].Seq, dailies[0].Status)
+		}
+		if dailies[1].Seq != 2 || dailies[1].Status != "confirmed" {
+			t.Errorf("newest should be seq=2 confirmed, got seq=%d status=%s", dailies[1].Seq, dailies[1].Status)
+		}
+		for i, dl := range dailies {
+			var details []model.AttendanceEventDetail
+			db.Where("daily_id = ?", dl.ID).Find(&details)
+			if len(details) != 1 {
+				t.Errorf("daily[%d] details count = %d, want 1", i, len(details))
+			}
+		}
+		// 该日无年假消费，余额保持 40（重复导入不产生额外消费）
+		assertALBalance(t, db, 300, 40)
 	})
 }
 

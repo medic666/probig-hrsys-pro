@@ -22,7 +22,7 @@
     <div class="details-title">事件明细</div>
     <AttendanceDetailsEditor v-model="form.details" />
   </div>
-  <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天；当天已有记录将被整体覆盖。</div>
+  <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天，每天新增一条考勤组；当天已有记录将标记为待确认（最新记录优先）。</div>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
       <el-button type="primary" :loading="saving" @click="doSubmit">确定</el-button>

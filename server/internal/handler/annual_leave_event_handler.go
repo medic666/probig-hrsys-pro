@@ -27,6 +27,8 @@ func annualLeaveListQuery(c *gin.Context) service.AnnualLeaveListQuery {
 func GetAnnualLeaveEvents(c *gin.Context) {
 	q := annualLeaveListQuery(c)
 
+	// 服务层已按「已确认」合并考勤年假消费（同日多版本仅最新确认组参与），
+	// 此处仅补 account 段来源标记，避免未过滤状态的二次合并导致重复与陈旧 pending 混入
 	list, _, err := service.GetAnnualLeaveEventList(q)
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -36,30 +38,6 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 	if len(list) > 0 {
 		for i := range list {
 			list[i]["source"] = "account"
-		}
-	}
-
-	if q.EventType == "" || q.EventType == "休假" {
-		attDailyList, _, _ := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
-			PageNum: q.PageNum, PageSize: q.PageSize,
-			PersonID: q.PersonID, DateStart: q.DateStart, DateEnd: q.DateEnd,
-		})
-		for _, daily := range attDailyList {
-			if details, ok := daily["details"].([]map[string]interface{}); ok {
-				for _, d := range details {
-					if sub, _ := d["sub_type"].(string); sub == "年假" {
-						h, _ := d["hours"].(float64)
-						d["event_type"] = "休假(年假)"
-						d["source_type"] = "attendance"
-						d["source"] = "attendance"
-						d["person_id"] = daily["person_id"]
-						d["person_name"] = daily["person_name"]
-						d["event_date"] = daily["event_date"]
-						d["hours"] = -h
-						list = append(list, d)
-					}
-				}
-			}
 		}
 	}
 

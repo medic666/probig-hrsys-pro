@@ -29,7 +29,8 @@
   </el-form>
 
   <AttendanceDetailsEditor v-model="details" :readonly="readonly" />
-  <div v-if="!readonly" class="hint">录入将覆盖当天已有记录（明细/打卡时间/备注/状态）；待确认记录不参与投影核算。</div>
+  <div v-if="!readonly && isEdit" class="hint">保存后该组将成为当日最新版本（序号递增），当日其它组将标记为待确认；待确认记录不参与投影核算。</div>
+  <div v-else-if="!readonly" class="hint">录入将新增一条考勤组；若当天已有记录，已有记录将标记为待确认（最新记录优先，同日仅最新组可确认）；待确认记录不参与投影核算。</div>
   <div v-else class="hint">只读视图：从日记工时模块进入，仅查看当日考勤明细。</div>
 
   <div v-if="!readonly" class="form-footer">

@@ -62,16 +62,22 @@ func TestPositionEventBadges(t *testing.T) {
 	})
 }
 
-// TestAttendanceEventBadges 考勤事件徽章（上月）：无记录 gray / 待确认 orange / 全确认 green
+// TestAttendanceEventBadges 考勤事件徽章（上月，日级有效语义）：无记录 gray / 当日最新为待确认 orange / 每日最新均确认 green。
+// 同日多版本：陈旧 pending（低于当日最大 seq）不参与判定，仅看当日最新组的状态。
 func TestAttendanceEventBadges(t *testing.T) {
 	withTestDB(t, func(db *gorm.DB) {
 		migrateBadgeTables(t, db)
-		seedBadgePersons(t, db, 1, 2, 3)
+		seedBadgePersons(t, db, 1, 2, 3, 4, 5)
 
 		lastMonth := time.Now().AddDate(0, -1, 0)
 		day15 := utils.DateOnlyFromTime(time.Date(lastMonth.Year(), lastMonth.Month(), 15, 0, 0, 0, 0, time.Local))
 		db.Create(&model.AttendanceDaily{PersonID: 2, EventDate: day15, Status: "pending"})
 		db.Create(&model.AttendanceDaily{PersonID: 3, EventDate: day15, Status: "confirmed"})
+		// 同日多版本：4=最新已确认（陈旧 pending 不参与）→ green；5=最新待确认 → orange
+		db.Create(&model.AttendanceDaily{PersonID: 4, Seq: 1, EventDate: day15, Status: "pending"})
+		db.Create(&model.AttendanceDaily{PersonID: 4, Seq: 2, EventDate: day15, Status: "confirmed"})
+		db.Create(&model.AttendanceDaily{PersonID: 5, Seq: 1, EventDate: day15, Status: "confirmed"})
+		db.Create(&model.AttendanceDaily{PersonID: 5, Seq: 2, EventDate: day15, Status: "pending"})
 
 		badges, err := GetAttendanceEventBadges(DefaultBadgeMonth())
 		if err != nil {
@@ -81,10 +87,16 @@ func TestAttendanceEventBadges(t *testing.T) {
 			t.Errorf("person 1 (无记录) want gray, got %s", badgeLevelOf(badges, 1))
 		}
 		if badgeLevelOf(badges, 2) != "orange" {
-			t.Errorf("person 2 (待确认) want orange, got %s", badgeLevelOf(badges, 2))
+			t.Errorf("person 2 (最新待确认) want orange, got %s", badgeLevelOf(badges, 2))
 		}
 		if badgeLevelOf(badges, 3) != "green" {
-			t.Errorf("person 3 (全确认) want green, got %s", badgeLevelOf(badges, 3))
+			t.Errorf("person 3 (最新已确认) want green, got %s", badgeLevelOf(badges, 3))
+		}
+		if badgeLevelOf(badges, 4) != "green" {
+			t.Errorf("person 4 (陈旧 pending + 最新 confirmed) want green, got %s", badgeLevelOf(badges, 4))
+		}
+		if badgeLevelOf(badges, 5) != "orange" {
+			t.Errorf("person 5 (陈旧 confirmed + 最新 pending) want orange, got %s", badgeLevelOf(badges, 5))
 		}
 	})
 }

@@ -19,6 +19,7 @@
       <div v-if="daily.punch_time" class="ev-punch">打卡时间: {{ daily.punch_time }}</div>
     </div>
     <div class="block-actions">
+      <slot name="extra-actions" />
       <el-button size="small" type="primary" link @click="$emit('edit', daily)">编辑</el-button>
       <el-button v-if="daily.status === 'pending'" size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
     </div>

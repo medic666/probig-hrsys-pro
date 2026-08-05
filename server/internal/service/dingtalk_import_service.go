@@ -223,7 +223,7 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 			// 明细/打卡时间/状态按解析结果写入；导入数据不含备注（nil 保持原值）。
 			// pending 事件同样进入投影（状态 pending），使日记工时/月度核算/工资
 			// 逐层感知待确认状态，形成 L0→L1→L2→L3 完整控制链
-			return UpsertAttendanceDaily(tx, AttendanceDailyUpsert{
+			return AppendAttendanceDaily(tx, AttendanceDailyUpsert{
 				PersonID:  personID,
 				Date:      date,
 				Status:    &status,
@@ -237,7 +237,7 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 			// 覆盖当天已有记录（与导入"覆盖当天"语义一致，强制人工处理）
 			pStatus, pPunch, pRemark := "pending", "", ""
 			_ = utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-				return UpsertAttendanceDaily(tx, AttendanceDailyUpsert{
+				return AppendAttendanceDaily(tx, AttendanceDailyUpsert{
 					PersonID:  personID,
 					Date:      date,
 					Status:    &pStatus,

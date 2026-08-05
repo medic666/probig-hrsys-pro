@@ -194,9 +194,9 @@ func TestConfirmDailyRebuildsBalances(t *testing.T) {
 		}
 		assertALBalance(t, db, 43, 40)
 
-		// 确认后余额生效
+		// 确认后余额生效（确认=就地转正：目标组置为最新并 confirmed，明细整体替换）
 		if err := db.Transaction(func(tx *gorm.DB) error {
-			return ConfirmDaily(context.Background(), tx, daily.ID, []model.AttendanceEventDetail{{DailyID: daily.ID, EventType: "休假", SubType: "年假", Hours: 8}}, "confirmed")
+			return ConfirmDaily(context.Background(), tx, daily.ID, []model.AttendanceEventDetail{{DailyID: daily.ID, EventType: "休假", SubType: "年假", Hours: 8}}, "confirmed", "", "")
 		}); err != nil {
 			t.Fatalf("confirm: %v", err)
 		}

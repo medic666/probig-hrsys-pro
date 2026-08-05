@@ -41,7 +41,7 @@
           <el-date-picker v-model="month" type="month" value-format="YYYY-MM" style="width:100%" />
         </el-form-item>
       </el-form>
-      <el-alert type="info" :closable="false" title="导入将覆盖当月已有记录（明细/打卡时间/状态）；标记为「待确认」的记录请到待确认页面核实后再参与核算。" style="margin-bottom:12px" />
+      <el-alert type="info" :closable="false" title="导入将为每天新增一条考勤组，当日已有记录将标记为待确认（最新记录优先）；标记为「待确认」的记录请到待确认页面核实后再参与核算。" style="margin-bottom:12px" />
       <el-button @click="step=1">上一步</el-button>
       <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
     </div>

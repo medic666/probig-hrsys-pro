@@ -14,8 +14,10 @@ import (
 func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly) error {
 	tx.Where("person_id = ? AND work_date = ?", personID, workDate).Delete(&model.AttendanceDailyProjection{})
 
+	// 同日多版本：投影始终由当日 seq 最大（有效）的考勤组驱动
 	var daily model.AttendanceDaily
-	if err := tx.Where("person_id = ? AND event_date = ?", personID, workDate).First(&daily).Error; err != nil {
+	if err := tx.Where("person_id = ? AND event_date = ?", personID, workDate).
+		Order("seq DESC").First(&daily).Error; err != nil {
 		return nil
 	}
 

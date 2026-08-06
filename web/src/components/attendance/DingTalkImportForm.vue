@@ -26,13 +26,14 @@
         <el-table-column label="匹配人员">
           <template #default="{ row }">
             <NameSelect v-model="row.person_id" placeholder="选择人员" />
+            <span v-if="!row.person_id" class="skip-hint">留空=跳过</span>
           </template>
         </el-table-column>
         <el-table-column prop="matched_name" label="建议匹配" width="110" />
       </el-table>
-      <div class="import-hint">未匹配人员请手动选择，已匹配可改选</div>
+      <div class="import-hint">未匹配人员可手动选择或留空跳过，已匹配可改选</div>
       <el-button style="margin-top:8px" @click="step=0">上一步</el-button>
-      <el-button style="margin-top:8px" type="primary" :disabled="preview.some(r=>!r.person_id)" @click="step=2">下一步</el-button>
+      <el-button style="margin-top:8px" type="primary" @click="step=2">下一步</el-button>
     </div>
 
     <div v-else>
@@ -41,9 +42,9 @@
           <el-date-picker v-model="month" type="month" value-format="YYYY-MM" style="width:100%" />
         </el-form-item>
       </el-form>
-      <el-alert type="info" :closable="false" title="导入将为每天新增一条考勤组，当日已有记录将标记为待确认（最新记录优先）；标记为「待确认」的记录请到待确认页面核实后再参与核算。" style="margin-bottom:12px" />
+      <el-alert type="info" :closable="false" :title="importSummary" style="margin-bottom:12px" />
       <el-button @click="step=1">上一步</el-button>
-      <el-button type="primary" :loading="importing" @click="doImport">确认导入</el-button>
+      <el-button type="primary" :loading="importing" :disabled="matchedCount === 0" @click="doImport">确认导入</el-button>
     </div>
 
     <div class="form-footer">
@@ -53,12 +54,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { dingTalkPreview, dingTalkExecute } from '@/api/attendance'
 // 钉钉月度汇总导入三步向导：上传解析 → 人员匹配确认 → 月份与执行。
-// 文件解析预览与幂等执行均由后端承担，页面只编排流程。
+// 支持部分导入：匹配人员留空即跳过该行；文件解析预览与幂等执行均由后端承担，页面只编排流程。
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const step = ref(0)
@@ -69,6 +70,12 @@ const month = ref('')
 const previewing = ref(false)
 const importing = ref(false)
 const uploadRef = ref()
+
+const matchedCount = computed(() => preview.value.filter((p: any) => p.person_id).length)
+const skippedCount = computed(() => preview.value.length - matchedCount.value)
+const importSummary = computed(
+  () => `将导入 ${matchedCount.value} 人，跳过 ${skippedCount.value} 人；导入将为每天新增一条考勤组，当日已有记录将标记为待确认（最新记录优先）；标记为「待确认」的记录请到待确认页面核实后再参与核算。`,
+)
 
 function onFileChange(file: any) { importFile.value = file.raw || null }
 
@@ -87,7 +94,9 @@ async function doImport() {
   if (!month.value) { ElMessage.warning('请选择归属月份'); return }
   importing.value = true
   try {
-    const mappings = preview.value.map((p: any) => ({ excel_name: p.excel_name, person_id: p.person_id }))
+    const mappings = preview.value
+      .filter((p: any) => p.person_id)
+      .map((p: any) => ({ excel_name: p.excel_name, person_id: p.person_id }))
     const d = await dingTalkExecute(month.value, filePath.value, mappings) as any
     ElMessage.success(`导入完成: 创建${d.created}条, 待确认${d.pending}条${d.fail ? `, 失败${d.fail}条(已标记待处理)` : ''}`)
     emit('saved')
@@ -97,5 +106,6 @@ async function doImport() {
 
 <style scoped>
 .import-hint { color: #909399; font-size: 12px; margin-top: 8px; }
+.skip-hint { color: #909399; font-size: 12px; margin-left: 4px; }
 .form-footer { display: flex; justify-content: flex-end; margin-top: 16px; }
 </style>

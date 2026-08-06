@@ -175,8 +175,8 @@ func DingTalkExecute(ctx context.Context, filePath, month string, mappings []Din
 
 	for _, pr := range persons {
 		pid, ok := personMap[pr.Name]
-		if !ok {
-			continue
+		if !ok || pid == 0 {
+			continue // 未匹配或留空跳过（部分导入）
 		}
 		for dayIdx := 0; dayIdx < monthDays && dayIdx < len(pr.DailyCells); dayIdx++ {
 			cell := pr.DailyCells[dayIdx]
@@ -270,8 +270,13 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	}
 
 	if isRestOT {
+		// 休息并打卡：提取实际加班时长（与"休息+加班"分支同构），无时长兜底 8h
+		h := extractOTHours(cell)
+		if h == 0 {
+			h = 8
+		}
 		events = append(events, model.AttendanceEventDetail{
-			EventType: "加班", SubType: "节假日加班", Hours: 8, Remark: "钉钉导入:休息并打卡",
+			EventType: "加班", SubType: "节假日加班", Hours: h, Remark: "钉钉导入:休息并打卡",
 		})
 		status = "pending"; pending = 1; created = 1
 		return createEvents()

@@ -107,6 +107,39 @@ func TestDingTalkWorkdayOTIncludesAttendance(t *testing.T) {
 	})
 }
 
+// TestDingTalkRestPunchOTIncludesHours 休息并打卡带加班时长：按实际加班小时记录并标待确认
+// （如万丹 2026-04-19 加班 12.5h，此前被硬编码为 8h）
+func TestDingTalkRestPunchOTIncludesHours(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		migrateBalanceSnapshots(t, db)
+		ctx := context.Background()
+		d, _ := utils.ParseDate("2026-04-19")
+		date := utils.DateOnlyFromTime(d)
+
+		cell := "休息并打卡,加班04-19 08:30到04-19 22:30 12.5小时\n(08:14,22:37)"
+		c, p, f := parseDailyCell(ctx, cell, 600, date)
+		if c != 1 || p != 1 || f != 0 {
+			t.Fatalf("created=%d pending=%d fail=%d, want 1/1/0", c, p, f)
+		}
+
+		var daily model.AttendanceDaily
+		if err := db.Where("person_id = 600 AND event_date = ?", date).First(&daily).Error; err != nil {
+			t.Fatalf("daily not written: %v", err)
+		}
+		if daily.Status != "pending" {
+			t.Errorf("daily status = %s, want pending", daily.Status)
+		}
+		var details []model.AttendanceEventDetail
+		db.Where("daily_id = ?", daily.ID).Find(&details)
+		if len(details) != 1 {
+			t.Fatalf("details count = %d, want 1", len(details))
+		}
+		if details[0].EventType != "加班" || details[0].SubType != "节假日加班" || details[0].Hours != 12.5 {
+			t.Errorf("detail = %+v, want 加班-节假日加班 12.5h", details[0])
+		}
+	})
+}
+
 // TestDingTalkParseMultiLeave 同类型多段请假求和 + 休息+请假不再被跳过
 func TestDingTalkParseMultiLeave(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
@@ -309,9 +342,10 @@ func TestDingTalkParseDailyCell(t *testing.T) {
 			{"早退5分钟", 1, 0},
 			{"缺卡", 1, 1},
 			{"旷工", 1, 1},
-			{"休息", 0, 0},
-			{"休息并打卡(08:00,12:00)", 1, 1},
-			{"休息加班3小时", 1, 0},
+		{"休息", 0, 0},
+		{"休息并打卡(08:00,12:00)", 1, 1},
+		{"休息并打卡,加班04-19 08:30到04-19 22:30 12.5小时", 1, 1},
+		{"休息加班3小时", 1, 0},
 		{"事假4小时", 1, 1},
 		{"事假8小时", 1, 1},
 		{"病假8小时", 1, 0},

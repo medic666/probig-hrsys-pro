@@ -54,8 +54,10 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 				hasPersonalLeave = true
 			case "病假":
 				workHours += e.Hours * getSickLeaveRatio()
-			case "年假", "调休", "法定假", "福利假":
+			case "年假", "法定假", "福利假":
 				workHours += e.Hours
+			case "调休":
+				// 调休仅为调休余额消费，不记出勤工时（出勤时间只由 出勤-补班出勤/普通出勤 承担）
 			}
 		case "加班":
 			switch e.SubType {

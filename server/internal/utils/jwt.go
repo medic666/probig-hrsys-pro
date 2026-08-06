@@ -27,12 +27,27 @@ func randomJTI() string {
 	return hex.EncodeToString(b)
 }
 
+// JwtTTL 登录态有效期（小时，读配置，缺省 8h）
+func JwtTTL() time.Duration {
+	hours := 8
+	if config.AppConfig != nil && config.AppConfig.Jwt.ExpireHours > 0 {
+		hours = config.AppConfig.Jwt.ExpireHours
+	}
+	return time.Duration(hours) * time.Hour
+}
+
+// ShouldRenew 滑动续期判定：剩余有效期不足一半时签发新 token
+// （活跃用户不中断，闲置满 TTL 自动失效）
+func ShouldRenew(exp time.Time) bool {
+	return time.Until(exp) < JwtTTL()/2
+}
+
 func GenerateToken(userID uint, username string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(JwtTTL())),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "probig",
 			ID:        randomJTI(),

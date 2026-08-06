@@ -52,34 +52,19 @@ func GetPersonLILHistory(c *gin.Context) {
 func GetLILEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, _, err := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
-		PageNum: pageReq.PageNum, PageSize: pageReq.PageSize,
-		PersonID: uint(personID), DateStart: c.Query("date_start"), DateEnd: c.Query("date_end"),
+	// 明细级查询：先过滤（仅已确认组的补班/调休）后分页，避免列表缺失
+	list, total, err := service.GetLILEventList(service.AttendanceDailyListQuery{
+		PageNum:   pageReq.PageNum,
+		PageSize:  pageReq.PageSize,
+		PersonID:  uint(personID),
+		DateStart: c.Query("date_start"),
+		DateEnd:   c.Query("date_end"),
 	})
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	var filtered []map[string]interface{}
-	for _, daily := range list {
-		// 同日多版本：仅已确认（当日最新）组的补班/调休视为有效消费，陈旧 pending 不读入
-		if daily["status"] != "confirmed" {
-			continue
-		}
-		if details, ok := daily["details"].([]map[string]interface{}); ok {
-			for _, d := range details {
-				sub, _ := d["sub_type"].(string)
-				if sub == "补班出勤" || sub == "调休" {
-					filtered = append(filtered, map[string]interface{}{
-						"id": d["id"], "daily_id": daily["id"], "person_id": daily["person_id"], "person_name": daily["person_name"],
-						"event_date": daily["event_date"], "event_type": d["event_type"],
-						"sub_type": d["sub_type"], "hours": d["hours"], "remark": d["remark"],
-					})
-				}
-			}
-		}
-	}
-	successPage(c, filtered, int64(len(filtered)), pageReq.PageNum, pageReq.PageSize)
+	successPage(c, list, total, pageReq.PageNum, pageReq.PageSize)
 }
 
 type carryoverReq struct {

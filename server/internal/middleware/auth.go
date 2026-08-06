@@ -51,6 +51,13 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
 		c.Set("user", &user)
+
+		// 滑动续期：剩余有效期不足一半时签发新 token 经响应头返回，前端静默更新
+		if claims.ExpiresAt != nil && utils.ShouldRenew(claims.ExpiresAt.Time) {
+			if newToken, err := utils.GenerateToken(user.ID, user.Username); err == nil {
+				c.Header("X-New-Token", newToken)
+			}
+		}
 		c.Next()
 	}
 }

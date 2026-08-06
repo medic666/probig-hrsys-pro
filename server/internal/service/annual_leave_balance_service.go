@@ -345,6 +345,80 @@ type LILBalanceDetail struct {
 	Balance float64 `json:"balance"`
 }
 
+// LILEventListItem 调休事件行（补班出勤/调休）
+type LILEventListItem struct {
+	ID         uint           `json:"id"`
+	DailyID    uint           `json:"daily_id"`
+	PersonID   uint           `json:"person_id"`
+	PersonName string         `json:"person_name"`
+	EventDate  utils.DateOnly `json:"event_date"`
+	EventType  string         `json:"event_type"`
+	SubType    string         `json:"sub_type"`
+	Hours      float64        `json:"hours"`
+	Remark     string         `json:"remark"`
+}
+
+// GetLILEventList 调休事件明细级分页查询（补班出勤/调休）：
+// 按「已确认考勤组」的明细行过滤（同日多版本仅最新确认组参与），先过滤后分页，
+// 避免"先对考勤日分页、再页内过滤明细"导致列表缺失。
+func GetLILEventList(q AttendanceDailyListQuery) ([]LILEventListItem, int64, error) {
+	tx := dao.DB.Table("attendance_event_details d").
+		Joins("JOIN attendance_daily a ON a.id = d.daily_id AND a.deleted_at IS NULL AND a.status = 'confirmed'").
+		Where("d.deleted_at IS NULL AND d.sub_type IN ?", []string{"补班出勤", "调休"})
+	if q.PersonID > 0 {
+		tx = tx.Where("a.person_id = ?", q.PersonID)
+	}
+	if q.DateStart != "" {
+		tx = tx.Where("a.event_date >= ?", q.DateStart)
+	}
+	if q.DateEnd != "" {
+		tx = tx.Where("a.event_date <= ?", q.DateEnd)
+	}
+	var total int64
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var rows []struct {
+		ID        uint
+		DailyID   uint
+		PersonID  uint
+		EventDate utils.DateOnly
+		EventType string
+		SubType   string
+		Hours     float64
+		Remark    string
+	}
+	offset := (q.PageNum - 1) * q.PageSize
+	if err := tx.Select("d.id, d.daily_id, a.person_id, a.event_date, d.event_type, d.sub_type, d.hours, d.remark").
+		Order("a.event_date DESC, d.id DESC").
+		Offset(offset).Limit(q.PageSize).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+
+	ids := make([]uint, len(rows))
+	for i, r := range rows {
+		ids[i] = r.PersonID
+	}
+	nameMap := PersonNameMap(ids)
+
+	result := make([]LILEventListItem, len(rows))
+	for i, r := range rows {
+		result[i] = LILEventListItem{
+			ID:         r.ID,
+			DailyID:    r.DailyID,
+			PersonID:   r.PersonID,
+			PersonName: nameMap[r.PersonID],
+			EventDate:  r.EventDate,
+			EventType:  r.EventType,
+			SubType:    r.SubType,
+			Hours:      r.Hours,
+			Remark:     r.Remark,
+		}
+	}
+	return result, total, nil
+}
+
 func GetLILBalanceDetail(personID uint) (*LILBalanceDetail, error) {
 	var events []model.AttendanceEventDetail
 	dao.DB.Table("attendance_event_details").

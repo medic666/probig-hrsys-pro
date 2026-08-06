@@ -32,7 +32,8 @@ type FileStorageConfig struct {
 }
 
 type JwtConfig struct {
-	Secret string `yaml:"secret"`
+	Secret      string `yaml:"secret"`
+	ExpireHours int    `yaml:"expire_hours"`
 }
 
 type LogConfig struct {
@@ -121,6 +122,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Jwt.Secret == "" {
 		cfg.Jwt.Secret = "probig-jwt-secret-change-in-production"
+	}
+	if cfg.Jwt.ExpireHours <= 0 {
+		cfg.Jwt.ExpireHours = 8
 	}
 	if cfg.Log.File == "" {
 		cfg.Log.File = "./data/probig.log"

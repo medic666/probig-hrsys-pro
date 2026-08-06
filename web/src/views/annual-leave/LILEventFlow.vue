@@ -25,7 +25,7 @@
       >
         <template #person-badge="{ person }">
           <div class="balance-line" :class="{ 'is-zero': !(balanceMap[person.id] ?? 0) }">
-            调休 {{ hoursToDays(balanceMap[person.id] ?? 0).toFixed(2) }} 天
+            调休余额 {{ hoursToDays(balanceMap[person.id] ?? 0).toFixed(2) }} 天
           </div>
         </template>
         <template #day="{ items }">

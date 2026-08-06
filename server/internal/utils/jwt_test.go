@@ -2,6 +2,7 @@ package utils
 
 import (
 	"testing"
+	"time"
 )
 
 func TestGenerateToken(t *testing.T) {
@@ -32,5 +33,21 @@ func TestParseInvalidToken(t *testing.T) {
 	_, err := ParseToken("invalid-token")
 	if err == nil {
 		t.Fatal("ParseToken should fail for invalid token")
+	}
+}
+
+func TestShouldRenew(t *testing.T) {
+	ttl := JwtTTL()
+	half := ttl / 2
+	now := time.Now()
+
+	if !ShouldRenew(now.Add(half - time.Minute)) {
+		t.Error("remaining < half TTL should renew")
+	}
+	if ShouldRenew(now.Add(half + time.Minute)) {
+		t.Error("remaining >= half TTL should not renew")
+	}
+	if !ShouldRenew(now.Add(-time.Minute)) {
+		t.Error("expired token should renew")
 	}
 }

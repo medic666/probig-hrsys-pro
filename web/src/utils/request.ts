@@ -21,6 +21,11 @@ instance.interceptors.request.use((config) => {
 
 instance.interceptors.response.use(
   (response) => {
+    // 滑动续期：剩余有效期不足一半时后端经响应头签发新 token，静默更新本地登录态
+    const newToken = response.headers['x-new-token']
+    if (newToken) {
+      useUserStore().setToken(newToken)
+    }
     if (response.config.responseType === 'blob') {
       const disposition = response.headers['content-disposition'] || ''
       let filename = ''

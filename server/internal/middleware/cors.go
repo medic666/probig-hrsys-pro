@@ -22,6 +22,8 @@ func CORS(allowedOrigins []string) gin.HandlerFunc {
 				c.Header("Vary", "Origin")
 				c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 				c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+				// 暴露滑动续期响应头，跨域场景下前端才能读到
+				c.Header("Access-Control-Expose-Headers", "X-New-Token")
 			}
 			if c.Request.Method == "OPTIONS" {
 				c.AbortWithStatus(204)

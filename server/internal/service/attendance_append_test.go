@@ -110,6 +110,79 @@ func TestPendingDailyListDayLevel(t *testing.T) {
 	})
 }
 
+// TestProjectionMakeupCountsButLILNot 补班出勤计出勤工时，调休不计（避免调休 8h 与补班重复记工时）
+func TestProjectionMakeupCountsButLILNot(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		migrateBalanceSnapshots(t, db)
+		seedEmployee(db, 10, "2026-01-01", 8000, 2000, 300, 500, 26)
+		// 补班出勤 8h → work_hours 8
+		appendDaily(t, db, 10, "2026-06-01", "confirmed", detailRow("出勤", "补班出勤", 8))
+		// 调休 8h → work_hours 0（仅为调休余额消费）
+		appendDaily(t, db, 10, "2026-06-02", "confirmed", detailRow("休假", "调休", 8))
+		// 出勤 4h + 调休 4h → work_hours 4
+		appendDaily(t, db, 10, "2026-06-03", "confirmed", detailRow("出勤", "普通出勤", 4), detailRow("休假", "调休", 4))
+
+		assertProjectionWorkHours(t, db, 10, "2026-06-01", 8)
+		assertProjectionWorkHours(t, db, 10, "2026-06-02", 0)
+		assertProjectionWorkHours(t, db, 10, "2026-06-03", 4)
+	})
+}
+
+func assertProjectionWorkHours(t *testing.T, db *gorm.DB, personID uint, date string, want float64) {
+	t.Helper()
+	d, _ := utils.ParseDate(date)
+	var p model.AttendanceDailyProjection
+	if err := db.Where("person_id = ? AND work_date = ?", personID, utils.DateOnlyFromTime(d)).First(&p).Error; err != nil {
+		t.Fatalf("load projection: %v", err)
+	}
+	if p.WorkHours != want {
+		t.Errorf("work_hours = %v, want %v", p.WorkHours, want)
+	}
+}
+
+// TestGetLILEventList 调休事件列表：仅已确认组的补班/调休明细，先过滤后分页
+func TestGetLILEventList(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		seedEmployee(db, 20, "2026-01-01", 8000, 2000, 300, 500, 26)
+		seedLILRow := func(date, status, evType, subType string, hours float64) {
+			d, _ := utils.ParseDate(date)
+			daily := model.AttendanceDaily{PersonID: 20, EventDate: utils.DateOnlyFromTime(d), Status: status, Seq: 1}
+			if err := db.Create(&daily).Error; err != nil {
+				t.Fatalf("create daily: %v", err)
+			}
+			if err := db.Create(&model.AttendanceEventDetail{DailyID: daily.ID, EventType: evType, SubType: subType, Hours: hours}).Error; err != nil {
+				t.Fatalf("create detail: %v", err)
+			}
+		}
+		seedLILRow("2026-06-01", "confirmed", "出勤", "补班出勤", 8)
+		seedLILRow("2026-06-02", "confirmed", "休假", "调休", 4)
+		seedLILRow("2026-06-03", "pending", "出勤", "补班出勤", 8) // 未确认不入列
+
+		list, total, err := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 10})
+		if err != nil {
+			t.Fatalf("lil list: %v", err)
+		}
+		if total != 2 {
+			t.Fatalf("total = %d, want 2（pending 不入列）", total)
+		}
+		if len(list) != 2 || list[0].SubType != "调休" || list[1].SubType != "补班出勤" {
+			t.Errorf("order/fields wrong: %+v", list)
+		}
+		if list[0].PersonName != "测试员工" || list[0].EventDate.String() != "2026-06-02" {
+			t.Errorf("person/date wrong: %+v", list[0])
+		}
+
+		list2, total2, _ := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 1})
+		if total2 != 2 || len(list2) != 1 {
+			t.Errorf("pagination: total=%d len=%d, want 2/1", total2, len(list2))
+		}
+		_, total3, _ := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 10, PersonID: 999})
+		if total3 != 0 {
+			t.Errorf("person filter: total=%d, want 0", total3)
+		}
+	})
+}
+
 // TestAppendCreatesNewVersionAndDemotes 追加式写入：新组 seq 递增、旧组降级 pending、投影取最新
 func TestAppendCreatesNewVersionAndDemotes(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {

@@ -9,6 +9,7 @@
             <el-descriptions-item label="状态">
               <StatusTag :status="summaryRow.status || 'not_calculated'" />
             </el-descriptions-item>
+            <el-descriptions-item label="出勤天数">{{ hoursToDays(summaryRow.total_work_hours || 0).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="出勤工资">{{ summaryRow.attendance_salary }}</el-descriptions-item>
             <el-descriptions-item label="工作日加班工资">{{ summaryRow.overtime_workday_salary }}</el-descriptions-item>
             <el-descriptions-item label="节假日加班工资">{{ summaryRow.overtime_holiday_salary }}</el-descriptions-item>

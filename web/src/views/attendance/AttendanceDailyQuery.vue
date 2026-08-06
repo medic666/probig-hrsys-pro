@@ -42,7 +42,7 @@
             <div class="pc-lines">
               <div class="pc-line">记出勤：{{ hoursToDays(items[0].work_hours || 0).toFixed(2) }} 天</div>
               <div class="pc-line" :class="{ 'is-alert': items[0].overtime_workday_hours > 0 }">工作日加班：{{ hoursToDays(items[0].overtime_workday_hours || 0).toFixed(2) }} 天</div>
-              <div class="pc-line">节假日加班：{{ hoursToDays(items[0].overtime_holiday_hours || 0).toFixed(2) }} 天</div>
+              <div class="pc-line" :class="{ 'is-alert': items[0].overtime_holiday_hours > 0 }">节假日加班：{{ hoursToDays(items[0].overtime_holiday_hours || 0).toFixed(2) }} 天</div>
               <div v-if="items[0].violation_count > 0" class="pc-line is-alert">有违纪</div>
               <div v-if="items[0].has_personal_leave" class="pc-line is-alert">有事假</div>
               <div v-if="items[0].remark" class="pc-line">备注：{{ items[0].remark }}</div>

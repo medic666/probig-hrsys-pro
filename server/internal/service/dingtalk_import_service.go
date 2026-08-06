@@ -284,6 +284,10 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 				EventType: "休假", SubType: leaveType, Hours: leaveHours, Remark: "钉钉导入:"+cell,
 			})
 			created = 1
+			// 事假一律待确认（无论是否满 8 小时），由管理员核实
+			if leaveType == "事假" {
+				status = "pending"; pending = 1
+			}
 			if leaveHours < 8 {
 				// 不满 8 小时：补足出勤并标记待确认（企划 4.3.4）
 				events = append(events, model.AttendanceEventDetail{
@@ -299,6 +303,10 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 			}
 			if isEarly && earlyMin > 0 {
 				events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "早退", Minutes: earlyMin})
+			}
+			// 请假分支与普通出勤分支对齐：迟到+早退合计 > 30 分钟 → 待确认
+			if lateMin+earlyMin > 30 {
+				status = "pending"; pending = 1
 			}
 			if isMissingCard {
 				events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "缺卡", Hours: 0})

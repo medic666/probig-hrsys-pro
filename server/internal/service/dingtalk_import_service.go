@@ -317,11 +317,32 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	}
 
 	if hasOT && !isRestOT && !isRestWithOT {
+		// 工作日加班：当日正常出勤 8h + 加班工时（样本单元格均为"正常,加班...X小时"形态），
+		// 漏记出勤会导致当日记工时缺失正常出勤时间
+		events = append(events, model.AttendanceEventDetail{
+			EventType: "出勤", SubType: "普通出勤", Hours: 8,
+		})
 		h := extractOTHours(cell)
 		if h == 0 { h = 8 }
 		events = append(events, model.AttendanceEventDetail{
 			EventType: "加班", SubType: "工作日加班", Hours: h, Remark: "钉钉导入:加班",
 		})
+		// 与普通出勤分支对齐：迟到/早退/缺卡违纪 + 迟到早退合计 > 30 分钟标待确认
+		lateMin := extractLateMinutes(cell, "迟到")
+		earlyMin := extractLateMinutes(cell, "早退")
+		if isLate && lateMin > 0 {
+			events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "迟到", Minutes: lateMin})
+		}
+		if isEarly && earlyMin > 0 {
+			events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "早退", Minutes: earlyMin})
+		}
+		if lateMin+earlyMin > 30 {
+			status = "pending"; pending = 1
+		}
+		if isMissingCard {
+			events = append(events, model.AttendanceEventDetail{EventType: "违纪", SubType: "缺卡", Hours: 0})
+			status = "pending"; pending = 1
+		}
 		created = 1
 		return createEvents()
 	}

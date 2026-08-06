@@ -57,6 +57,56 @@ func TestDingTalkExtractPunchTime(t *testing.T) {
 	}
 }
 
+// TestDingTalkWorkdayOTIncludesAttendance 工作日加班：当日正常出勤 8h + 加班工时均需记录
+// （样本为"正常,加班MM-DD HH:MM到MM-DD HH:MM X小时(打卡)"形态，如熊圣平 2026-03-06）
+func TestDingTalkWorkdayOTIncludesAttendance(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		migrateBalanceSnapshots(t, db)
+		ctx := context.Background()
+		d, _ := utils.ParseDate("2026-03-06")
+		date := utils.DateOnlyFromTime(d)
+
+		cell := "正常,加班03-06 18:00到03-06 20:30 2.5小时\n(08:01,20:22)"
+		c, p, f := parseDailyCell(ctx, cell, 500, date)
+		if c != 1 || p != 0 || f != 0 {
+			t.Fatalf("created=%d pending=%d fail=%d, want 1/0/0", c, p, f)
+		}
+
+		var daily model.AttendanceDaily
+		if err := db.Where("person_id = 500 AND event_date = ?", date).First(&daily).Error; err != nil {
+			t.Fatalf("daily not written: %v", err)
+		}
+		var details []model.AttendanceEventDetail
+		db.Where("daily_id = ?", daily.ID).Find(&details)
+		if len(details) != 2 {
+			t.Fatalf("details count = %d, want 2（出勤+加班）", len(details))
+		}
+		foundAtt, foundOT := false, false
+		for _, e := range details {
+			if e.EventType == "出勤" && e.SubType == "普通出勤" && e.Hours == 8 {
+				foundAtt = true
+			}
+			if e.EventType == "加班" && e.SubType == "工作日加班" && e.Hours == 2.5 {
+				foundOT = true
+			}
+		}
+		if !foundAtt {
+			t.Errorf("missing 出勤-普通出勤 8h, got %+v", details)
+		}
+		if !foundOT {
+			t.Errorf("missing 加班-工作日加班 2.5h, got %+v", details)
+		}
+		// 投影：出勤 8h + 工作日加班 2.5h
+		var proj model.AttendanceDailyProjection
+		if err := db.Where("person_id = 500 AND work_date = ?", date).First(&proj).Error; err != nil {
+			t.Fatalf("load projection: %v", err)
+		}
+		if proj.WorkHours != 8 || proj.OvertimeWorkdayHours != 2.5 {
+			t.Errorf("projection work_hours=%v ot_workday=%v, want 8/2.5", proj.WorkHours, proj.OvertimeWorkdayHours)
+		}
+	})
+}
+
 // TestDingTalkParseMultiLeave 同类型多段请假求和 + 休息+请假不再被跳过
 func TestDingTalkParseMultiLeave(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
@@ -269,6 +319,7 @@ func TestDingTalkParseDailyCell(t *testing.T) {
 		{"年假8小时,迟到10分钟", 1, 0},
 		{"年假8小时,迟到20分钟,早退15分钟", 1, 1},
 		{"加班2小时", 1, 0},
+		{"加班2小时,迟到15分钟,早退20分钟", 1, 1},
 		}
 		for i, tc := range cases {
 			pid := uint(100 + i)

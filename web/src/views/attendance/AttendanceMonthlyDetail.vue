@@ -1,7 +1,7 @@
 <template>
   <BusinessPage :title="`${personName} · ${month} 月度考勤核算`" back-to="/attendance-monthly">
     <div v-loading="loading" class="detail-wrap">
-      <AttendanceCalcDescriptions :calc="row" empty-text="当月无核算记录" />
+      <AttendanceCalcDescriptions :calc="row" :show-status="true" :status="row?.status" empty-text="当月无核算记录" />
     </div>
   </BusinessPage>
 </template>

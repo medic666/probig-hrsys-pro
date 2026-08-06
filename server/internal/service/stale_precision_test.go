@@ -11,6 +11,41 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestLatestTime(t *testing.T) {
+	if got := LatestTime(nil); !got.IsZero() {
+		t.Errorf("empty slice should return zero time, got %v", got)
+	}
+	base := time.Now()
+	before, after := base.Add(-time.Hour), base.Add(time.Hour)
+	// nil 忽略 + 取最大
+	if got := LatestTime([]*time.Time{nil, &before, &after}); !got.Equal(after) {
+		t.Errorf("LatestTime = %v, want %v", got, after)
+	}
+	// 全 nil → 零值
+	if got := LatestTime([]*time.Time{nil, nil}); !got.IsZero() {
+		t.Errorf("all-nil should return zero time, got %v", got)
+	}
+}
+
+func TestIsStaleAfter(t *testing.T) {
+	now := time.Now()
+	newer := now.Add(time.Hour)
+	older := now.Add(-time.Hour)
+
+	if !IsStaleAfter(now, []*time.Time{&older}, []*time.Time{&newer}) {
+		t.Error("any source newer than result should be stale")
+	}
+	if IsStaleAfter(now, []*time.Time{&older}, []*time.Time{&older}) {
+		t.Error("all sources older should not be stale")
+	}
+	if IsStaleAfter(now) {
+		t.Error("no sources should not be stale")
+	}
+	if IsStaleAfter(now, []*time.Time{nil}) {
+		t.Error("nil-only source should not affect staleness")
+	}
+}
+
 func TestStaleDetectionPreciseWithinSameDay(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
 		seedEmployee(db, 60, "2026-01-01", 8000, 2000, 300, 500, 26)

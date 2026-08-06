@@ -5,6 +5,14 @@ $warning-color: #e6a23c;
 $danger-color: #f56c6c;
 $info-color: #909399;
 
+// level 状态色（徽章点/时段聚合卡片语义色，绿=正常、橙=异常/待处理、灰=无数据）
+$level-green-bg: #f0f9eb;
+$level-green-border: #b3e19d;
+$level-orange-bg: #fdf6ec;
+$level-orange-border: #eebe77;
+$level-gray-bg: #f4f4f5;
+$level-gray-border: #e4e7ed;
+
 // layout
 $sidebar-width: 220px;
 $sidebar-collapsed-width: 64px;

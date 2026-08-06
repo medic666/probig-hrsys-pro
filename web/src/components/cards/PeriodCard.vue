@@ -78,18 +78,18 @@ function periodLabel(period: string, aggregate: PeriodAggregate = 'month') {
       }
 
       &.level-green {
-        background: #f0f9eb;
-        border-color: #b3e19d;
+        background: $level-green-bg;
+        border-color: $level-green-border;
       }
 
       &.level-orange {
-        background: #fdf6ec;
-        border-color: #eebe77;
+        background: $level-orange-bg;
+        border-color: $level-orange-border;
       }
 
       &.level-gray {
-        background: #f4f4f5;
-        border-color: #e4e7ed;
+        background: $level-gray-bg;
+        border-color: $level-gray-border;
       }
     }
   }

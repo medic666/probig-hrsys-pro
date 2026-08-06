@@ -287,16 +287,6 @@ func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error)
 	return result, total, nil
 }
 
-func latestTime(times []*time.Time) time.Time {
-	var max time.Time
-	for _, t := range times {
-		if t != nil && t.After(max) {
-			max = *t
-		}
-	}
-	return max
-}
-
 func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
 	monthStart, _ := utils.MonthStart(calc.BelongMonth)
 	monthEnd, _ := utils.MonthEnd(calc.BelongMonth)
@@ -308,19 +298,16 @@ func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
 		Where("person_id = ? AND work_date >= ? AND work_date <= ?",
 			calc.PersonID, monthStartD, monthEndD).
 		Pluck("last_calc_at", &dailyTimes)
-	if latestTime(dailyTimes).After(calc.LastCalcAt) {
-		return "data_changed"
-	}
 
 	var snapTimes []*time.Time
 	dao.DB.Model(&model.PositionSnapshot{}).
 		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 			calc.PersonID, monthEndD, monthStartD).
 		Pluck("last_calc_at", &snapTimes)
-	if latestTime(snapTimes).After(calc.LastCalcAt) {
+
+	if IsStaleAfter(calc.LastCalcAt, dailyTimes, snapTimes) {
 		return "data_changed"
 	}
-
 	return "calculated"
 }
 

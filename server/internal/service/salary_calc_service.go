@@ -357,18 +357,12 @@ func IsSalarySummaryStale(summary *model.SalarySummary) string {
 	dao.DB.Model(&model.AttendanceCalculationMonthly{}).
 		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
 		Pluck("last_calc_at", &calcTimes)
-	if latestTime(calcTimes).After(summary.LastCalcAt) {
-		return "data_changed"
-	}
 
 	var snapTimes []*time.Time
 	dao.DB.Model(&model.PositionSnapshot{}).
 		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
 			summary.PersonID, monthEndD, monthStartD).
 		Pluck("last_calc_at", &snapTimes)
-	if latestTime(snapTimes).After(summary.LastCalcAt) {
-		return "data_changed"
-	}
 
 	// 工资事件：行级 max(updated_at, deleted_at) 再聚合取最大（软删除时间纳入检测）
 	var evUpds, evDels []*time.Time
@@ -378,12 +372,6 @@ func IsSalarySummaryStale(summary *model.SalarySummary) string {
 	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
 		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
 		Pluck("deleted_at", &evDels)
-	if t := latestTime(evUpds); t.After(summary.LastCalcAt) {
-		return "data_changed"
-	}
-	if t := latestTime(evDels); t.After(summary.LastCalcAt) {
-		return "data_changed"
-	}
 
 	var alUpds, alDels []*time.Time
 	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
@@ -394,10 +382,8 @@ func IsSalarySummaryStale(summary *model.SalarySummary) string {
 		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
 			summary.PersonID, monthStartD, monthEndD).
 		Pluck("deleted_at", &alDels)
-	if t := latestTime(alUpds); t.After(summary.LastCalcAt) {
-		return "data_changed"
-	}
-	if t := latestTime(alDels); t.After(summary.LastCalcAt) {
+
+	if IsStaleAfter(summary.LastCalcAt, calcTimes, snapTimes, evUpds, evDels, alUpds, alDels) {
 		return "data_changed"
 	}
 

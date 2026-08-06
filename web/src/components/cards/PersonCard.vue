@@ -77,19 +77,19 @@ const showWidget = computed(() => isActivePerson(props.person))
   }
 
   .dot-gray {
-    background: #c0c4cc;
+    background: $info-color;
   }
 
   .dot-green {
-    background: #67c23a;
+    background: $success-color;
   }
 
   .dot-orange {
-    background: #e6a23c;
+    background: $warning-color;
   }
 
   .dot-red {
-    background: #f56c6c;
+    background: $danger-color;
   }
 
   .pc-name {

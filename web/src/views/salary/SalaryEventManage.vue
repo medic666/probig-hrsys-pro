@@ -33,7 +33,7 @@
       >
         <template #person-badge="{ person }">
           <div class="advance-line" :class="{ 'is-zero': !(advanceMap[person.id] ?? 0) }">
-            预支 {{ formatMoney(advanceMap[person.id] ?? 0) }} 元
+            预支待还 {{ formatMoney(advanceMap[person.id] ?? 0) }} 元
           </div>
         </template>
         <template #period-list="{ items }">

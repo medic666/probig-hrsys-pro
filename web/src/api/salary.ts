@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
 export function getSalaryEvents(params: any) { return request.get('/salary-events', { params }) }
-// getSalaryAdvanceBalances 工资预支余额：person_id → balance（SUM 工资预支）
+// getSalaryAdvanceBalances 预支待还：person_id → balance（累计工资预支 + 累计预支还款，还款为负）
 export function getSalaryAdvanceBalances() { return request.get('/salary-events/advance-balances') }
 // getSalarySummariesBadges 工资汇总徽章（默认上月）：person_id → gray/green/orange
 export function getSalarySummariesBadges(month?: string) {

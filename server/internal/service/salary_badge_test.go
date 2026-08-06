@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// TestSalaryAdvanceBalances 工资预支余额：SUM(工资预支) 正累加，预支还款不参与
+// TestSalaryAdvanceBalances 预支待还：累加工资预支 + 累计预支还款（还款为负相抵）
 func TestSalaryAdvanceBalances(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
 		db.Create(&model.Person{ID: 55, Name: "预支测试"})
@@ -26,8 +26,8 @@ func TestSalaryAdvanceBalances(t *testing.T) {
 		for _, b := range balances {
 			if b.PersonID == 55 {
 				found = true
-				if b.Balance != 5000 {
-					t.Errorf("advance balance = %v, want 5000 (只累加工资预支)", b.Balance)
+				if b.Balance != 4000 {
+					t.Errorf("advance balance = %v, want 4000（预支待还 = 5000 - 1000 还款）", b.Balance)
 				}
 			}
 		}

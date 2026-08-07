@@ -65,6 +65,7 @@ type SalaryEventListQuery struct {
 	PageSize    int
 	PersonID    uint
 	BelongMonth string
+	Months      []string
 	EventType   string
 }
 
@@ -75,6 +76,9 @@ func GetSalaryEventList(q SalaryEventListQuery) ([]map[string]interface{}, int64
 	}
 	if q.BelongMonth != "" {
 		tx = tx.Where("belong_month = ?", q.BelongMonth)
+	}
+	if len(q.Months) > 0 {
+		tx = tx.Where("belong_month IN ?", q.Months)
 	}
 	if q.EventType != "" {
 		tx = tx.Where("event_type = ?", q.EventType)

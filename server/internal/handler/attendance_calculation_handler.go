@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"probig/server/internal/service"
@@ -14,11 +15,18 @@ import (
 func monthlyListQuery(c *gin.Context) service.MonthlyListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	monthsStr := c.Query("months")
+	var months []string
+	if monthsStr != "" {
+		months = strings.Split(monthsStr, ",")
+	}
 	return service.MonthlyListQuery{
 		PageNum:  pageReq.PageNum,
 		PageSize: pageReq.PageSize,
 		Month:    c.Query("month"),
+		Months:   months,
 		PersonID: uint(personID),
+		Status:   c.Query("status"),
 	}
 }
 

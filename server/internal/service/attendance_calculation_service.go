@@ -234,7 +234,9 @@ type MonthlyListQuery struct {
 	PageNum  int
 	PageSize int
 	Month    string
+	Months   []string
 	PersonID uint
+	Status   string
 }
 
 func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error) {
@@ -242,9 +244,37 @@ func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error)
 	if q.Month != "" {
 		tx = tx.Where("belong_month = ?", q.Month)
 	}
+	if len(q.Months) > 0 {
+		tx = tx.Where("belong_month IN ?", q.Months)
+	}
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
+
+	// 状态筛选：status 为逐行计算的派生值，需全量拉取→算状态→过滤→内存分页（保证分页总数正确）
+	if q.Status != "" {
+		var all []model.AttendanceCalculationMonthly
+		if err := tx.Order("person_id ASC").Find(&all).Error; err != nil {
+			return nil, 0, err
+		}
+		rows := buildMonthlyRows(all)
+		filtered := rows[:0]
+		for _, r := range rows {
+			if r["status"] == q.Status {
+				filtered = append(filtered, r)
+			}
+		}
+		start := (q.PageNum - 1) * q.PageSize
+		if start > len(filtered) {
+			start = len(filtered)
+		}
+		end := start + q.PageSize
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		return filtered[start:end], int64(len(filtered)), nil
+	}
+
 	var total int64
 	tx.Count(&total)
 	var list []model.AttendanceCalculationMonthly
@@ -253,7 +283,11 @@ func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error)
 	if err != nil {
 		return nil, 0, err
 	}
+	return buildMonthlyRows(list), total, nil
+}
 
+// buildMonthlyRows 月度考勤核算行构建（列表/导出/状态筛选共用）
+func buildMonthlyRows(list []model.AttendanceCalculationMonthly) []map[string]interface{} {
 	ids := make([]uint, len(list))
 	for i, s := range list {
 		ids[i] = s.PersonID
@@ -263,28 +297,28 @@ func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error)
 	result := make([]map[string]interface{}, len(list))
 	for i, s := range list {
 		item := map[string]interface{}{
-			"id":                        s.ID,
-			"person_id":                 s.PersonID,
-			"person_name":               nameMap[s.PersonID],
-			"belong_month":              s.BelongMonth,
-			"salary_days":               s.SalaryDays,
-			"weighted_base_salary":      s.WeightedBaseSalary,
-			"weighted_meal_allowance":   s.WeightedMealAllowance,
-			"total_work_hours":          s.TotalWorkHours,
+			"id":                           s.ID,
+			"person_id":                    s.PersonID,
+			"person_name":                  nameMap[s.PersonID],
+			"belong_month":                 s.BelongMonth,
+			"salary_days":                  s.SalaryDays,
+			"weighted_base_salary":         s.WeightedBaseSalary,
+			"weighted_meal_allowance":      s.WeightedMealAllowance,
+			"total_work_hours":             s.TotalWorkHours,
 			"total_overtime_workday_hours": s.TotalOvertimeWorkdayHours,
 			"total_overtime_holiday_hours": s.TotalOvertimeHolidayHours,
-			"attendance_salary":         s.AttendanceSalary,
-			"overtime_workday_salary":   s.OvertimeWorkdaySalary,
-			"overtime_holiday_salary":   s.OvertimeHolidaySalary,
-			"has_personal_leave_month":  s.HasPersonalLeaveMonth,
-			"total_violation_count":     s.TotalViolationCount,
-			"attendance_bonus":          s.AttendanceBonus,
-			"last_calc_at":              s.LastCalcAt,
-			"status":                    IsAttendanceMonthlyStale(&s),
+			"attendance_salary":            s.AttendanceSalary,
+			"overtime_workday_salary":      s.OvertimeWorkdaySalary,
+			"overtime_holiday_salary":      s.OvertimeHolidaySalary,
+			"has_personal_leave_month":     s.HasPersonalLeaveMonth,
+			"total_violation_count":        s.TotalViolationCount,
+			"attendance_bonus":             s.AttendanceBonus,
+			"last_calc_at":                 s.LastCalcAt,
+			"status":                       IsAttendanceMonthlyStale(&s),
 		}
 		result[i] = item
 	}
-	return result, total, nil
+	return result
 }
 
 func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {

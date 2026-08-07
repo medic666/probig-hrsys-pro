@@ -309,7 +309,9 @@ type SalarySummaryListQuery struct {
 	PageNum  int
 	PageSize int
 	Month    string
+	Months   []string
 	PersonID uint
+	Status   string
 }
 
 func GetSalarySummaries(q SalarySummaryListQuery) ([]map[string]interface{}, int64, error) {
@@ -317,9 +319,37 @@ func GetSalarySummaries(q SalarySummaryListQuery) ([]map[string]interface{}, int
 	if q.Month != "" {
 		tx = tx.Where("belong_month = ?", q.Month)
 	}
+	if len(q.Months) > 0 {
+		tx = tx.Where("belong_month IN ?", q.Months)
+	}
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
+
+	// 状态筛选：status 为逐行计算的派生值，需全量拉取→算状态→过滤→内存分页（保证分页总数正确）
+	if q.Status != "" {
+		var all []model.SalarySummary
+		if err := tx.Order("belong_month DESC, person_id ASC").Find(&all).Error; err != nil {
+			return nil, 0, err
+		}
+		rows := buildSalarySummaryRows(all)
+		filtered := rows[:0]
+		for _, r := range rows {
+			if r["status"] == q.Status {
+				filtered = append(filtered, r)
+			}
+		}
+		start := (q.PageNum - 1) * q.PageSize
+		if start > len(filtered) {
+			start = len(filtered)
+		}
+		end := start + q.PageSize
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		return filtered[start:end], int64(len(filtered)), nil
+	}
+
 	var total int64
 	tx.Count(&total)
 	var list []model.SalarySummary
@@ -328,7 +358,11 @@ func GetSalarySummaries(q SalarySummaryListQuery) ([]map[string]interface{}, int
 	if err != nil {
 		return nil, 0, err
 	}
+	return buildSalarySummaryRows(list), total, nil
+}
 
+// buildSalarySummaryRows 工资汇总行构建（列表/导出/状态筛选共用）
+func buildSalarySummaryRows(list []model.SalarySummary) []map[string]interface{} {
 	ids := make([]uint, len(list))
 	for i, s := range list {
 		ids[i] = s.PersonID
@@ -344,7 +378,7 @@ func GetSalarySummaries(q SalarySummaryListQuery) ([]map[string]interface{}, int
 		item["status"] = IsSalarySummaryStale(&s)
 		result[i] = item
 	}
-	return result, total, nil
+	return result
 }
 
 func IsSalarySummaryStale(summary *model.SalarySummary) string {

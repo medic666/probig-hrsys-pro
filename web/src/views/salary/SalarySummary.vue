@@ -76,7 +76,11 @@ const columns=[
 ]
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const},
-  {prop:'month',label:'月份',type:'month' as const},
+  {prop:'months',label:'月份',type:'months' as const},
+  {prop:'status',label:'状态',type:'select' as const,options:[
+    {label:'已核算',value:'calculated'},
+    {label:'数据已变动',value:'data_changed'},
+  ]},
 ]
 
 async function fetchSummaries(p:any){

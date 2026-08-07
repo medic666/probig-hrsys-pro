@@ -83,6 +83,7 @@ const columns=[
 ]
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const},
+  {prop:'months',label:'月份',type:'months' as const},
   {prop:'event_type',label:'类型',type:'select' as const,options:['绩效系数','提成','奖惩','工资预支','预支还款','个税扣除'].map(t=>({label:t,value:t}))},
 ]
 const tc=[{prop:'event_type',label:'类型'},{prop:'belong_month',label:'月份'}]

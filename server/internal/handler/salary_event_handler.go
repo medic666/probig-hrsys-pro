@@ -2,6 +2,7 @@ package handler
 
 import (
 	"strconv"
+	"strings"
 
 	"probig/server/internal/model"
 	"probig/server/internal/service"
@@ -14,11 +15,17 @@ import (
 func salaryEventListQuery(c *gin.Context) service.SalaryEventListQuery {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
+	monthsStr := c.Query("months")
+	var months []string
+	if monthsStr != "" {
+		months = strings.Split(monthsStr, ",")
+	}
 	return service.SalaryEventListQuery{
 		PageNum:     pageReq.PageNum,
 		PageSize:    pageReq.PageSize,
 		PersonID:    uint(personID),
 		BelongMonth: c.Query("belong_month"),
+		Months:      months,
 		EventType:   c.Query("event_type"),
 	}
 }

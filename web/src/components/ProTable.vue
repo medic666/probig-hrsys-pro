@@ -23,6 +23,11 @@
           <template v-else-if="field.type === 'month'">
             <el-date-picker v-model="searchForm[field.prop]" type="month" value-format="YYYY-MM" :placeholder="field.placeholder || '选择月份'" style="width:200px" />
           </template>
+          <template v-else-if="field.type === 'months'">
+            <el-select v-model="searchForm[field.prop]" multiple filterable collapse-tags collapse-tags-tooltip :max-collapse-tags="1" :placeholder="field.placeholder || '选择月份'" style="width:240px">
+              <el-option v-for="m in monthsOptions(field)" :key="m" :label="m" :value="m" />
+            </el-select>
+          </template>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">搜索</el-button>
@@ -115,13 +120,15 @@ export interface TableColumn {
 export interface SearchField {
   prop: string
   label: string
-  type: 'input' | 'select' | 'date-range' | 'month-range' | 'person-select' | 'name-select' | 'month'
+  type: 'input' | 'select' | 'date-range' | 'month-range' | 'person-select' | 'name-select' | 'month' | 'months'
   options?: { label: string; value: any }[]
   placeholder?: string
   fetchApi?: (keyword?: string) => Promise<{ id: number; name: string }[]>
   // 数组型字段（date-range）的后端参数名；缺省为 `${prop}Start`/`${prop}End`
   startKey?: string
   endKey?: string
+  // months 多选月份数（缺省生成近 24 个月）
+  monthCount?: number
 }
 
 export interface ActionButton {
@@ -184,7 +191,7 @@ function initSearchForm() {
   if (props.searchFields) {
     for (const field of props.searchFields) {
       searchForm[field.prop] = props.defaultSearch?.[field.prop] ?? (
-        field.type === 'date-range' ? [] :
+        field.type === 'date-range' || field.type === 'months' ? [] :
         field.type === 'person-select' ? null : ''
       )
     }
@@ -197,6 +204,24 @@ function fieldKeys(key: string) {
     startKey: field?.startKey || `${key}Start`,
     endKey: field?.endKey || `${key}End`,
   }
+}
+
+function fieldTypeOf(key: string) {
+  return props.searchFields.find((f) => f.prop === key)?.type
+}
+
+// monthsOptions 月份多选选项：field.options 优先，缺省生成近 monthCount（默认 24）个月
+function monthsOptions(field: SearchField): string[] {
+  if (field.options?.length) return field.options.map((o) => String(o.value))
+  const n = field.monthCount || 24
+  const res: string[] = []
+  const d = new Date()
+  d.setDate(1)
+  for (let i = 0; i < n; i++) {
+    res.unshift(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    d.setMonth(d.getMonth() - 1)
+  }
+  return res
 }
 
 const route = useRoute()
@@ -215,11 +240,15 @@ function writeUrl() {
       continue
     }
     if (Array.isArray(val)) {
-      const { startKey, endKey } = fieldKeys(key)
-      if (val[0]) query[startKey] = val[0]
-      else delete query[startKey]
-      if (val[1]) query[endKey] = val[1]
-      else delete query[endKey]
+      if (fieldTypeOf(key) === 'months') {
+        query[key] = val.join(',')
+      } else {
+        const { startKey, endKey } = fieldKeys(key)
+        if (val[0]) query[startKey] = val[0]
+        else delete query[startKey]
+        if (val[1]) query[endKey] = val[1]
+        else delete query[endKey]
+      }
     } else {
       query[key] = val
     }
@@ -242,6 +271,8 @@ function readUrl() {
       if (q[sk] || q[ek]) {
         searchForm[field.prop] = [q[sk] || '', q[ek] || '']
       }
+    } else if (field.type === 'months' && q[field.prop]) {
+      searchForm[field.prop] = String(q[field.prop]).split(',')
     } else if (q[field.prop] !== undefined) {
       searchForm[field.prop] = q[field.prop]
     }
@@ -259,9 +290,13 @@ async function loadData() {
       const val = searchForm[key]
       if (val !== '' && val !== null && val !== undefined) {
         if (Array.isArray(val)) {
-          const { startKey, endKey } = fieldKeys(key)
-          params[startKey] = val[0] || ''
-          params[endKey] = val[1] || ''
+          if (fieldTypeOf(key) === 'months') {
+            params[key] = val.join(',')
+          } else {
+            const { startKey, endKey } = fieldKeys(key)
+            params[startKey] = val[0] || ''
+            params[endKey] = val[1] || ''
+          }
         } else {
           params[key] = val
         }
@@ -330,9 +365,13 @@ function getSearchParams() {
     const val = searchForm[key]
     if (val !== '' && val !== null && val !== undefined) {
       if (Array.isArray(val)) {
-        const { startKey, endKey } = fieldKeys(key)
-        params[startKey] = val[0] || ''
-        params[endKey] = val[1] || ''
+        if (fieldTypeOf(key) === 'months') {
+          params[key] = val.join(',')
+        } else {
+          const { startKey, endKey } = fieldKeys(key)
+          params[startKey] = val[0] || ''
+          params[endKey] = val[1] || ''
+        }
       } else {
         params[key] = val
       }

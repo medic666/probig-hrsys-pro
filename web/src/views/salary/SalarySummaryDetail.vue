@@ -5,10 +5,11 @@
       <el-tab-pane label="工资明细" name="summary">
         <div v-loading="loading" class="detail-wrap">
           <AppDescriptions v-if="summaryRow" :column="2" border size="small">
-            <el-descriptions-item label="计薪天数">{{ summaryRow.salary_days }}</el-descriptions-item>
             <el-descriptions-item label="状态">
               <StatusTag :status="summaryRow.status || 'not_calculated'" />
             </el-descriptions-item>
+            <el-descriptions-item label="加权基本工资">{{ summaryRow.weighted_base_salary }}</el-descriptions-item>
+            <el-descriptions-item label="计薪天数">{{ summaryRow.salary_days }}</el-descriptions-item>
             <el-descriptions-item label="出勤天数">{{ hoursToDays(summaryRow.total_work_hours || 0).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="出勤工资">{{ summaryRow.attendance_salary }}</el-descriptions-item>
             <el-descriptions-item label="工作日加班工资">{{ summaryRow.overtime_workday_salary }}</el-descriptions-item>
@@ -29,10 +30,10 @@
             <el-descriptions-item label="社保代扣">{{ summaryRow.social_security_deduct }}</el-descriptions-item>
             <el-descriptions-item label="公积金代扣">{{ summaryRow.housing_fund_deduct }}</el-descriptions-item>
             <el-descriptions-item label="个税代扣">{{ summaryRow.tax_deduct }}</el-descriptions-item>
-            <el-descriptions-item label="实发工资">
+            <el-descriptions-item label="核算时间">{{ formatDateTime(summaryRow.last_calc_at) }}</el-descriptions-item>
+            <el-descriptions-item label="实发工资" :span="2">
               <strong style="color:#e6a23c;font-size:16px">{{ summaryRow.final_salary }}</strong>
             </el-descriptions-item>
-            <el-descriptions-item label="核算时间">{{ formatDateTime(summaryRow.last_calc_at) }}</el-descriptions-item>
           </AppDescriptions>
           <el-empty v-else-if="!loading" description="当月未核算工资，请先在工资汇总页执行核算" :image-size="60" />
         </div>
@@ -116,8 +117,9 @@
         <el-tabs v-else v-model="traceTab">
           <el-tab-pane label="工资汇总" name="summary">
             <AppDescriptions :column="2" border size="small">
-              <el-descriptions-item label="计薪天数">{{ traceData.summary.salary_days }}</el-descriptions-item>
               <el-descriptions-item label="加权基本工资">{{ traceData.summary.weighted_base_salary }}</el-descriptions-item>
+              <el-descriptions-item label="计薪天数">{{ traceData.summary.salary_days }}</el-descriptions-item>
+              <el-descriptions-item label="出勤天数">{{ hoursToDays(traceData.summary.total_work_hours || 0).toFixed(2) }}</el-descriptions-item>
               <el-descriptions-item label="出勤工资">{{ traceData.summary.attendance_salary }}</el-descriptions-item>
               <el-descriptions-item label="工作日加班工资">{{ traceData.summary.overtime_workday_salary }}</el-descriptions-item>
               <el-descriptions-item label="节假日加班工资">{{ traceData.summary.overtime_holiday_salary }}</el-descriptions-item>
@@ -137,7 +139,7 @@
               <el-descriptions-item label="社保代扣">{{ traceData.summary.social_security_deduct }}</el-descriptions-item>
               <el-descriptions-item label="公积金代扣">{{ traceData.summary.housing_fund_deduct }}</el-descriptions-item>
               <el-descriptions-item label="个税代扣">{{ traceData.summary.tax_deduct }}</el-descriptions-item>
-              <el-descriptions-item label="实发工资"><strong style="color:#e6a23c">{{ traceData.summary.final_salary }}</strong></el-descriptions-item>
+              <el-descriptions-item label="实发工资" :span="2"><strong style="color:#e6a23c">{{ traceData.summary.final_salary }}</strong></el-descriptions-item>
             </AppDescriptions>
           </el-tab-pane>
 

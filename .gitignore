@@ -12,16 +12,13 @@ web/node_modules/
 *.swo
 *~
 
-# Runtime data (auto-generated at first launch)
-dist/config.yaml
-dist/data/
-server/dist/data/
-
 # Build artifacts
+dist/
+server/dist/
 web/dist/
 server/dist/probig-server
 server/cmd/server/static/
-dist/probig-server
+
 
 # 示例文件
 examples/

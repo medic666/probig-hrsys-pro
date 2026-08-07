@@ -1,6 +1,6 @@
 <template>
   <div class="person-domain-select">
-    <el-select v-model="domainType" size="small" style="width:120px" @change="onDomainTypeChange">
+    <el-select v-model="domainType" size="small" style="width:110px" @change="onDomainTypeChange">
       <el-option v-for="d in domainOptions" :key="d.value" :label="d.label" :value="d.value" />
     </el-select>
     <el-select
@@ -9,21 +9,35 @@
       size="small"
       :placeholder="domainPlaceholder"
       clearable
-      style="width:140px"
+      style="width:130px"
       @change="clearSelectionIfOutOfDomain"
     >
       <el-option v-for="v in domainValues" :key="v.value" :label="v.label" :value="v.value" />
     </el-select>
+    <el-checkbox
+      v-if="domainPersonCount > 0"
+      :model-value="allDomainSelected"
+      size="small"
+      @change="toggleDomainSelectAll"
+    >
+      全选该域人员
+    </el-checkbox>
     <el-select
       v-model="selectedIds"
       multiple
       filterable
+      clearable
+      collapse-tags
+      collapse-tags-tooltip
+      :max-collapse-tags="2"
+      size="small"
       :placeholder="placeholder || '选择人员'"
-      style="width:220px"
+      class="person-select"
       @update:model-value="handleChange"
     >
       <el-option v-for="p in visibleOptions" :key="p.id" :label="p.name" :value="p.id" />
     </el-select>
+    <span class="sel-count">已选 {{ selectedIds.length }} 人</span>
   </div>
 </template>
 
@@ -32,6 +46,9 @@ import { ref, computed, watch } from 'vue'
 import { getAllPersons, type PersonOption } from '@/api/person'
 
 // 多域人员多选组件：在全体人员/公司/考勤组/在职状态域内筛选后多选人员。
+// - 域值选定后可一键「全选该域人员」（并集合并，已全选时再点取消该域全部）；
+// - 三框统一 small 尺寸保持对齐；人员框弹性宽度 + 折叠标签（collapse-tags-tooltip），
+//   选多人恒单行，悬停 tooltip 查看完整名单。
 // 人员与域值均来自同一数据源（默认 /persons/all），域维度由选项字段推导，
 // 与 NameSelect（单选）互补，供批量录入、批量核算等多人选择场景统一复用。
 const props = withDefaults(
@@ -115,6 +132,22 @@ const visibleOptions = computed(() => {
   return options.value
 })
 
+// 当前域内人员 id 集合与数量（全选勾选可见性/状态判定）
+const visibleIds = computed(() => new Set(visibleOptions.value.map((p) => p.id)))
+const domainPersonCount = computed(() => visibleOptions.value.length)
+const allDomainSelected = computed(() =>
+  domainPersonCount.value > 0 && visibleOptions.value.every((p) => selectedIds.value.includes(p.id)),
+)
+
+// 一键全选该域人员：勾选 = 并集合并（不清空已有选择）；已全选时再点 = 移除该域全部人员
+function toggleDomainSelectAll() {
+  if (allDomainSelected.value) {
+    handleChange(selectedIds.value.filter((id) => !visibleIds.value.has(id)))
+  } else {
+    handleChange(Array.from(new Set([...selectedIds.value, ...visibleIds.value])))
+  }
+}
+
 function handleChange(v: number[]) {
   selectedIds.value = v
   emit('update:modelValue', v)
@@ -156,11 +189,23 @@ async function loadOptions() {
 loadOptions()
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .person-domain-select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+
+  // 人员多选框：弹性占满剩余宽度，标签折叠保持单行
+  .person-select {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .sel-count {
+    font-size: 12px;
+    color: #909399;
+    white-space: nowrap;
+  }
 }
 </style>

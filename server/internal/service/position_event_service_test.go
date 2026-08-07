@@ -27,11 +27,10 @@ func TestUpdatePositionEventKeepsUnchangedFields(t *testing.T) {
 		}
 
 		// 仅更新基本工资，其余字段未提交（模拟前端只勾选基本工资）
-		if err := UpdatePositionEvent(context.Background(), event.ID, map[string]interface{}{
-			"event_type":     "入职",
-			"remark":         "",
-			"effective_date": entryD,
-			"base_salary":    9000.0,
+		if err := UpdatePositionEvent(context.Background(), event.ID, &model.PositionEvent{
+			EventType:     "入职",
+			EffectiveDate: entryD,
+			BaseSalary:    ptrFloat(9000),
 		}); err != nil {
 			t.Fatalf("update: %v", err)
 		}
@@ -89,10 +88,10 @@ func TestUpdatePositionEventKeepsLeaveDateWhenNotSubmitted(t *testing.T) {
 		}
 
 		// 编辑离职事件的备注（不带 leave_date 之外的字段，模拟前端只改备注）
-		if err := UpdatePositionEvent(context.Background(), leaveEvent.ID, map[string]interface{}{
-			"event_type":     "离职",
-			"remark":         "主动离职",
-			"effective_date": leaveD,
+		if err := UpdatePositionEvent(context.Background(), leaveEvent.ID, &model.PositionEvent{
+			EventType:     "离职",
+			Remark:        "主动离职",
+			EffectiveDate: leaveD,
 		}); err != nil {
 			t.Fatalf("update leave event: %v", err)
 		}

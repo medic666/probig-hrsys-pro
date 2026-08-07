@@ -11,14 +11,14 @@ import (
 	"probig/server/internal/model"
 	"probig/server/internal/utils"
 
-	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 func newSalaryTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	// 临时文件库：多连接并发安全（:memory: 各连接独立空库，且单连接下审计 hook 内嵌写入会互锁）
-	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?_busy_timeout=10000", filepath.Join(t.TempDir(), "test.db"))), &gorm.Config{})
+	// 临时文件库：多连接并发安全（:memory: 各连接独立空库，且单连接下审计 hook 内嵌写入会互锁）；
+	// 经 dao.GetSQLiteDialector 打开，与生产同路径（_txlock=immediate）
+	db, err := gorm.Open(dao.GetSQLiteDialector(fmt.Sprintf("file:%s?_busy_timeout=10000", filepath.Join(t.TempDir(), "test.db"))), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

@@ -154,73 +154,9 @@ func UpdatePositionEvent(c *gin.Context) {
 		return
 	}
 
-	updates := map[string]interface{}{
-		"event_type":     req.EventType,
-		"remark":         req.Remark,
-		"effective_date": req.EffectiveDate,
-	}
-	if req.EntryDate != nil && *req.EntryDate != "" {
-		updates["entry_date"] = *req.EntryDate
-	}
-	if req.LeaveDate != nil && *req.LeaveDate != "" {
-		updates["leave_date"] = *req.LeaveDate
-	}
-	if req.AttendanceGroup != nil {
-		updates["attendance_group"] = *req.AttendanceGroup
-	}
-	if req.CompanyID != nil {
-		updates["company_id"] = *req.CompanyID
-	}
-	if req.Department != nil {
-		updates["department"] = *req.Department
-	}
-	if req.Position != nil {
-		updates["position"] = *req.Position
-	}
-	if req.HasAnnualLeave != nil {
-		updates["has_annual_leave"] = *req.HasAnnualLeave
-	}
-	if req.HasAttendanceBonus != nil {
-		updates["has_attendance_bonus"] = *req.HasAttendanceBonus
-	}
-	if req.BaseSalary != nil {
-		updates["base_salary"] = *req.BaseSalary
-	}
-	if req.PerformanceSalary != nil {
-		updates["performance_salary"] = *req.PerformanceSalary
-	}
-	if req.SalaryDays != nil {
-		updates["salary_days"] = *req.SalaryDays
-	}
-	if req.PostAllowance != nil {
-		updates["post_allowance"] = *req.PostAllowance
-	}
-	if req.MealAllowance != nil {
-		updates["meal_allowance"] = *req.MealAllowance
-	}
-	if req.HousingAllowance != nil {
-		updates["housing_allowance"] = *req.HousingAllowance
-	}
-	if req.TransportAllowance != nil {
-		updates["transport_allowance"] = *req.TransportAllowance
-	}
-	if req.HighTempAllowance != nil {
-		updates["high_temp_allowance"] = *req.HighTempAllowance
-	}
-	if req.InsuranceCompensation != nil {
-		updates["insurance_compensation"] = *req.InsuranceCompensation
-	}
-	if req.FundCompensation != nil {
-		updates["fund_compensation"] = *req.FundCompensation
-	}
-	if req.SocialSecurityDeduct != nil {
-		updates["social_security_deduct"] = *req.SocialSecurityDeduct
-	}
-	if req.HousingFundDeduct != nil {
-		updates["housing_fund_deduct"] = *req.HousingFundDeduct
-	}
-
-	if err := service.UpdatePositionEvent(c.Request.Context(), uint(id), updates); err != nil {
+	// 与创建同构：reqToModel 统一字段解析，颗粒化更新语义由服务层 buildPositionEventUpdates 承担
+	e := reqToModel(req)
+	if err := service.UpdatePositionEvent(c.Request.Context(), uint(id), &e); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

@@ -10,7 +10,6 @@ import (
 	"probig/server/internal/model"
 	"probig/server/internal/utils"
 
-	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +24,7 @@ func withTestDB(t *testing.T, fn func(db *gorm.DB)) {
 	testMu.Lock()
 	defer testMu.Unlock()
 
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(dao.GetSQLiteDialector(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

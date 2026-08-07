@@ -22,22 +22,61 @@ func CreatePositionEvent(ctx context.Context, event *model.PositionEvent) error 
 		if err := tx.Create(event).Error; err != nil {
 			return err
 		}
-		return RebuildPositionSnapshots(tx, event.PersonID)
+		// 新事件从生效日起才可能影响状态：仅重建生效日及之后的快照段
+		return RebuildPositionSnapshotsFrom(tx, event.PersonID, event.EffectiveDate)
 	})
 }
 
-func UpdatePositionEvent(ctx context.Context, id uint, updates map[string]interface{}) error {
+func UpdatePositionEvent(ctx context.Context, id uint, event *model.PositionEvent) error {
 	var existing model.PositionEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("职务事件不存在")
 	}
 
+	// 切点取新旧生效日的较早者：生效日改晚时（如 5/1→6/1），旧日期至新日期之间的
+	// 状态会发生回退，必须一并纳入重建，否则中间区间残留旧效果且时间戳不刷新
+	cut := existing.EffectiveDate
+	if event.EffectiveDate.Before(cut) {
+		cut = event.EffectiveDate
+	}
+
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
-		if err := tx.Model(&existing).Updates(updates).Error; err != nil {
+		if err := tx.Model(&existing).Updates(buildPositionEventUpdates(event)).Error; err != nil {
 			return err
 		}
-		return RebuildPositionSnapshots(tx, existing.PersonID)
+		return RebuildPositionSnapshotsFrom(tx, existing.PersonID, cut)
 	})
+}
+
+// buildPositionEventUpdates 由事件模型推导颗粒化更新字段（与 Create 的 reqToModel 同构）：
+// 始终覆盖 event_type/remark/effective_date；指针字段非 nil 覆盖（nil 保持原值）
+func buildPositionEventUpdates(e *model.PositionEvent) map[string]interface{} {
+	updates := map[string]interface{}{
+		"event_type":     e.EventType,
+		"remark":         e.Remark,
+		"effective_date": e.EffectiveDate,
+	}
+	if e.EntryDate != nil { updates["entry_date"] = e.EntryDate }
+	if e.LeaveDate != nil { updates["leave_date"] = e.LeaveDate }
+	if e.AttendanceGroup != nil { updates["attendance_group"] = *e.AttendanceGroup }
+	if e.HasAnnualLeave != nil { updates["has_annual_leave"] = *e.HasAnnualLeave }
+	if e.HasAttendanceBonus != nil { updates["has_attendance_bonus"] = *e.HasAttendanceBonus }
+	if e.CompanyID != nil { updates["company_id"] = *e.CompanyID }
+	if e.Department != nil { updates["department"] = *e.Department }
+	if e.Position != nil { updates["position"] = *e.Position }
+	if e.BaseSalary != nil { updates["base_salary"] = *e.BaseSalary }
+	if e.PerformanceSalary != nil { updates["performance_salary"] = *e.PerformanceSalary }
+	if e.SalaryDays != nil { updates["salary_days"] = *e.SalaryDays }
+	if e.PostAllowance != nil { updates["post_allowance"] = *e.PostAllowance }
+	if e.MealAllowance != nil { updates["meal_allowance"] = *e.MealAllowance }
+	if e.HousingAllowance != nil { updates["housing_allowance"] = *e.HousingAllowance }
+	if e.TransportAllowance != nil { updates["transport_allowance"] = *e.TransportAllowance }
+	if e.HighTempAllowance != nil { updates["high_temp_allowance"] = *e.HighTempAllowance }
+	if e.InsuranceCompensation != nil { updates["insurance_compensation"] = *e.InsuranceCompensation }
+	if e.FundCompensation != nil { updates["fund_compensation"] = *e.FundCompensation }
+	if e.SocialSecurityDeduct != nil { updates["social_security_deduct"] = *e.SocialSecurityDeduct }
+	if e.HousingFundDeduct != nil { updates["housing_fund_deduct"] = *e.HousingFundDeduct }
+	return updates
 }
 
 func DeletePositionEvent(ctx context.Context, id uint) error {
@@ -49,7 +88,8 @@ func DeletePositionEvent(ctx context.Context, id uint) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
 		}
-		return RebuildPositionSnapshots(tx, event.PersonID)
+		// 删除事件从生效日起状态回退：仅重建生效日及之后的快照段
+		return RebuildPositionSnapshotsFrom(tx, event.PersonID, event.EffectiveDate)
 	})
 }
 
@@ -62,7 +102,8 @@ func RestorePositionEvent(ctx context.Context, id uint) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
 		}
-		return RebuildPositionSnapshots(tx, event.PersonID)
+		// 恢复 = 事件重新生效：仅重建生效日及之后的快照段
+		return RebuildPositionSnapshotsFrom(tx, event.PersonID, event.EffectiveDate)
 	})
 }
 

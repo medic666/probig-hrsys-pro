@@ -169,26 +169,26 @@ func TestDingTalkParseMultiLeave(t *testing.T) {
 			t.Errorf("multi-leave total hours: got %v, want 8", total)
 		}
 
-		// 休息+病假：不得被休息日分支丢弃
+		// 跨天病假（整段描述重复于每个日单元格，无法单日拆分）：忠实透传备注 + pending，不解析时长
 		cell2 := "休息,病假05-22 08:30到05-29 18:30 56小时"
-		c2, _, _ := parseDailyCell(ctx, cell2, 201, date)
-		if c2 == 0 {
-			t.Fatalf("rest+leave cell: created=0, want >0 (病假不应被丢弃)")
+		c2, p2, f2 := parseDailyCell(ctx, cell2, 201, date)
+		if c2 != 1 || p2 != 1 || f2 != 0 {
+			t.Fatalf("cross-day leave: created=%d pending=%d fail=%d, want 1/1/0", c2, p2, f2)
 		}
 		var daily2 model.AttendanceDaily
 		if err := db.Where("person_id = 201 AND event_date = ?", date).First(&daily2).Error; err != nil {
 			t.Fatalf("daily2 not written: %v", err)
 		}
+		if daily2.Status != "pending" {
+			t.Errorf("cross-day daily status = %s, want pending", daily2.Status)
+		}
+		if daily2.Remark != "钉钉导入:"+cell2 {
+			t.Errorf("cross-day remark should pass through raw cell, got %q", daily2.Remark)
+		}
 		var details2 []model.AttendanceEventDetail
 		db.Where("daily_id = ?", daily2.ID).Find(&details2)
-		var total2 float64
-		for _, e := range details2 {
-			if e.SubType == "病假" {
-				total2 += e.Hours
-			}
-		}
-		if total2 != 56 {
-			t.Errorf("rest+leave hours: got %v, want 56", total2)
+		if len(details2) != 0 {
+			t.Errorf("cross-day passthrough should have no details, got %d", len(details2))
 		}
 	})
 }
@@ -312,6 +312,47 @@ func TestDingTalkSampleFilesPunchCoverage(t *testing.T) {
 	for cell, cnt := range missingPunch {
 		t.Errorf("异常无打卡时间(%d次): %q", cnt, cell)
 	}
+}
+
+// TestDingTalkCrossDayPassthrough 跨天事件（整段描述重复于每个日单元格）：
+// 忠实透传备注 + pending + 无明细，不做单日解析；无日期区间变体走时长护栏
+func TestDingTalkCrossDayPassthrough(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		migrateBalanceSnapshots(t, db)
+		ctx := context.Background()
+		d, _ := utils.ParseDate("2026-05-22")
+		date := utils.DateOnlyFromTime(d)
+
+		cases := []string{
+			"病假05-22 08:30到05-29 18:30 56小时\n(-)",
+			"休息,病假05-22 08:30到05-29 18:30 56小时\n(-)",
+			"病假05-22 08:30到05-29 18:30 56小时\n(-,19:40)",
+			"正常,加班05-20 22:00到05-21 01:00 5小时",
+			"病假56小时", // 无日期区间：时长护栏（56 > 日标准 8h）
+		}
+		for i, cell := range cases {
+			pid := uint(700 + i)
+			c, p, f := parseDailyCell(ctx, cell, pid, date)
+			if c != 1 || p != 1 || f != 0 {
+				t.Fatalf("cell %q: created=%d pending=%d fail=%d, want 1/1/0", cell, c, p, f)
+			}
+			var daily model.AttendanceDaily
+			if err := db.Where("person_id = ? AND event_date = ?", pid, date).First(&daily).Error; err != nil {
+				t.Fatalf("cell %q: daily not written: %v", cell, err)
+			}
+			if daily.Status != "pending" {
+				t.Errorf("cell %q: status = %s, want pending", cell, daily.Status)
+			}
+			if daily.Remark != "钉钉导入:"+cell {
+				t.Errorf("cell %q: remark = %q, want raw cell passthrough", cell, daily.Remark)
+			}
+			var details []model.AttendanceEventDetail
+			db.Where("daily_id = ?", daily.ID).Find(&details)
+			if len(details) != 0 {
+				t.Errorf("cell %q: details = %d, want 0", cell, len(details))
+			}
+		}
+	})
 }
 
 func trimSpace(s string) string {

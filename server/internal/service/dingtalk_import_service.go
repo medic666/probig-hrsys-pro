@@ -195,6 +195,96 @@ func DingTalkExecute(ctx context.Context, filePath, month string, mappings []Din
 	return created, pending, fail, nil
 }
 
+// reDateToken MM-DD 日期 token（跨天判定用）
+var reDateToken = regexp.MustCompile(`\d{2}-\d{2}`)
+
+// isCrossDaySpan 判定单元格中的时段描述是否跨天：
+// 提取全部 MM-DD 日期 token 与"到"的位置，对每个"到"取左最近与右最近的日期 token，
+// 任一日期对不同 → 跨天。纯时间区间（08:30到18:30）与同日区间（05-16 12:30到05-16 13:30）
+// 不触发；补卡申请（单时刻）恒同日不触发。
+func isCrossDaySpan(cell string) bool {
+	type dateToken struct {
+		pos  int
+		date string
+	}
+	var tokens []dateToken
+	for _, m := range reDateToken.FindAllStringIndex(cell, -1) {
+		// 过滤整日期（如 2026-05-22 中的 "26-05" 片段）：前邻字符为数字则跳过
+		if m[0] > 0 && cell[m[0]-1] >= '0' && cell[m[0]-1] <= '9' {
+			continue
+		}
+		tokens = append(tokens, dateToken{m[0], cell[m[0]:m[1]]})
+	}
+	if len(tokens) < 2 {
+		return false
+	}
+	for _, daoPos := range findAllPos(cell, "到") {
+		left, right := -1, -1
+		for i, t := range tokens {
+			switch {
+			case t.pos < daoPos:
+				if left == -1 || tokens[i].pos > tokens[left].pos {
+					left = i
+				}
+			case t.pos > daoPos:
+				if right == -1 || tokens[i].pos < tokens[right].pos {
+					right = i
+				}
+			}
+		}
+		if left >= 0 && right >= 0 && tokens[left].date != tokens[right].date {
+			return true
+		}
+	}
+	return false
+}
+
+// findAllPos 返回 sub 在 s 中全部出现位置的字节偏移
+func findAllPos(s, sub string) []int {
+	var poses []int
+	start := 0
+	for {
+		i := strings.Index(s[start:], sub)
+		if i < 0 {
+			return poses
+		}
+		poses = append(poses, start+i)
+		start += i + len(sub)
+	}
+}
+
+// writePendingPassthrough 跨天/可疑事件的兜底写入：
+// 原始描述忠实透传为备注、无明细、标 pending，由管理员在待确认页逐日修正；
+// 写入失败时与既有失败兜底一致（pending 空日记录 + fail 计数）。
+func writePendingPassthrough(ctx context.Context, personID uint, date utils.DateOnly, cell, punchTime string) (created, pending, fail int) {
+	status, remark := "pending", "钉钉导入:"+cell
+	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+		return AppendAttendanceDaily(tx, AttendanceDailyUpsert{
+			PersonID:  personID,
+			Date:      date,
+			Status:    &status,
+			PunchTime: &punchTime,
+			Remark:    &remark,
+			Details:   nil,
+		})
+	})
+	if err != nil {
+		pStatus, pRemark, pPunch := "pending", "钉钉导入失败:"+cell, ""
+		_ = utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
+			return AppendAttendanceDaily(tx, AttendanceDailyUpsert{
+				PersonID:  personID,
+				Date:      date,
+				Status:    &pStatus,
+				PunchTime: &pPunch,
+				Remark:    &pRemark,
+				Details:   []model.AttendanceEventDetail{},
+			})
+		})
+		return 0, 0, 1
+	}
+	return 1, 1, 0
+}
+
 func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.DateOnly) (created, pending, fail int) {
 	status := "confirmed"
 	var events []model.AttendanceEventDetail
@@ -216,6 +306,13 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 	isMissingCard := strings.Contains(cell, "缺卡")
 
 	punchTime := extractPunchTime(cell)
+
+	// 跨天事件：钉钉源文件在每个日单元格重复整段描述（如"病假05-22 08:30到05-29 18:30 56小时"，
+	// 且单元格日期与描述区间经常错位），无法按单日拆分——忠实透传原始描述为备注并标 pending，
+	// 由管理员在待确认页按真实情况逐日修正
+	if (hasLeave || hasOT) && isCrossDaySpan(cell) {
+		return writePendingPassthrough(ctx, personID, date, cell, punchTime)
+	}
 
 	createEvents := func() (int, int, int) {
 		err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
@@ -284,6 +381,11 @@ func parseDailyCell(ctx context.Context, cell string, personID uint, date utils.
 
 	if hasLeave {
 		leaveType, leaveHours := parseLeaveFromCell(cell)
+		// 护栏：单日请假时长超日标准小时数（如"病假56小时"的无日期区间变体）→
+		// 整段跨天描述重复，透传备注标 pending
+		if leaveHours > getWorkHoursPerDay() {
+			return writePendingPassthrough(ctx, personID, date, cell, punchTime)
+		}
 		if leaveHours > 0 {
 			events = append(events, model.AttendanceEventDetail{
 				EventType: "休假", SubType: leaveType, Hours: leaveHours, Remark: "钉钉导入:"+cell,

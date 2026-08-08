@@ -272,9 +272,12 @@ func migratePermissionModules(db *gorm.DB) error {
 // migrateRoleDataScope 数据范围迁移至角色级：
 // roles 加 data_scope（回填 all）；移除 users.data_scope 列（SQLite 3.35+ DROP COLUMN，
 // 已不存在时幂等忽略）。
+// 自足迁移：roles.data_scope 用裸 SQL 加列（不依赖 Role 模型字段形态），列已存在则幂等跳过。
 func migrateRoleDataScope(db *gorm.DB) error {
-	if err := db.AutoMigrate(&model.Role{}, &model.User{}); err != nil {
-		return err
+	if err := db.Exec("ALTER TABLE roles ADD COLUMN data_scope varchar(32) NOT NULL DEFAULT 'all'").Error; err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
+			return err
+		}
 	}
 	if err := db.Exec("UPDATE roles SET data_scope = 'all' WHERE data_scope = '' OR data_scope IS NULL").Error; err != nil {
 		return err
@@ -288,19 +291,27 @@ func migrateRoleDataScope(db *gorm.DB) error {
 }
 
 // migrateUserDataScope 用户数据范围列：新增 data_scope（默认 all），存量回填。
+// 自足迁移：列级变更用裸 SQL（ALTER TABLE），不依赖当前模型字段形态——
+// 模型已删除该字段时，对未应用此迁移的库仍能正确加列；列已存在（历史 AutoMigrate
+// 已加过）则幂等跳过。
 func migrateUserDataScope(db *gorm.DB) error {
-	if err := db.AutoMigrate(&model.User{}); err != nil {
-		return err
+	if err := db.Exec("ALTER TABLE users ADD COLUMN data_scope varchar(8) NOT NULL DEFAULT 'all'").Error; err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
+			return err
+		}
 	}
 	return db.Exec("UPDATE users SET data_scope = 'all' WHERE data_scope = '' OR data_scope IS NULL").Error
 }
 
 // migrateAttendanceDailySeq 考勤日记录支持同日多版本（seq 追加式写入）：
-// ① AutoMigrate 新增 seq 列（存量行默认 1）；② 旧唯一索引 (person_id, event_date)
+// ① 新增 seq 列（存量行默认 1）；② 旧唯一索引 (person_id, event_date)
 // 会阻止同日多记录，必须先删除；③ 以 (person_id, event_date, seq) 部分唯一索引替代。
+// 自足迁移：seq 列用裸 SQL 加列（不依赖 AttendanceDaily 模型字段形态），列已存在则幂等跳过。
 func migrateAttendanceDailySeq(db *gorm.DB) error {
-	if err := db.AutoMigrate(&model.AttendanceDaily{}); err != nil {
-		return err
+	if err := db.Exec("ALTER TABLE attendance_daily ADD COLUMN seq integer NOT NULL DEFAULT 1").Error; err != nil {
+		if !strings.Contains(err.Error(), "duplicate column") {
+			return err
+		}
 	}
 	if err := db.Exec(`UPDATE attendance_daily SET seq = 1 WHERE seq = 0`).Error; err != nil {
 		return err

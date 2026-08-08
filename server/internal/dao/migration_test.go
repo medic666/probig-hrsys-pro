@@ -2,7 +2,10 @@ package dao
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"probig/server/internal/model"
@@ -188,5 +191,81 @@ func TestMigratePermissionModules(t *testing.T) {
 	db.Model(&model.Permission{}).Count(&total2)
 	if total2 != total {
 		t.Errorf("re-migrate changed count: %d -> %d", total, total2)
+	}
+}
+
+// TestRunMigrations 完整迁移链（全新库从零到最新）：
+// 覆盖"迁移引用已删模型字段/旧库升级"类必现缺陷——任何未应用过某迁移的库
+// （全新库或旧部署库）启动时都会走完整链，本测试保证链路自足、幂等。
+func TestRunMigrations(t *testing.T) {
+	db, err := gorm.Open(GetSQLiteDialector(fmt.Sprintf("file:%s?_busy_timeout=10000", filepath.Join(t.TempDir(), "test.db"))), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+
+	if err := RunMigrations(db); err != nil {
+		t.Fatalf("run migrations: %v", err)
+	}
+
+	colExists := func(table, col string) bool {
+		var cnt int64
+		db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM pragma_table_info('%s') WHERE name = '%s'", table, col)).Scan(&cnt)
+		return cnt > 0
+	}
+	// ① roles.data_scope 存在（角色级数据范围，20260808_04 之后形态）
+	if !colExists("roles", "data_scope") {
+		t.Error("roles.data_scope missing after migrations")
+	}
+	// ② users.data_scope 已被 20260808_04 删除
+	if colExists("users", "data_scope") {
+		t.Error("users.data_scope should be dropped by migration 20260808_04")
+	}
+	// ③ 权限行数 = ModuleActions 定义总和（20260808_01/03 收敛后形态）
+	want := 0
+	for _, m := range model.ModuleActions {
+		want += len(m.Actions)
+	}
+	var permTotal int64
+	db.Model(&model.Permission{}).Count(&permTotal)
+	if int(permTotal) != want {
+		t.Errorf("permission rows = %d, want %d", permTotal, want)
+	}
+
+	// ④ 幂等：重复执行无错误、权限行数不变
+	if err := RunMigrations(db); err != nil {
+		t.Fatalf("re-run migrations: %v", err)
+	}
+	var permTotal2 int64
+	db.Model(&model.Permission{}).Count(&permTotal2)
+	if permTotal2 != permTotal {
+		t.Errorf("re-run changed permission count: %d -> %d", permTotal, permTotal2)
+	}
+}
+
+// TestMigrationsSelfContained 迁移自足静态检查：
+// 列级迁移必须自足——非基线迁移不得调用 AutoMigrate（其依赖当前模型字段形态，
+// 模型演进后任何未应用该迁移的库（全新库/旧部署库）必现失败，如 20260808_02 事故）。
+// 基线迁移（聚合当前模型全表快照）是唯一合法例外。
+func TestMigrationsSelfContained(t *testing.T) {
+	src, err := os.ReadFile("migration.go")
+	if err != nil {
+		t.Fatalf("read migration.go: %v", err)
+	}
+	text := string(src)
+	re := regexp.MustCompile(`(?m)^func (migrate\w+)\(`)
+	locs := re.FindAllStringSubmatchIndex(text, -1)
+	for i, loc := range locs {
+		name := text[loc[2]:loc[3]]
+		if name == "migrateV2FreshBaseline" {
+			continue
+		}
+		start := loc[1]
+		end := len(text)
+		if i+1 < len(locs) {
+			end = locs[i+1][0]
+		}
+		if strings.Contains(text[start:end], "db.AutoMigrate(") {
+			t.Errorf("迁移 %s 不得调用 AutoMigrate（列级迁移必须裸 SQL 自足）", name)
+		}
 	}
 }

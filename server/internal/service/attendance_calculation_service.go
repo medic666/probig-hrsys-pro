@@ -13,15 +13,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// GetActivePersonIDsInMonth 当月在职人员 ID 列表（批量核算人选）
-func GetActivePersonIDsInMonth(month string) []uint {
+// GetActivePersonIDsInMonth 当月在职人员 ID 列表（批量核算人选）；
+// 仅自己范围时仅返回本人（本人非在职则返回空）
+func GetActivePersonIDsInMonth(ctx context.Context, month string) []uint {
 	monthStart, err := time.Parse("2006-01", month)
 	if err != nil {
 		return nil
 	}
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		var active []uint
+		dao.DBFromContext(ctx).Model(&model.PositionSnapshot{}).
+			Select("DISTINCT person_id").
+			Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ? AND is_active = true",
+				pid, utils.DateOnlyFromTime(monthStart.AddDate(0, 1, -1)), utils.DateOnlyFromTime(monthStart)).
+			Pluck("person_id", &active)
+		return active
+	}
 	monthEnd := monthStart.AddDate(0, 1, -1)
 	var personIDs []uint
-	dao.DB.Model(&model.PositionSnapshot{}).
+	dao.DBFromContext(ctx).Model(&model.PositionSnapshot{}).
 		Select("DISTINCT person_id").
 		Where("effective_start_date <= ? AND effective_end_date >= ? AND is_active = true",
 			utils.DateOnlyFromTime(monthEnd), utils.DateOnlyFromTime(monthStart)).
@@ -30,6 +40,9 @@ func GetActivePersonIDsInMonth(month string) []uint {
 }
 
 func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string) (*model.AttendanceCalculationMonthly, error) {
+	if err := EnsureOwnPerson(ctx, personID); err != nil {
+		return nil, err
+	}
 	var result *model.AttendanceCalculationMonthly
 	var oldJSON, newJSON, personName string
 	var audited bool
@@ -254,8 +267,9 @@ type MonthlyListQuery struct {
 	Status   string
 }
 
-func GetMonthlyList(q MonthlyListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.AttendanceCalculationMonthly{})
+func GetMonthlyList(ctx context.Context, q MonthlyListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.AttendanceCalculationMonthly{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.Month != "" {
 		tx = tx.Where("belong_month = ?", q.Month)
 	}
@@ -366,6 +380,7 @@ func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
 // CalculateMonthlyBatch 批量考勤核算：三态计数——
 // hasValue 有结果（含 0）/ empty 空结果（置空）/ fail 失败（需人工干预）
 func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) (hasValue, empty, fail int, err error) {
+	personIDs = ScopePersonIDs(ctx, personIDs)
 	for _, pid := range personIDs {
 		r, calcErr := CalculateMonthlyAttendance(ctx, pid, month)
 		if calcErr != nil {
@@ -383,7 +398,7 @@ func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) 
 // 核算过期（投影/快照 last_calc_at 晚于核算时间）orange；已核算未过期 green。
 // stale 判定与 IsAttendanceMonthlyStale 共用同一份源定义，批量聚合派生层最后计算时间，
 // 消除逐人循环查询（N+1）。
-func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
+func GetAttendanceMonthlyBadges(ctx context.Context, month string) ([]PersonBadge, error) {
 	monthStart, err := utils.MonthStart(month)
 	if err != nil {
 		return nil, err
@@ -392,7 +407,7 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 	monthEndD := utils.DateOnlyFromTime(monthStart.AddDate(0, 1, -1))
 
 	var calcs []model.AttendanceCalculationMonthly
-	if err := dao.DB.Where("belong_month = ?", month).Find(&calcs).Error; err != nil {
+	if err := dao.DBFromContext(ctx).Where("belong_month = ?", month).Find(&calcs).Error; err != nil {
 		return nil, err
 	}
 	calcMap := make(map[uint]model.AttendanceCalculationMonthly, len(calcs))
@@ -406,7 +421,11 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 	}
 
 	var personIDs []uint
-	if err := dao.DB.Table("persons").Where("deleted_at IS NULL").Pluck("id", &personIDs).Error; err != nil {
+	db := dao.DBFromContext(ctx).Table("persons").Where("deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("id = ?", pid)
+	}
+	if err := db.Pluck("id", &personIDs).Error; err != nil {
 		return nil, err
 	}
 	result := make([]PersonBadge, 0, len(personIDs))

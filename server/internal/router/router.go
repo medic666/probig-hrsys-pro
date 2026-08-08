@@ -41,7 +41,7 @@ func SetupRouter() *gin.Engine {
 		users.GET("", middleware.RequirePermission("user.read"), handler.GetUsers)
 		users.POST("", middleware.RequirePermission("user.write"), handler.CreateUser)
 		users.PUT("/:id", middleware.RequirePermission("user.write"), handler.UpdateUser)
-		users.DELETE("/:id", middleware.RequirePermission("user.delete"), handler.DeleteUser)
+		users.DELETE("/:id", middleware.RequirePermission("user.write"), handler.DeleteUser)
 		users.POST("/:id/reset-password", middleware.RequirePermission("user.write"), handler.ResetUserPassword)
 		users.POST("/:id/assign-roles", middleware.RequirePermission("user.write"), handler.AssignUserRoles)
 		users.GET("/trash", middleware.RequirePermission("user.read"), handler.GetDeletedUsers)
@@ -56,7 +56,7 @@ func SetupRouter() *gin.Engine {
 		roles.GET("/all", middleware.RequirePermission("role.read"), handler.GetAllRolesList)
 		roles.POST("", middleware.RequirePermission("role.write"), handler.CreateRole)
 		roles.PUT("/:id", middleware.RequirePermission("role.write"), handler.UpdateRole)
-		roles.DELETE("/:id", middleware.RequirePermission("role.delete"), handler.DeleteRole)
+		roles.DELETE("/:id", middleware.RequirePermission("role.write"), handler.DeleteRole)
 		roles.GET("/trash", middleware.RequirePermission("role.read"), handler.GetDeletedRoles)
 		roles.GET("/:id", middleware.RequirePermission("role.read"), handler.GetRoleByID)
 		roles.POST("/:id/restore", middleware.RequirePermission("role.write"), handler.RestoreRole)
@@ -76,7 +76,7 @@ func SetupRouter() *gin.Engine {
 		persons.GET("/trash", middleware.RequirePermission("person.read"), handler.GetDeletedPersons)
 		persons.GET("/:id", middleware.RequirePermission("person.read"), handler.GetPersonByID)
 		persons.POST("/profile", middleware.RequirePermission("person.write"), handler.UpsertPersonProfile)
-		persons.DELETE("/:id", middleware.RequirePermission("person.delete"), handler.DeletePerson)
+		persons.DELETE("/:id", middleware.RequirePermission("person.write"), handler.DeletePerson)
 		persons.POST("/:id/restore", middleware.RequirePermission("person.write"), handler.RestorePerson)
 		persons.GET("/:id/current-position", middleware.RequirePermission("person.read"), handler.GetPersonCurrentPosition)
 		persons.GET("/:id/position-history", middleware.RequirePermission("person.read"), handler.GetPersonPositionHistory)
@@ -92,7 +92,7 @@ func SetupRouter() *gin.Engine {
 		companies.GET("/:id", middleware.RequirePermission("company.read"), handler.GetCompanyByID)
 		companies.POST("", middleware.RequirePermission("company.write"), handler.CreateCompany)
 		companies.PUT("/:id", middleware.RequirePermission("company.write"), handler.UpdateCompany)
-		companies.DELETE("/:id", middleware.RequirePermission("company.delete"), handler.DeleteCompany)
+		companies.DELETE("/:id", middleware.RequirePermission("company.write"), handler.DeleteCompany)
 		companies.POST("/:id/restore", middleware.RequirePermission("company.write"), handler.RestoreCompany)
 	}
 
@@ -106,11 +106,11 @@ func SetupRouter() *gin.Engine {
 		files.GET("/by-target", middleware.RequirePermission("file.read"), handler.GetFilesByTarget)
 		files.GET("", middleware.RequirePermission("file.read"), handler.GetFiles)
 		files.GET("/trash", middleware.RequirePermission("file.read"), handler.GetDeletedFiles)
-		files.DELETE("/:id", middleware.RequirePermission("file.delete"), handler.DeleteFile)
+		files.DELETE("/:id", middleware.RequirePermission("file.write"), handler.DeleteFile)
 		files.POST("/:id/restore", middleware.RequirePermission("file.write"), handler.RestoreFile)
 		files.GET("/:id/associations", middleware.RequirePermission("file.read"), handler.GetFileAssociations)
-		files.DELETE("/:id/permanent", middleware.RequirePermission("file.delete"), handler.PermanentDeleteFile)
-		files.POST("/clean-orphans", middleware.RequirePermission("file.delete"), handler.CleanOrphanFiles)
+		files.DELETE("/:id/permanent", middleware.RequirePermission("file.write"), handler.PermanentDeleteFile)
+		files.POST("/clean-orphans", middleware.RequirePermission("file.write"), handler.CleanOrphanFiles)
 	}
 
 	positionEvents := r.Group("/api/position-events")
@@ -123,7 +123,7 @@ func SetupRouter() *gin.Engine {
 		positionEvents.GET("/:id", middleware.RequirePermission("position_event.read"), handler.GetPositionEventByID)
 		positionEvents.POST("", middleware.RequirePermission("position_event.write"), handler.CreatePositionEvent)
 		positionEvents.PUT("/:id", middleware.RequirePermission("position_event.write"), handler.UpdatePositionEvent)
-		positionEvents.DELETE("/:id", middleware.RequirePermission("position_event.delete"), handler.DeletePositionEvent)
+		positionEvents.DELETE("/:id", middleware.RequirePermission("position_event.write"), handler.DeletePositionEvent)
 		positionEvents.POST("/:id/restore", middleware.RequirePermission("position_event.write"), handler.RestorePositionEvent)
 	}
 
@@ -141,7 +141,7 @@ func SetupRouter() *gin.Engine {
 		attendanceEvents.POST("/:id/confirm", middleware.RequirePermission("attendance.write"), handler.ConfirmAttendanceDaily)
 		attendanceEvents.POST("/import-dingtalk/preview", middleware.RequirePermission("attendance.write"), handler.DingTalkPreview)
 		attendanceEvents.POST("/import-dingtalk/execute", middleware.RequirePermission("attendance.write"), handler.DingTalkExecute)
-		attendanceEvents.DELETE("/:id", middleware.RequirePermission("attendance.delete"), handler.DeleteAttendanceEvent)
+		attendanceEvents.DELETE("/:id", middleware.RequirePermission("attendance.write"), handler.DeleteAttendanceEvent)
 		attendanceEvents.POST("/:id/restore", middleware.RequirePermission("attendance.write"), handler.RestoreAttendanceEvent)
 	}
 
@@ -160,7 +160,7 @@ func SetupRouter() *gin.Engine {
 		attendanceMonthly.GET("", middleware.RequirePermission("attendance.read"), handler.GetMonthlyList)
 		attendanceMonthly.GET("/badges", middleware.RequirePermission("attendance.read"), handler.GetAttendanceMonthlyBadges)
 		attendanceMonthly.GET("/export", middleware.RequirePermission("attendance.export"), handler.ExportAttendanceMonthly)
-		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.write"), handler.CalculateMonthly)
+		attendanceMonthly.POST("/calculate", middleware.RequirePermission("attendance.calculate"), handler.CalculateMonthly)
 	}
 
 	annualLeave := r.Group("/api/annual-leave-events")
@@ -173,7 +173,7 @@ func SetupRouter() *gin.Engine {
 		annualLeave.GET("/:id", middleware.RequirePermission("annual_leave.read"), handler.GetAnnualLeaveEventByID)
 		annualLeave.POST("", middleware.RequirePermission("annual_leave.write"), handler.CreateAnnualLeaveEvent)
 		annualLeave.PUT("/:id", middleware.RequirePermission("annual_leave.write"), handler.UpdateAnnualLeaveEvent)
-		annualLeave.DELETE("/:id", middleware.RequirePermission("annual_leave.delete"), handler.DeleteAnnualLeaveEvent)
+		annualLeave.DELETE("/:id", middleware.RequirePermission("annual_leave.write"), handler.DeleteAnnualLeaveEvent)
 		annualLeave.POST("/:id/restore", middleware.RequirePermission("annual_leave.write"), handler.RestoreAnnualLeaveEvent)
 	}
 
@@ -194,8 +194,8 @@ func SetupRouter() *gin.Engine {
 	carryover := r.Group("/api/annual-leave-carryover")
 	carryover.Use(middleware.AuthRequired())
 	{
-		carryover.POST("", middleware.RequirePermission("annual_leave.write"), handler.ExecuteAnnualLeaveCarryover)
-		carryover.POST("/:batchId/cancel", middleware.RequirePermission("annual_leave.write"), handler.CancelCarryover)
+		carryover.POST("", middleware.RequirePermission("annual_leave.calculate"), handler.ExecuteAnnualLeaveCarryover)
+		carryover.POST("/:batchId/cancel", middleware.RequirePermission("annual_leave.calculate"), handler.CancelCarryover)
 		carryover.GET("/batches", middleware.RequirePermission("annual_leave.read"), handler.GetCarryoverBatches)
 		carryover.GET("/batches/:batchId/events", middleware.RequirePermission("annual_leave.read"), handler.GetBatchEvents)
 	}
@@ -210,7 +210,7 @@ func SetupRouter() *gin.Engine {
 		salaryEvents.GET("/:id", middleware.RequirePermission("salary.read"), handler.GetSalaryEventByID)
 		salaryEvents.POST("", middleware.RequirePermission("salary.write"), handler.CreateSalaryEvent)
 		salaryEvents.PUT("/:id", middleware.RequirePermission("salary.write"), handler.UpdateSalaryEvent)
-		salaryEvents.DELETE("/:id", middleware.RequirePermission("salary.delete"), handler.DeleteSalaryEvent)
+		salaryEvents.DELETE("/:id", middleware.RequirePermission("salary.write"), handler.DeleteSalaryEvent)
 		salaryEvents.POST("/:id/restore", middleware.RequirePermission("salary.write"), handler.RestoreSalaryEvent)
 	}
 
@@ -219,7 +219,7 @@ func SetupRouter() *gin.Engine {
 	{
 		salarySummaries.GET("", middleware.RequirePermission("salary.read"), handler.GetSalarySummaries)
 		salarySummaries.GET("/badges", middleware.RequirePermission("salary.read"), handler.GetSalarySummariesBadges)
-		salarySummaries.POST("/calculate", middleware.RequirePermission("salary.write"), handler.CalculateSalarySummaries)
+		salarySummaries.POST("/calculate", middleware.RequirePermission("salary.calculate"), handler.CalculateSalarySummaries)
 		salarySummaries.GET("/export", middleware.RequirePermission("salary.export"), handler.ExportSalarySummaries)
 		salarySummaries.GET("/:personId/:month/versions", middleware.RequirePermission("salary.read"), handler.GetSalaryVersions)
 		salarySummaries.GET("/:personId/:month/trace", middleware.RequirePermission("salary.read"), handler.GetSalaryTrace)
@@ -243,7 +243,6 @@ func SetupRouter() *gin.Engine {
 
 	return r
 }
-
 
 func splitOrigins(s string) []string {
 	if s == "" {

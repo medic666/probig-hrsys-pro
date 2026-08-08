@@ -12,7 +12,12 @@ import (
 	"gorm.io/gorm"
 )
 
-const DefaultPassword = "admin123"
+const (
+	// DefaultPassword 非 admin 用户新建/重置的默认密码（首登强制改密）
+	DefaultPassword = "123456"
+	// AdminInitialPassword 超级管理员初始/重置密码（仅 admin 使用，首登强制改密）
+	AdminInitialPassword = "admin123"
+)
 
 func Login(username, password string) (string, *model.User, error) {
 	var user model.User
@@ -50,9 +55,16 @@ func ChangePassword(ctx context.Context, userID uint, oldPassword, newPassword s
 		}
 	}
 
+	// 防绕过：新密码不允许为任何默认密码（首登强制改密才有效）
+	if newPassword == DefaultPassword || newPassword == AdminInitialPassword {
+		return errors.New("新密码不能与默认密码相同")
+	}
+
 	return setUserPassword(ctx, &user, newPassword)
 }
 
+// ResetPassword 管理员重置密码：admin 重置回 AdminInitialPassword，其它用户重置回
+// DefaultPassword；重置后置首登强制改密（IsFirstLogin=true），任何用户重置后首次登录必须改密。
 func ResetPassword(ctx context.Context, userID uint) (string, error) {
 	var user model.User
 	if err := dao.DB.First(&user, userID).Error; err != nil {
@@ -60,7 +72,17 @@ func ResetPassword(ctx context.Context, userID uint) (string, error) {
 	}
 
 	newPwd := DefaultPassword
-	if err := setUserPassword(ctx, &user, newPwd); err != nil {
+	if user.ID == 1 {
+		newPwd = AdminInitialPassword
+	}
+
+	hash, err := utils.HashPassword(newPwd)
+	if err != nil {
+		return "", err
+	}
+	user.Password = hash
+	user.IsFirstLogin = true
+	if err := dao.DBFromContext(ctx).Save(&user).Error; err != nil {
 		return "", err
 	}
 	return newPwd, nil
@@ -191,24 +213,8 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 }
 
 func SeedDefaultAdmin(db *gorm.DB) error {
-	modules := []struct {
-		Module  string
-		Name    string
-		Actions []string
-	}{
-		{"home", "首页", []string{"read"}},
-		{"person", "人员管理", []string{"read", "write", "delete", "export"}},
-		{"company", "公司管理", []string{"read", "write", "delete", "export"}},
-		{"position_event", "职务事件", []string{"read", "write", "delete", "export"}},
-		{"attendance", "考勤管理", []string{"read", "write", "delete", "export"}},
-		{"annual_leave", "年假管理", []string{"read", "write", "delete", "export"}},
-		{"salary", "工资管理", []string{"read", "write", "delete", "export"}},
-		{"file", "文件管理", []string{"read", "write", "delete", "export"}},
-		{"audit", "审计日志", []string{"read", "export"}},
-		{"user", "用户管理", []string{"read", "write", "delete", "export"}},
-		{"role", "角色管理", []string{"read", "write", "delete", "export"}},
-		{"system_config", "系统配置", []string{"read", "write"}},
-	}
+	// 模块 × 动作定义由 model.ModuleActions 单一事实源提供（与迁移共用）
+	modules := model.ModuleActions
 
 	var adminRole model.Role
 	result := db.Where("name = ? AND is_default = ?", "超级管理员", true).First(&adminRole)
@@ -228,13 +234,10 @@ func SeedDefaultAdmin(db *gorm.DB) error {
 	if permCount == 0 {
 		for _, mod := range modules {
 			for _, action := range mod.Actions {
-				actionNames := map[string]string{
-					"read": "查看", "write": "编辑", "delete": "删除", "export": "导出",
-				}
 				p := model.Permission{
 					Module: mod.Module,
 					Action: action,
-					Name:   mod.Name + actionNames[action],
+					Name:   mod.Name + model.PermissionActionNames[action],
 				}
 				db.Create(&p)
 
@@ -254,7 +257,7 @@ func SeedDefaultAdmin(db *gorm.DB) error {
 		}
 	}
 
-	hash, err := utils.HashPassword(DefaultPassword)
+	hash, err := utils.HashPassword(AdminInitialPassword)
 	if err != nil {
 		return err
 	}

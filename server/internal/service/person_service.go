@@ -35,8 +35,9 @@ type PersonListQuery struct {
 	Status     string
 }
 
-func GetPersonList(q PersonListQuery) ([]PersonListRow, int64, error) {
-	tx := dao.DB.Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts")
+func GetPersonList(ctx context.Context, q PersonListQuery) ([]PersonListRow, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.Person{}).Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts")
+	tx = OwnFilter(ctx, tx, "id")
 	if q.PersonID != "" {
 		tx = tx.Where("id = ?", q.PersonID)
 	}
@@ -125,9 +126,12 @@ func GetPersonList(q PersonListQuery) ([]PersonListRow, int64, error) {
 	return list, total, nil
 }
 
-func GetPersonByID(id uint) (*model.Person, error) {
+func GetPersonByID(ctx context.Context, id uint) (*model.Person, error) {
+	if err := EnsureOwnPerson(ctx, id); err != nil {
+		return nil, err
+	}
 	var person model.Person
-	if err := dao.DB.Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts").First(&person, id).Error; err != nil {
+	if err := dao.DBFromContext(ctx).Preload("Phones").Preload("Emails").Preload("BankCards").Preload("EmergencyContacts").First(&person, id).Error; err != nil {
 		return nil, err
 	}
 	return &person, nil
@@ -210,6 +214,15 @@ func UpsertPersonProfile(ctx context.Context, req *PersonProfile) (*model.Person
 	if req.Name == "" {
 		return nil, errors.New("姓名不能为空")
 	}
+	// 仅自己范围：不可创建新人员档案；编辑仅限本人
+	if _, ok := dao.OwnPersonID(ctx); ok {
+		if req.ID == 0 {
+			return nil, errors.New("「仅自己」数据范围不允许创建人员档案")
+		}
+		if err := EnsureOwnPerson(ctx, req.ID); err != nil {
+			return nil, err
+		}
+	}
 	var person model.Person
 	err := utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if req.ID == 0 {
@@ -255,6 +268,9 @@ func UpsertPersonProfile(ctx context.Context, req *PersonProfile) (*model.Person
 }
 
 func DeletePerson(ctx context.Context, id uint) error {
+	if err := EnsureOwnPerson(ctx, id); err != nil {
+		return err
+	}
 	var person model.Person
 	if err := dao.DB.First(&person, id).Error; err != nil {
 		return err
@@ -277,6 +293,9 @@ func DeletePerson(ctx context.Context, id uint) error {
 }
 
 func RestorePerson(ctx context.Context, id uint) error {
+	if err := EnsureOwnPerson(ctx, id); err != nil {
+		return err
+	}
 	var person model.Person
 	if err := dao.DB.Unscoped().First(&person, id).Error; err != nil {
 		return err
@@ -305,10 +324,11 @@ func RestorePerson(ctx context.Context, id uint) error {
 	})
 }
 
-func GetDeletedPersons(pageNum, pageSize int) ([]model.Person, int64, error) {
+func GetDeletedPersons(ctx context.Context, pageNum, pageSize int) ([]model.Person, int64, error) {
 	var list []model.Person
 	var total int64
-	tx := dao.DB.Unscoped().Model(&model.Person{}).Where("deleted_at IS NOT NULL")
+	tx := dao.DBFromContext(ctx).Unscoped().Model(&model.Person{}).Where("deleted_at IS NOT NULL")
+	tx = OwnFilter(ctx, tx, "id")
 	tx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
@@ -329,9 +349,9 @@ type PersonOption struct {
 	LeaveDate       *utils.DateOnly `json:"leave_date"`
 }
 
-func GetAllPersons() ([]PersonOption, error) {
+func GetAllPersons(ctx context.Context) ([]PersonOption, error) {
 	var list []PersonOption
-	err := dao.DB.Table("persons").
+	err := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id, persons.name,
 			s.company_id, c.name AS company_name, s.attendance_group,
 			COALESCE(s.is_active, false) AS is_active, s.entry_date, s.leave_date`).
@@ -339,6 +359,7 @@ func GetAllPersons() ([]PersonOption, error) {
 			AND s.effective_end_date = ?`, realFarFuture).
 		Joins("LEFT JOIN companies c ON c.id = s.company_id").
 		Where("persons.deleted_at IS NULL").
+		Scopes(func(db *gorm.DB) *gorm.DB { return OwnFilter(ctx, db, "persons.id") }).
 		Order("persons.name").
 		Scan(&list).Error
 	return list, err
@@ -360,9 +381,9 @@ type PersonCard struct {
 
 // GetPersonCards 人员卡片列表：以当前职务快照段（9999-12-31 结束）关联公司/部门/职位/在职状态；
 // 无快照段者（未入职）EntryDate 为空、IsActive 为 false
-func GetPersonCards() ([]PersonCard, error) {
+func GetPersonCards(ctx context.Context) ([]PersonCard, error) {
 	var cards []PersonCard
-	err := dao.DB.Table("persons").
+	err := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id, persons.id AS person_id, persons.name,
 			s.company_id, c.name AS company_name, s.department, s.position,
 			s.is_active, s.entry_date, s.leave_date`).
@@ -370,6 +391,7 @@ func GetPersonCards() ([]PersonCard, error) {
 			AND s.effective_end_date = ?`, realFarFuture).
 		Joins("LEFT JOIN companies c ON c.id = s.company_id").
 		Where("persons.deleted_at IS NULL").
+		Scopes(func(db *gorm.DB) *gorm.DB { return OwnFilter(ctx, db, "persons.id") }).
 		Order("persons.name").
 		Scan(&cards).Error
 	if err != nil {

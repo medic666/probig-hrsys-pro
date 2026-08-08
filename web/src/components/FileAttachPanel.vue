@@ -6,13 +6,13 @@
       <el-table-column label="操作" width="140">
         <template #default="{ row: r }">
           <el-button type="success" link size="small" @click="handleDownload(r)">下载</el-button>
-          <el-button type="danger" link size="small" @click="disassociate(r.relation.id)">移除</el-button>
+          <el-button v-permission="PERM.fileWrite" type="danger" link size="small" @click="disassociate(r.relation.id)">移除</el-button>
         </template>
       </el-table-column>
     </el-table>
     <div style="margin-top:8px;display:flex;gap:8px">
-      <el-button size="small" @click="uploadInput.click()">上传文件</el-button>
-      <el-button size="small" @click="assocVisible=true">关联已有文件</el-button>
+      <el-button v-permission="PERM.fileWrite" size="small" @click="uploadInput.click()">上传文件</el-button>
+      <el-button v-permission="PERM.fileWrite" size="small" @click="assocVisible=true">关联已有文件</el-button>
     </div>
     <input ref="uploadInput" type="file" style="display:none" @change="handleUploadInput" />
 
@@ -37,6 +37,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getFilesByTarget, getFiles, uploadFile, associateFile, disassociateFile, downloadFile } from '@/api/file'
+import { PERM } from '@/constants/permission'
 
 const props = defineProps<{ targetType: string; targetId: number | null }>()
 

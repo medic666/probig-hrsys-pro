@@ -7,19 +7,19 @@
     </PageHeader>
 
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
+      <el-button v-permission="PERM.positionEventWrite" type="primary" size="small" @click="handleAction('add')">新增事件</el-button>
       <template #right>
-        <el-button size="small" @click="handleAction('trash')">回收站</el-button>
-        <el-button size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.positionEventWrite" size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button v-permission="PERM.positionEventExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          <el-button type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
+          <el-button v-permission="PERM.positionEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button v-permission="PERM.positionEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
       </ProTable>
     </template>
@@ -64,6 +64,7 @@ import { useBadges } from '@/composables/useBadges'
 
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()

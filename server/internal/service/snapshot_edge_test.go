@@ -306,7 +306,7 @@ func TestDeleteOnlyFutureEvent(t *testing.T) {
 		if _, err := CalculateSalary(context.Background(), 85, "2026-06", 1, "admin"); err != nil {
 			t.Fatalf("calc salary 2026-06: %v", err)
 		}
-		if badges, err := GetSalarySummariesBadges("2026-06"); err != nil || badgeLevelOf(badges, 85) != "green" {
+		if badges, err := GetSalarySummariesBadges(context.Background(), "2026-06"); err != nil || badgeLevelOf(badges, 85) != "green" {
 			t.Fatalf("initial salary badge: err=%v level=%s, want green", err, badgeLevelOf(badges, 85))
 		}
 
@@ -323,7 +323,7 @@ func TestDeleteOnlyFutureEvent(t *testing.T) {
 		if st := staleOf(t, db, 85, "2026-06"); st != "data_changed" {
 			t.Errorf("2026-06 stale = %s, want data_changed", st)
 		}
-		if badges, err := GetSalarySummariesBadges("2026-06"); err != nil || badgeLevelOf(badges, 85) != "orange" {
+		if badges, err := GetSalarySummariesBadges(context.Background(), "2026-06"); err != nil || badgeLevelOf(badges, 85) != "orange" {
 			t.Errorf("salary badge: err=%v level=%s, want orange", err, badgeLevelOf(badges, 85))
 		}
 		if seg := findSegment(t, db, 85, "2026-06-15"); seg.BaseSalary != 8000 {
@@ -422,7 +422,7 @@ func TestEventMoveAcrossMonthBoundary(t *testing.T) {
 		if st := salaryStaleOf(t, db, 87, "2026-04"); st != "calculated" {
 			t.Errorf("2026-04 salary stale = %s, want calculated", st)
 		}
-		if badges, err := GetSalarySummariesBadges("2026-04"); err != nil || badgeLevelOf(badges, 87) != "green" {
+		if badges, err := GetSalarySummariesBadges(context.Background(), "2026-04"); err != nil || badgeLevelOf(badges, 87) != "green" {
 			t.Errorf("2026-04 salary badge: err=%v level=%s, want green", err, badgeLevelOf(badges, 87))
 		}
 	})
@@ -465,7 +465,7 @@ func TestRemarkOnlyEditDoesNotFlag(t *testing.T) {
 		if st := salaryStaleOf(t, db, 88, "2026-05"); st != "calculated" {
 			t.Errorf("2026-05 salary stale = %s, want calculated", st)
 		}
-		if badges, err := GetAttendanceMonthlyBadges("2026-05"); err != nil || badgeLevelOf(badges, 88) != "green" {
+		if badges, err := GetAttendanceMonthlyBadges(context.Background(), "2026-05"); err != nil || badgeLevelOf(badges, 88) != "green" {
 			t.Errorf("attendance badge: err=%v level=%s, want green", err, badgeLevelOf(badges, 88))
 		}
 	})

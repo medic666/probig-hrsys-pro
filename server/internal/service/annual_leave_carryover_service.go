@@ -16,6 +16,10 @@ import (
 )
 
 func ExecuteCarryover(ctx context.Context, month string, operatorID uint, operatorName string) (map[string]interface{}, error) {
+	// 年假结转为公司级结算（批次跨人员生成系统事件），仅全部数据范围可执行
+	if err := RequireAllScope(ctx, "年假结转"); err != nil {
+		return nil, err
+	}
 	monthStart, err := time.Parse("2006-01", month)
 	if err != nil {
 		return nil, fmt.Errorf("月份格式错误")
@@ -214,6 +218,10 @@ func createSystemLeaveEventInTx(tx *gorm.DB, event *model.AnnualLeaveAccountEven
 }
 
 func CancelCarryover(ctx context.Context, batchID uint) error {
+	// 反结账同样为公司级操作
+	if err := RequireAllScope(ctx, "反结账"); err != nil {
+		return err
+	}
 	var batch model.SysBatch
 	if err := dao.DBFromContext(ctx).First(&batch, batchID).Error; err != nil {
 		return fmt.Errorf("批次不存在")
@@ -249,9 +257,17 @@ func CancelCarryover(ctx context.Context, batchID uint) error {
 	return nil
 }
 
-func GetCarryoverBatches() ([]model.SysBatch, error) {
+func GetCarryoverBatches(ctx context.Context) ([]model.SysBatch, error) {
 	var batches []model.SysBatch
-	err := dao.DB.Where("business_type = ?", "annual_leave_carryover").Order("id DESC").Find(&batches).Error
+	tx := dao.DBFromContext(ctx).Where("business_type = ?", "annual_leave_carryover")
+	// 仅自己范围：只返回涉及本人的批次
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		tx = tx.Where("id IN (?)",
+			dao.DBFromContext(ctx).Model(&model.AnnualLeaveAccountEvent{}).
+				Select("DISTINCT batch_id").
+				Where("person_id = ? AND batch_id IS NOT NULL", pid))
+	}
+	err := tx.Order("id DESC").Find(&batches).Error
 	return batches, err
 }
 
@@ -308,9 +324,15 @@ func getYearlyAnnualLeaveHours(personID uint, grantYear int) float64 {
 	return hours
 }
 
-func GetBatchEvents(batchID uint) ([]map[string]interface{}, error) {
+func GetBatchEvents(ctx context.Context, batchID uint) ([]map[string]interface{}, error) {
+	tx := dao.DBFromContext(ctx).Where("batch_id = ?", batchID)
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		tx = tx.Where("person_id = ?", pid)
+	}
 	var events []model.AnnualLeaveAccountEvent
-	dao.DB.Where("batch_id = ?", batchID).Find(&events)
+	if err := tx.Find(&events).Error; err != nil {
+		return nil, err
+	}
 
 	ids := make([]uint, len(events))
 	for i, e := range events {

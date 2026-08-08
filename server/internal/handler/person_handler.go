@@ -27,7 +27,7 @@ func personListQuery(c *gin.Context) service.PersonListQuery {
 
 func GetPersons(c *gin.Context) {
 	q := personListQuery(c)
-	list, total, err := service.GetPersonList(q)
+	list, total, err := service.GetPersonList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -37,7 +37,7 @@ func GetPersons(c *gin.Context) {
 
 func GetPersonByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	p, err := service.GetPersonByID(uint(id))
+	p, err := service.GetPersonByID(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, "人员不存在")
 		return
@@ -85,7 +85,7 @@ func RestorePerson(c *gin.Context) {
 
 func GetDeletedPersons(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetDeletedPersons(pageReq.PageNum, pageReq.PageSize)
+	list, total, err := service.GetDeletedPersons(c.Request.Context(), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -117,7 +117,7 @@ func ExportPersons(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选（与列表同一解析函数，固定全量拉取）
 	q := personListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, err := service.GetPersonList(q)
+	list, _, err := service.GetPersonList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return
@@ -160,7 +160,7 @@ func maritalText(m int8) string {
 }
 
 func GetAllPersonsList(c *gin.Context) {
-	opts, err := service.GetAllPersons()
+	opts, err := service.GetAllPersons(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -169,7 +169,7 @@ func GetAllPersonsList(c *gin.Context) {
 }
 
 func GetPersonCards(c *gin.Context) {
-	cards, err := service.GetPersonCards()
+	cards, err := service.GetPersonCards(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return

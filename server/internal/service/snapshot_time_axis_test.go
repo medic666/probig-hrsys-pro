@@ -88,10 +88,10 @@ func TestFuturePositionEventKeepsPastMonthsFresh(t *testing.T) {
 		if st := IsSalarySummaryStale(&sum3); st != "calculated" {
 			t.Errorf("2026-03 salary stale = %s, want calculated", st)
 		}
-		if badges, err := GetAttendanceMonthlyBadges("2026-03"); err != nil || badgeLevelOf(badges, 70) != "green" {
+		if badges, err := GetAttendanceMonthlyBadges(context.Background(), "2026-03"); err != nil || badgeLevelOf(badges, 70) != "green" {
 			t.Errorf("2026-03 attendance badge: err=%v level=%s, want green", err, badgeLevelOf(badges, 70))
 		}
-		if badges, err := GetSalarySummariesBadges("2026-03"); err != nil || badgeLevelOf(badges, 70) != "green" {
+		if badges, err := GetSalarySummariesBadges(context.Background(), "2026-03"); err != nil || badgeLevelOf(badges, 70) != "green" {
 			t.Errorf("2026-03 salary badge: err=%v level=%s, want green", err, badgeLevelOf(badges, 70))
 		}
 
@@ -104,7 +104,7 @@ func TestFuturePositionEventKeepsPastMonthsFresh(t *testing.T) {
 		if st := IsSalarySummaryStale(&sum5); st != "data_changed" {
 			t.Errorf("2026-05 salary stale = %s, want data_changed", st)
 		}
-		if badges, err := GetAttendanceMonthlyBadges("2026-05"); err != nil || badgeLevelOf(badges, 70) != "orange" {
+		if badges, err := GetAttendanceMonthlyBadges(context.Background(), "2026-05"); err != nil || badgeLevelOf(badges, 70) != "orange" {
 			t.Errorf("2026-05 attendance badge: err=%v level=%s, want orange", err, badgeLevelOf(badges, 70))
 		}
 
@@ -193,7 +193,7 @@ func TestPositionEventMovedLaterRevertsStateAndFlags(t *testing.T) {
 		if st := IsAttendanceMonthlyStale(&calc5); st != "data_changed" {
 			t.Errorf("2026-05 attendance stale = %s, want data_changed", st)
 		}
-		if badges, err := GetSalarySummariesBadges("2026-05"); err != nil || badgeLevelOf(badges, 71) != "orange" {
+		if badges, err := GetSalarySummariesBadges(context.Background(), "2026-05"); err != nil || badgeLevelOf(badges, 71) != "orange" {
 			t.Errorf("2026-05 salary badge: err=%v level=%s, want orange", err, badgeLevelOf(badges, 71))
 		}
 
@@ -245,7 +245,7 @@ func TestBackdatedPositionEventFlagsMonth(t *testing.T) {
 		if st := IsAttendanceMonthlyStale(&calc3); st != "data_changed" {
 			t.Errorf("2026-03 attendance stale = %s, want data_changed", st)
 		}
-		if badges, err := GetAttendanceMonthlyBadges("2026-03"); err != nil || badgeLevelOf(badges, 72) != "orange" {
+		if badges, err := GetAttendanceMonthlyBadges(context.Background(), "2026-03"); err != nil || badgeLevelOf(badges, 72) != "orange" {
 			t.Errorf("2026-03 attendance badge: err=%v level=%s, want orange", err, badgeLevelOf(badges, 72))
 		}
 	})

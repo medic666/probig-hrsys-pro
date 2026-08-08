@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -94,8 +95,9 @@ type DailyProjectionListQuery struct {
 	DateEnd   string
 }
 
-func GetDailyProjections(q DailyProjectionListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.AttendanceDailyProjection{})
+func GetDailyProjections(ctx context.Context, q DailyProjectionListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.AttendanceDailyProjection{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}

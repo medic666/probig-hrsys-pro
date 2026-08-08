@@ -36,7 +36,7 @@ func attendanceDailyListQuery(c *gin.Context) service.AttendanceDailyListQuery {
 
 func GetAttendanceEvents(c *gin.Context) {
 	q := attendanceDailyListQuery(c)
-	list, total, err := service.GetAttendanceDailyList(q)
+	list, total, err := service.GetAttendanceDailyList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -75,6 +75,10 @@ func CreateAttendanceEvent(c *gin.Context) {
 		utils.BadRequest(c, "人员和日期为必填项")
 		return
 	}
+	if err := service.EnsureOwnPerson(c.Request.Context(), req.PersonID); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	status, err := normalizeDailyStatus(req.Status)
 	if err != nil {
 		utils.BadRequest(c, err.Error())
@@ -104,7 +108,7 @@ func CreateAttendanceEvent(c *gin.Context) {
 // GetAttendanceEventByID 考勤日记录完整详情（页面化"编辑=查看"取数）
 func GetAttendanceEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	daily, err := service.GetAttendanceDailyByID(uint(id))
+	daily, err := service.GetAttendanceDailyByID(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, "记录不存在")
 		return
@@ -142,7 +146,7 @@ func RestoreAttendanceEvent(c *gin.Context) {
 
 func GetDeletedAttendanceEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetDeletedAttendanceDailies(pageReq.PageNum, pageReq.PageSize)
+	list, total, err := service.GetDeletedAttendanceDailies(c.Request.Context(), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -172,7 +176,7 @@ func CreateBatchAttendanceEvents(c *gin.Context) {
 
 func GetPendingDailyList(c *gin.Context) {
 	q := attendanceDailyListQuery(c)
-	list, total, err := service.GetPendingDailyList(q)
+	list, total, err := service.GetPendingDailyList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -297,7 +301,7 @@ func ExportAttendanceEvents(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := attendanceDailyListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, _ := service.GetAttendanceDailyList(q)
+	list, _, _ := service.GetAttendanceDailyList(c.Request.Context(), q)
 
 	var rows [][]interface{}
 	for _, e := range list {
@@ -331,7 +335,7 @@ func dailyProjectionListQuery(c *gin.Context) service.DailyProjectionListQuery {
 
 func GetDailyProjections(c *gin.Context) {
 	q := dailyProjectionListQuery(c)
-	list, total, err := service.GetDailyProjections(q)
+	list, total, err := service.GetDailyProjections(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -355,7 +359,7 @@ func dailyProjectionExportFilters(q service.DailyProjectionListQuery) []string {
 func ExportDailyProjections(c *gin.Context) {
 	q := dailyProjectionListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, err := service.GetDailyProjections(q)
+	list, _, err := service.GetDailyProjections(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return
@@ -379,7 +383,7 @@ func ExportDailyProjections(c *gin.Context) {
 func GetEventsByPersonDate(c *gin.Context) {
 	personID, _ := strconv.ParseUint(c.Param("personId"), 10, 64)
 	date := c.Param("date")
-	list, _, _ := service.GetAttendanceDailyList(service.AttendanceDailyListQuery{
+	list, _, _ := service.GetAttendanceDailyList(c.Request.Context(), service.AttendanceDailyListQuery{
 		PageNum: 1, PageSize: 100, PersonID: uint(personID), DateStart: date, DateEnd: date,
 	})
 	if len(list) > 0 {

@@ -1,6 +1,6 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>年假配发结转</h2></div>
-    <el-button type="primary" style="margin-bottom:12px" @click="cv=true">批量结转</el-button>
+    <el-button v-permission="PERM.annualLeaveCalculate" type="primary" style="margin-bottom:12px" @click="cv=true">批量结转</el-button>
     <BatchActionDrawer v-model:visible="cv" title="批量结转" :submit-fn="(d: any) => executeCarryover(d.month)" :show-person="false" @done="loadBatches" />
 
     <el-table v-loading="bl" :data="batches" border>
@@ -12,7 +12,7 @@
       <el-table-column label="操作" width="140">
         <template #default="{row}">
           <el-button type="primary" link size="small" @click="showEvents(row)">详情</el-button>
-          <el-button v-if="row.status===2" type="danger" link size="small" @click="cancel(row)">反结账</el-button>
+          <el-button v-if="row.status===2" v-permission="PERM.annualLeaveCalculate" type="danger" link size="small" @click="cancel(row)">反结账</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -39,6 +39,7 @@ import { executeCarryover, cancelCarryover, getCarryoverBatches } from '@/api/an
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'
+import { PERM } from '@/constants/permission'
 
 const cv=ref(false); const batches=ref<any[]>([]); const bl=ref(false)
 const ev=ref(false); const batchEvents=ref<any[]>([])

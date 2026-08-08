@@ -197,8 +197,9 @@ type AttendanceDailyListQuery struct {
 	Status    string
 }
 
-func GetAttendanceDailyList(q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.AttendanceDaily{}).Preload("Details")
+func GetAttendanceDailyList(ctx context.Context, q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.AttendanceDaily{}).Preload("Details")
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
@@ -247,13 +248,14 @@ func GetAttendanceDailyList(q AttendanceDailyListQuery) ([]map[string]interface{
 
 // GetPendingDailyList 待确认考勤（日级有效语义）：仅返回「当日 seq 最大（有效）且 status=pending」的记录。
 // 被取代的陈旧记录不进入待确认页（在套卡/列表中处理），避免同一日多版本重复堆积。
-func GetPendingDailyList(q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.AttendanceDaily{}).Preload("Details").
+func GetPendingDailyList(ctx context.Context, q AttendanceDailyListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.AttendanceDaily{}).Preload("Details").
 		Where(`(person_id, event_date, seq) IN (
 			SELECT person_id, event_date, MAX(seq) FROM attendance_daily
 			WHERE deleted_at IS NULL GROUP BY person_id, event_date
 		)`).
 		Where("status = ?", "pending")
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
@@ -337,6 +339,9 @@ func ConfirmDaily(ctx context.Context, tx *gorm.DB, dailyID uint, details []mode
 	if err := tx.First(&daily, dailyID).Error; err != nil {
 		return err
 	}
+	if err := EnsureOwnPerson(ctx, daily.PersonID); err != nil {
+		return err
+	}
 	oldDetails, err := GetDetailsByDailyID(tx, dailyID)
 	if err != nil {
 		return err
@@ -355,10 +360,11 @@ func ConfirmDaily(ctx context.Context, tx *gorm.DB, dailyID uint, details []mode
 	return nil
 }
 
-func GetDeletedAttendanceDailies(pageNum, pageSize int) ([]model.AttendanceDaily, int64, error) {
+func GetDeletedAttendanceDailies(ctx context.Context, pageNum, pageSize int) ([]model.AttendanceDaily, int64, error) {
 	var list []model.AttendanceDaily
 	var total int64
-	tx := dao.DB.Unscoped().Model(&model.AttendanceDaily{}).Where("deleted_at IS NOT NULL")
+	tx := dao.DBFromContext(ctx).Unscoped().Model(&model.AttendanceDaily{}).Where("deleted_at IS NOT NULL")
+	tx = OwnFilter(ctx, tx, "person_id")
 	tx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
@@ -368,6 +374,9 @@ func GetDeletedAttendanceDailies(pageNum, pageSize int) ([]model.AttendanceDaily
 func DeleteAttendanceDaily(ctx context.Context, id uint) error {
 	var daily model.AttendanceDaily
 	if err := dao.DB.First(&daily, id).Error; err != nil {
+		return err
+	}
+	if err := EnsureOwnPerson(ctx, daily.PersonID); err != nil {
 		return err
 	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
@@ -390,6 +399,9 @@ func DeleteAttendanceDaily(ctx context.Context, id uint) error {
 func RestoreAttendanceDaily(ctx context.Context, id uint) error {
 	var daily model.AttendanceDaily
 	if err := dao.DB.Unscoped().First(&daily, id).Error; err != nil {
+		return err
+	}
+	if err := EnsureOwnPerson(ctx, daily.PersonID); err != nil {
 		return err
 	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
@@ -460,6 +472,14 @@ func AppendAttendanceDaily(tx *gorm.DB, in AttendanceDailyUpsert) error {
 // CreateBatchAttendanceDailies 批量录入考勤日记录：
 // 对所选人员 × 时间段内每一天应用同一组事件明细（追加式，见 AppendAttendanceDaily）。
 func CreateBatchAttendanceDailies(ctx context.Context, req BatchAttendanceReq) (int, int, error) {
+	// 仅自己范围：批量录入仅限本人
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		for _, p := range req.PersonIDs {
+			if p != pid {
+				return 0, 0, errors.New("无权操作他人数据")
+			}
+		}
+	}
 	start, _ := time.Parse("2006-01-02", req.StartDate)
 	end, _ := time.Parse("2006-01-02", req.EndDate)
 	if end.Before(start) {
@@ -489,9 +509,12 @@ func CreateBatchAttendanceDailies(ctx context.Context, req BatchAttendanceReq) (
 	return success, fail, nil
 }
 
-func GetAttendanceDailyByID(id uint) (*model.AttendanceDaily, error) {
+func GetAttendanceDailyByID(ctx context.Context, id uint) (*model.AttendanceDaily, error) {
 	var daily model.AttendanceDaily
 	if err := dao.DB.First(&daily, id).Error; err != nil {
+		return nil, err
+	}
+	if err := EnsureOwnPerson(ctx, daily.PersonID); err != nil {
 		return nil, err
 	}
 	return &daily, nil
@@ -500,7 +523,7 @@ func GetAttendanceDailyByID(id uint) (*model.AttendanceDaily, error) {
 // GetAttendanceEventBadges 考勤事件徽章（指定月份，日级有效语义）：无考勤记录 gray；
 // 存在当日最新记录为待确认的日期 orange；每日最新记录均确认 green。
 // 被取代的陈旧记录（同日较低 seq 的 pending）不参与判定。
-func GetAttendanceEventBadges(month string) ([]PersonBadge, error) {
+func GetAttendanceEventBadges(ctx context.Context, month string) ([]PersonBadge, error) {
 	start, err := utils.MonthStart(month)
 	if err != nil {
 		return nil, err
@@ -512,7 +535,7 @@ func GetAttendanceEventBadges(month string) ([]PersonBadge, error) {
 		PersonID uint
 		Level    string
 	}
-	err = dao.DB.Table("persons").
+	db := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id,
 			CASE
 				WHEN d.cnt IS NULL THEN 'gray'
@@ -532,8 +555,11 @@ func GetAttendanceEventBadges(month string) ([]PersonBadge, error) {
 			WHERE rn = 1
 			GROUP BY person_id
 		) d ON d.person_id = persons.id`, startD, endD).
-		Where("persons.deleted_at IS NULL").
-		Scan(&rows).Error
+		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("persons.id = ?", pid)
+	}
+	err = db.Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +568,7 @@ func GetAttendanceEventBadges(month string) ([]PersonBadge, error) {
 
 // GetDailyProjectionBadges 日记工时徽章（指定月份）：无投影 gray；
 // 同月既有事假天又有加班天 orange（少见情况，一般按补班/调休记录）；否则 green。
-func GetDailyProjectionBadges(month string) ([]PersonBadge, error) {
+func GetDailyProjectionBadges(ctx context.Context, month string) ([]PersonBadge, error) {
 	start, err := utils.MonthStart(month)
 	if err != nil {
 		return nil, err
@@ -554,7 +580,7 @@ func GetDailyProjectionBadges(month string) ([]PersonBadge, error) {
 		PersonID uint
 		Level    string
 	}
-	err = dao.DB.Table("persons").
+	db := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id,
 			CASE
 				WHEN d.cnt IS NULL THEN 'gray'
@@ -569,8 +595,11 @@ func GetDailyProjectionBadges(month string) ([]PersonBadge, error) {
 			WHERE work_date >= ? AND work_date <= ?
 			GROUP BY person_id
 		) d ON d.person_id = persons.id`, startD, endD).
-		Where("persons.deleted_at IS NULL").
-		Scan(&rows).Error
+		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("persons.id = ?", pid)
+	}
+	err = db.Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

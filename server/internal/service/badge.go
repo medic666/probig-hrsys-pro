@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -42,7 +43,7 @@ func toPersonBadges(rows []struct {
 // GetAnnualLeaveEventBadges 年假事件徽章：当前月 == 员工入职周年月（每年同月且已满一周年）
 // 且上月最后一日末年假余额快照 > 0（年假未被结转）→ orange 提醒；否则 green（点恒在体系）。
 // 参数按 GORM 铁则分别传给所属子句方法（Select 的参数传 Select，Joins 的参数传 Joins）。
-func GetAnnualLeaveEventBadges() ([]PersonBadge, error) {
+func GetAnnualLeaveEventBadges(ctx context.Context) ([]PersonBadge, error) {
 	now := time.Now()
 	prevMonthEnd := utils.DateOnlyFromTime(time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.Local).AddDate(0, 1, -1))
 	currentMonth := fmt.Sprintf("%02d", int(now.Month()))
@@ -52,7 +53,7 @@ func GetAnnualLeaveEventBadges() ([]PersonBadge, error) {
 		PersonID uint
 		Level    string
 	}
-	err := dao.DB.Table("persons").
+	db := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id,
 			CASE
 				WHEN strftime('%m', s.entry_date) = ? AND CAST(strftime('%Y', s.entry_date) AS INTEGER) < ?
@@ -62,8 +63,11 @@ func GetAnnualLeaveEventBadges() ([]PersonBadge, error) {
 		Joins(`LEFT JOIN position_snapshots s ON s.person_id = persons.id AND s.effective_end_date = '9999-12-31'`).
 		Joins(`LEFT JOIN annual_leave_balance_snapshots b ON b.person_id = persons.id
 			AND b.effective_start_date <= ? AND b.effective_end_date >= ?`, prevMonthEnd, prevMonthEnd).
-		Where("persons.deleted_at IS NULL").
-		Scan(&rows).Error
+		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("persons.id = ?", pid)
+	}
+	err := db.Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

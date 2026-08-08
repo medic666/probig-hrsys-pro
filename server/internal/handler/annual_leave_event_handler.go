@@ -29,7 +29,7 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 
 	// 服务层已按「已确认」合并考勤年假消费（同日多版本仅最新确认组参与），
 	// 此处仅补 account 段来源标记，避免未过滤状态的二次合并导致重复与陈旧 pending 混入
-	list, _, err := service.GetAnnualLeaveEventList(q)
+	list, _, err := service.GetAnnualLeaveEventList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -47,7 +47,7 @@ func GetAnnualLeaveEvents(c *gin.Context) {
 // GetAnnualLeaveEventByID 年假事件完整详情（页面化"编辑=查看"取数）
 func GetAnnualLeaveEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	event, err := service.GetAnnualLeaveEvent(uint(id))
+	event, err := service.GetAnnualLeaveEvent(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, "事件不存在")
 		return
@@ -107,7 +107,7 @@ func RestoreAnnualLeaveEvent(c *gin.Context) {
 
 func GetDeletedAnnualLeaveEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, _, err := service.GetDeletedAnnualLeaveEvents(pageReq.PageNum, pageReq.PageSize)
+	list, _, err := service.GetDeletedAnnualLeaveEvents(c.Request.Context(), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -140,7 +140,7 @@ func ExportAnnualLeaveEvents(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := annualLeaveListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, _ := service.GetAnnualLeaveEventList(q)
+	list, _, _ := service.GetAnnualLeaveEventList(c.Request.Context(), q)
 
 	var rows [][]interface{}
 	for _, e := range list {

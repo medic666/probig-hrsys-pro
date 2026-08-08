@@ -32,7 +32,7 @@ func salaryEventListQuery(c *gin.Context) service.SalaryEventListQuery {
 
 func GetSalaryEvents(c *gin.Context) {
 	q := salaryEventListQuery(c)
-	list, total, err := service.GetSalaryEventList(q)
+	list, total, err := service.GetSalaryEventList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -43,7 +43,7 @@ func GetSalaryEvents(c *gin.Context) {
 // GetSalaryEventByID 工资事件完整详情（页面化"编辑=查看"取数）
 func GetSalaryEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	event, err := service.GetSalaryEvent(uint(id))
+	event, err := service.GetSalaryEvent(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, "事件不存在")
 		return
@@ -102,7 +102,7 @@ func RestoreSalaryEvent(c *gin.Context) {
 
 func GetDeletedSalaryEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetDeletedSalaryEvents(pageReq.PageNum, pageReq.PageSize)
+	list, total, err := service.GetDeletedSalaryEvents(c.Request.Context(), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -129,7 +129,7 @@ func ExportSalaryEvents(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := salaryEventListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, _ := service.GetSalaryEventList(q)
+	list, _, _ := service.GetSalaryEventList(c.Request.Context(), q)
 
 	var rows [][]interface{}
 	for _, e := range list {

@@ -20,14 +20,15 @@
     </div>
     <div class="block-actions">
       <slot name="extra-actions" />
-      <el-button size="small" type="primary" link @click="$emit('edit', daily)">编辑</el-button>
-      <el-button v-if="daily.status === 'pending'" size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
+      <el-button v-permission="PERM.attendanceWrite" size="small" type="primary" link @click="$emit('edit', daily)">编辑</el-button>
+      <el-button v-if="daily.status === 'pending'" v-permission="PERM.attendanceWrite" size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { hoursToDays } from '@/utils'
+import { PERM } from '@/constants/permission'
 
 defineProps<{ daily: any; edited?: boolean }>()
 defineEmits<{

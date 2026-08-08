@@ -107,6 +107,9 @@ func AssignRolePermissions(ctx context.Context, roleID uint, permIDs []uint) err
 	if err := dao.DB.First(&role, roleID).Error; err != nil {
 		return errors.New("角色不存在")
 	}
+	if role.IsDefault {
+		return errors.New("默认角色不可修改权限")
+	}
 
 	dao.DBFromContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{})
 

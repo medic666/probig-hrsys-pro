@@ -13,10 +13,10 @@
       @action="handleAction"
     >
       <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button v-if="row.username !== 'admin'" type="warning" link size="small" @click="handleAssignRoles(row)">分配角色</el-button>
-        <el-button type="info" link size="small" @click="handleResetPwd(row)">重置密码</el-button>
-        <el-button v-if="row.username !== 'admin'" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button v-if="row.username !== 'admin'" v-permission="PERM.userWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+        <el-button v-if="row.username !== 'admin'" v-permission="PERM.userWrite" type="warning" link size="small" @click="handleAssignRoles(row)">分配角色</el-button>
+        <el-button v-permission="PERM.userWrite" type="info" link size="small" @click="handleResetPwd(row)">重置密码</el-button>
+        <el-button v-if="row.username !== 'admin'" v-permission="PERM.userWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
       </template>
     </ProTable>
 
@@ -61,6 +61,7 @@ import {
   restoreUser,
 } from '@/api/user'
 import { getAllRoles } from '@/api/role'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()
@@ -75,6 +76,7 @@ const columns = [
   { prop: 'id', label: 'ID', width: '70' },
   { prop: 'username', label: '用户名', width: '150' },
   { prop: 'person_name', label: '关联人员', width: '120' },
+  { prop: 'data_scope', label: '数据范围', width: '90', formatter: (row: any) => (row.data_scope === 'own' ? '仅自己' : '全部') },
   { prop: 'roles', label: '角色', formatter: (row: any) => (row.roles || []).join(', ') },
   { prop: 'is_active', label: '状态', width: '80', formatter: (row: any) => (row.is_active ? '启用' : '禁用') },
   { prop: 'created_at', label: '创建时间', width: '160', formatter: (row: any) => new Date(row.created_at).toLocaleString('zh-CN') },
@@ -89,8 +91,8 @@ const searchFields = [
 ]
 
 const actions = [
-  { key: 'add', label: '新增用户', type: 'primary' as const },
-  { key: 'trash', label: '回收站', type: 'default' as const },
+  { key: 'add', label: '新增用户', type: 'primary' as const, permission: PERM.userWrite },
+  { key: 'trash', label: '回收站', type: 'default' as const, permission: PERM.userWrite },
 ]
 
 const trashColumns = [

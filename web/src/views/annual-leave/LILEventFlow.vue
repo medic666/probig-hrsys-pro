@@ -7,7 +7,7 @@
     </PageHeader>
 
     <PageToolbar>
-      <el-button type="primary" size="small" @click="handleAction('add')">新增</el-button>
+      <el-button v-permission="PERM.attendanceWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
@@ -53,6 +53,7 @@ import { hoursToDays } from '@/utils'
 
 import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()

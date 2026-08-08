@@ -31,7 +31,7 @@ func monthlyListQuery(c *gin.Context) service.MonthlyListQuery {
 
 func GetMonthlyList(c *gin.Context) {
 	q := monthlyListQuery(c)
-	list, total, err := service.GetMonthlyList(q)
+	list, total, err := service.GetMonthlyList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -52,7 +52,7 @@ func CalculateMonthly(c *gin.Context) {
 	}
 
 	if len(req.PersonIDs) == 0 {
-		req.PersonIDs = service.GetActivePersonIDsInMonth(req.Month)
+		req.PersonIDs = service.GetActivePersonIDsInMonth(c.Request.Context(), req.Month)
 		if len(req.PersonIDs) == 0 {
 			utils.Error(c, "当月无在职人员")
 			return
@@ -107,7 +107,7 @@ func ExportAttendanceMonthly(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := monthlyListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, err := service.GetMonthlyList(q)
+	list, _, err := service.GetMonthlyList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, "导出失败")
 		return

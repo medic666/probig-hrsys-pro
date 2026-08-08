@@ -31,7 +31,7 @@ func salarySummaryListQuery(c *gin.Context) service.SalarySummaryListQuery {
 
 func GetSalarySummaries(c *gin.Context) {
 	q := salarySummaryListQuery(c)
-	list, total, err := service.GetSalarySummaries(q)
+	list, total, err := service.GetSalarySummaries(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -51,7 +51,7 @@ func CalculateSalarySummaries(c *gin.Context) {
 		return
 	}
 	if len(req.PersonIDs) == 0 {
-		req.PersonIDs = service.GetActivePersonIDsInMonth(req.Month)
+		req.PersonIDs = service.GetActivePersonIDsInMonth(c.Request.Context(), req.Month)
 	}
 	if len(req.PersonIDs) == 0 {
 		utils.Error(c, "当月无在职人员")
@@ -73,7 +73,7 @@ func CalculateSalarySummaries(c *gin.Context) {
 func GetSalaryVersions(c *gin.Context) {
 	personID, _ := strconv.ParseUint(c.Param("personId"), 10, 64)
 	month := c.Param("month")
-	versions, err := service.GetSalaryVersions(uint(personID), month)
+	versions, err := service.GetSalaryVersions(c.Request.Context(), uint(personID), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -83,7 +83,7 @@ func GetSalaryVersions(c *gin.Context) {
 
 func GetSalaryVersionDetail(c *gin.Context) {
 	versionID, _ := strconv.ParseUint(c.Param("vid"), 10, 64)
-	version, err := service.GetSalaryVersionByID(uint(versionID))
+	version, err := service.GetSalaryVersionByID(c.Request.Context(), uint(versionID))
 	if err != nil {
 		utils.Error(c, "版本不存在")
 		return
@@ -135,7 +135,7 @@ func ExportSalarySummaries(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := salarySummaryListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, _ := service.GetSalarySummaries(q)
+	list, _, _ := service.GetSalarySummaries(c.Request.Context(), q)
 
 	rows, headers := buildExportRows(list, salarySummaryExportFields)
 	writeExcel(c, "月度工资汇总", headers, rows, salarySummaryExportFilters(q)...)
@@ -144,7 +144,7 @@ func ExportSalarySummaries(c *gin.Context) {
 func GetSalaryTrace(c *gin.Context) {
 	personID, _ := strconv.ParseUint(c.Param("personId"), 10, 64)
 	month := c.Param("month")
-	trace, err := service.GetSalaryTrace(uint(personID), month)
+	trace, err := service.GetSalaryTrace(c.Request.Context(), uint(personID), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return

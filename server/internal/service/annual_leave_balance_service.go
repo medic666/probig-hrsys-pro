@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"sort"
 	"time"
 
@@ -266,13 +267,16 @@ type BalanceListItem struct {
 	LastCalcAt   string  `json:"last_calc_at"`
 }
 
-func GetAllALBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
-	baseTx := dao.DB.Table("persons").
+func GetAllALBalances(ctx context.Context, pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
+	baseTx := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id, persons.name AS person_name,
 			COALESCE(s.balance_hours, 0) AS balance_hours, s.last_calc_at`).
 		Joins(`LEFT JOIN annual_leave_balance_snapshots s
 			ON s.person_id = persons.id AND s.effective_end_date = ?`, realFarFuture).
 		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		baseTx = baseTx.Where("persons.id = ?", pid)
+	}
 	if personID > 0 {
 		baseTx = baseTx.Where("persons.id = ?", personID)
 	}
@@ -284,13 +288,16 @@ func GetAllALBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, 
 	return list, total, nil
 }
 
-func GetAllLILBalances(pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
-	baseTx := dao.DB.Table("persons").
+func GetAllLILBalances(ctx context.Context, pageNum, pageSize int, personID uint) ([]BalanceListItem, int64, error) {
+	baseTx := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id, persons.name AS person_name,
 			COALESCE(s.balance_hours, 0) AS balance_hours, s.last_calc_at`).
 		Joins(`LEFT JOIN leave_in_lieu_balance_snapshots s
 			ON s.person_id = persons.id AND s.effective_end_date = ?`, realFarFuture).
 		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		baseTx = baseTx.Where("persons.id = ?", pid)
+	}
 	if personID > 0 {
 		baseTx = baseTx.Where("persons.id = ?", personID)
 	}
@@ -361,10 +368,11 @@ type LILEventListItem struct {
 // GetLILEventList 调休事件明细级分页查询（补班出勤/调休）：
 // 按「已确认考勤组」的明细行过滤（同日多版本仅最新确认组参与），先过滤后分页，
 // 避免"先对考勤日分页、再页内过滤明细"导致列表缺失。
-func GetLILEventList(q AttendanceDailyListQuery) ([]LILEventListItem, int64, error) {
-	tx := dao.DB.Table("attendance_event_details d").
+func GetLILEventList(ctx context.Context, q AttendanceDailyListQuery) ([]LILEventListItem, int64, error) {
+	tx := dao.DBFromContext(ctx).Table("attendance_event_details d").
 		Joins("JOIN attendance_daily a ON a.id = d.daily_id AND a.deleted_at IS NULL AND a.status = 'confirmed'").
 		Where("d.deleted_at IS NULL AND d.sub_type IN ?", []string{"补班出勤", "调休"})
+	tx = OwnFilter(ctx, tx, "a.person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("a.person_id = ?", q.PersonID)
 	}

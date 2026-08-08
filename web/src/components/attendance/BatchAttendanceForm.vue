@@ -25,7 +25,7 @@
   <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天，每天新增一条考勤组；当天已有记录将标记为待确认（最新记录优先）。</div>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="doSubmit">确定</el-button>
+      <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="saving" @click="doSubmit">确定</el-button>
     </div>
 </template>
 
@@ -35,6 +35,7 @@ import { ElMessage } from 'element-plus'
 import AttendanceDetailsEditor from '@/components/attendance/AttendanceDetailsEditor.vue'
 import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import { createBatchAttendanceEvents } from '@/api/attendance'
+import { PERM } from '@/constants/permission'
 
 // 批量录入考勤事件：人员多选（多域筛选）× 时间段 × 状态 × 明细组，提交后返回列表页。
 // 与录入考勤共用明细编辑器，同一组明细应用到每一天（当天已有记录整体覆盖）。

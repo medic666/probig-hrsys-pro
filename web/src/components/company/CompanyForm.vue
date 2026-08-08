@@ -8,7 +8,7 @@
     <el-form-item label="银行账号"><el-input v-model="form.bank_account" /></el-form-item>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="doSave">确定</el-button>
+      <el-button v-permission="PERM.companyWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
     </div>
   </el-form>
 </template>
@@ -17,6 +17,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getCompany, createCompany, updateCompany } from '@/api/company'
+import { PERM } from '@/constants/permission'
 
 // 新增=编辑统一表单：company 为 null 或 {id} 缺失 → 新增；{id} → 编辑
 const props = defineProps<{ company: any }>()

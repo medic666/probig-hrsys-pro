@@ -11,6 +11,10 @@ import (
 
 func GetPersonAnnualLeaveBalance(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	snapshot, err := service.GetCurrentAnnualLeaveBalance(uint(id))
 	if err != nil {
 		utils.Error(c, "暂无年假余额数据")
@@ -21,6 +25,10 @@ func GetPersonAnnualLeaveBalance(c *gin.Context) {
 
 func GetPersonAnnualLeaveHistory(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	history, err := service.GetAnnualLeaveBalanceHistory(uint(id))
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -31,6 +39,10 @@ func GetPersonAnnualLeaveHistory(c *gin.Context) {
 
 func GetPersonLILBalance(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	snapshot, err := service.GetCurrentLILBalance(uint(id))
 	if err != nil {
 		utils.Error(c, "暂无调休余额数据")
@@ -41,6 +53,10 @@ func GetPersonLILBalance(c *gin.Context) {
 
 func GetPersonLILHistory(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	history, err := service.GetLILBalanceHistory(uint(id))
 	if err != nil {
 		utils.Error(c, err.Error())
@@ -53,7 +69,7 @@ func GetLILEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	// 明细级查询：先过滤（仅已确认组的补班/调休）后分页，避免列表缺失
-	list, total, err := service.GetLILEventList(service.AttendanceDailyListQuery{
+	list, total, err := service.GetLILEventList(c.Request.Context(), service.AttendanceDailyListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
@@ -97,7 +113,7 @@ func CancelCarryover(c *gin.Context) {
 }
 
 func GetCarryoverBatches(c *gin.Context) {
-	batches, err := service.GetCarryoverBatches()
+	batches, err := service.GetCarryoverBatches(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -107,7 +123,7 @@ func GetCarryoverBatches(c *gin.Context) {
 
 func GetBatchEvents(c *gin.Context) {
 	batchID, _ := strconv.ParseUint(c.Param("batchId"), 10, 64)
-	events, err := service.GetBatchEvents(uint(batchID))
+	events, err := service.GetBatchEvents(c.Request.Context(), uint(batchID))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -118,7 +134,7 @@ func GetBatchEvents(c *gin.Context) {
 func GetAllALBalances(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetAllALBalances(pageReq.PageNum, pageReq.PageSize, uint(personID))
+	list, total, err := service.GetAllALBalances(c.Request.Context(), pageReq.PageNum, pageReq.PageSize, uint(personID))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -129,7 +145,7 @@ func GetAllALBalances(c *gin.Context) {
 func GetAllLILBalances(c *gin.Context) {
 	pageReq := utils.BindPage(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
-	list, total, err := service.GetAllLILBalances(pageReq.PageNum, pageReq.PageSize, uint(personID))
+	list, total, err := service.GetAllLILBalances(c.Request.Context(), pageReq.PageNum, pageReq.PageSize, uint(personID))
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -139,6 +155,10 @@ func GetAllLILBalances(c *gin.Context) {
 
 func GetALBalanceDetail(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	detail, err := service.GetAnnualLeaveBalanceDetail(uint(id))
 	if err != nil {
 		utils.Error(c, "获取余额明细失败")
@@ -149,6 +169,10 @@ func GetALBalanceDetail(c *gin.Context) {
 
 func GetLILBalanceDetail(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	detail, err := service.GetLILBalanceDetail(uint(id))
 	if err != nil {
 		utils.Error(c, "获取余额明细失败")

@@ -11,7 +11,7 @@
         <el-tabs v-model="activeTab">
           <el-tab-pane label="基础信息" name="info">
             <div class="toolbar">
-              <el-button type="primary" size="small" @click="editMode = true">编辑档案</el-button>
+              <el-button v-permission="PERM.personWrite" type="primary" size="small" @click="editMode = true">编辑档案</el-button>
             </div>
             <AppDescriptions v-if="person" :column="2" border size="small">
               <el-descriptions-item label="姓名">{{ person.name }}</el-descriptions-item>
@@ -88,8 +88,8 @@
                 <el-table-column prop="effective_date" label="生效日期" width="120" />
                 <el-table-column label="操作" width="160">
                   <template #default="{ row }">
-                    <el-button type="primary" link size="small" @click="router.push(`/position-events/${row.id}`)">编辑</el-button>
-                    <el-button type="danger" link size="small" @click="removePositionEvent(row)">删除</el-button>
+                    <el-button v-permission="PERM.positionEventWrite" type="primary" link size="small" @click="router.push(`/position-events/${row.id}`)">编辑</el-button>
+                    <el-button v-permission="PERM.positionEventWrite" type="danger" link size="small" @click="removePositionEvent(row)">删除</el-button>
                   </template>
                 </el-table-column>
               </el-table>
@@ -121,6 +121,7 @@ import FileAttachPanel from '@/components/FileAttachPanel.vue'
 import { getPerson } from '@/api/person'
 import { getCurrentPosition } from '@/api/position-snapshot'
 import { getPositionEvents, deletePositionEvent } from '@/api/position-event'
+import { PERM } from '@/constants/permission'
 import { useBusinessPage } from '@/composables/useBusinessPage'
 
 const router = useRouter()

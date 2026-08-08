@@ -62,7 +62,7 @@ const validateConfirm = (_rule: any, value: string, callback: any) => {
 }
 
 const validateNotDefault = (_rule: any, value: string, callback: any) => {
-  if (value === 'admin123') {
+  if (value === 'admin123' || value === '123456') {
     callback(new Error('新密码不能与默认密码相同'))
   } else {
     callback()

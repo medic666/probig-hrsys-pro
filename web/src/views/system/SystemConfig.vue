@@ -40,7 +40,7 @@
       </el-table>
     </el-card>
     <div style="margin-top:16px;display:flex;justify-content:flex-end">
-      <el-button type="primary" @click="saveAll">保存配置</el-button>
+      <el-button v-permission="PERM.systemConfigWrite" type="primary" @click="saveAll">保存配置</el-button>
     </div>
   </div>
 </template>
@@ -49,6 +49,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
+import { PERM } from '@/constants/permission'
 
 interface ConfigItem {
   key: string

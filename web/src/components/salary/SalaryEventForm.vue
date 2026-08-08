@@ -20,7 +20,7 @@
     </el-form-item>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="doSave">确定</el-button>
+      <el-button v-permission="PERM.salaryWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
     </div>
   </el-form>
 </template>
@@ -31,6 +31,7 @@ import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import { getSalaryEvent, createSalaryEvent, updateSalaryEvent } from '@/api/salary'
+import { PERM } from '@/constants/permission'
 // 新增=编辑统一表单：id 缺失 → 新增（人员可多选，逐人创建）；{id} → 编辑（单人）
 const props = defineProps<{ id?: number | null }>()
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()

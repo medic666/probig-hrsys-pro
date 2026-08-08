@@ -12,6 +12,9 @@ import (
 )
 
 func CreateSalaryEvent(ctx context.Context, event *model.SalaryEvent) error {
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.SalaryEvent{}).Where("person_id = ?", event.PersonID).
@@ -25,6 +28,9 @@ func UpdateSalaryEvent(ctx context.Context, id uint, event *model.SalaryEvent) e
 	var existing model.SalaryEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("工资事件不存在")
+	}
+	if err := EnsureOwnPerson(ctx, existing.PersonID); err != nil {
+		return err
 	}
 	updates := map[string]interface{}{
 		"belong_month": event.BelongMonth,
@@ -40,6 +46,9 @@ func DeleteSalaryEvent(ctx context.Context, id uint) error {
 	if err := dao.DB.First(&event, id).Error; err != nil {
 		return err
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return dao.DBFromContext(ctx).Delete(&event).Error
 }
 
@@ -48,12 +57,18 @@ func RestoreSalaryEvent(ctx context.Context, id uint) error {
 	if err := dao.DB.Unscoped().First(&event, id).Error; err != nil {
 		return err
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return dao.DBFromContext(ctx).Unscoped().Model(&event).Update("deleted_at", nil).Error
 }
 
-func GetSalaryEvent(id uint) (*model.SalaryEvent, error) {
+func GetSalaryEvent(ctx context.Context, id uint) (*model.SalaryEvent, error) {
 	var event model.SalaryEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -69,8 +84,9 @@ type SalaryEventListQuery struct {
 	EventType   string
 }
 
-func GetSalaryEventList(q SalaryEventListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.SalaryEvent{})
+func GetSalaryEventList(ctx context.Context, q SalaryEventListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.SalaryEvent{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
@@ -112,10 +128,11 @@ func GetSalaryEventList(q SalaryEventListQuery) ([]map[string]interface{}, int64
 	return result, total, nil
 }
 
-func GetDeletedSalaryEvents(pageNum, pageSize int) ([]model.SalaryEvent, int64, error) {
+func GetDeletedSalaryEvents(ctx context.Context, pageNum, pageSize int) ([]model.SalaryEvent, int64, error) {
 	var list []model.SalaryEvent
 	var total int64
-	tx := dao.DB.Unscoped().Model(&model.SalaryEvent{}).Where("deleted_at IS NOT NULL")
+	tx := dao.DBFromContext(ctx).Unscoped().Model(&model.SalaryEvent{}).Where("deleted_at IS NOT NULL")
+	tx = OwnFilter(ctx, tx, "person_id")
 	tx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
@@ -125,16 +142,18 @@ func GetDeletedSalaryEvents(pageNum, pageSize int) ([]model.SalaryEvent, int64, 
 // GetSalaryAdvanceBalances 预支待还余额：历史累计工资预支 + 历史累计预支还款。
 // 还款事件金额为负（拆分迁移约定），SUM 天然相抵得到待还金额；
 // 薪资类余额走汇总（与工资核算直接 SUM 事件的既有口径一致），不做快照。
-func GetSalaryAdvanceBalances() ([]PersonBalance, error) {
+func GetSalaryAdvanceBalances(ctx context.Context) ([]PersonBalance, error) {
 	var rows []struct {
 		PersonID uint
 		Balance  float64
 	}
-	err := dao.DB.Table("salary_events").
+	q := dao.DBFromContext(ctx).Table("salary_events").
 		Select("person_id, SUM(amount) AS balance").
-		Where("event_type IN ? AND deleted_at IS NULL", []string{"工资预支", "预支还款"}).
-		Group("person_id").
-		Scan(&rows).Error
+		Where("event_type IN ? AND deleted_at IS NULL", []string{"工资预支", "预支还款"})
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		q = q.Where("person_id = ?", pid)
+	}
+	err := q.Group("person_id").Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

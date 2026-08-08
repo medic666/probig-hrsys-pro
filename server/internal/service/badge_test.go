@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -46,7 +47,7 @@ func TestPositionEventBadges(t *testing.T) {
 		db.Create(&model.PositionEvent{PersonID: 2, Seq: 1, EventType: "调薪调岗", EffectiveDate: oldEvent})
 		db.Create(&model.PositionEvent{PersonID: 3, Seq: 1, EventType: "调薪调岗", EffectiveDate: recentEvent})
 
-		badges, err := GetPositionEventBadges()
+		badges, err := GetPositionEventBadges(context.Background(), )
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}
@@ -79,7 +80,7 @@ func TestAttendanceEventBadges(t *testing.T) {
 		db.Create(&model.AttendanceDaily{PersonID: 5, Seq: 1, EventDate: day15, Status: "confirmed"})
 		db.Create(&model.AttendanceDaily{PersonID: 5, Seq: 2, EventDate: day15, Status: "pending"})
 
-		badges, err := GetAttendanceEventBadges(DefaultBadgeMonth())
+		badges, err := GetAttendanceEventBadges(context.Background(), DefaultBadgeMonth())
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}
@@ -114,7 +115,7 @@ func TestDailyProjectionBadges(t *testing.T) {
 		db.Create(&model.AttendanceDailyProjection{PersonID: 2, WorkDate: day20, OvertimeWorkdayHours: 2})
 		db.Create(&model.AttendanceDailyProjection{PersonID: 3, WorkDate: day10, OvertimeHolidayHours: 4})
 
-		badges, err := GetDailyProjectionBadges(DefaultBadgeMonth())
+		badges, err := GetDailyProjectionBadges(context.Background(), DefaultBadgeMonth())
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}
@@ -144,7 +145,7 @@ func TestAttendanceMonthlyBadges(t *testing.T) {
 		day15 := utils.DateOnlyFromTime(time.Date(lastMonth.Year(), lastMonth.Month(), 15, 0, 0, 0, 0, time.Local))
 		db.Create(&model.AttendanceDailyProjection{PersonID: 3, WorkDate: day15, LastCalcAt: now})
 
-		badges, err := GetAttendanceMonthlyBadges(month)
+		badges, err := GetAttendanceMonthlyBadges(context.Background(), month)
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}

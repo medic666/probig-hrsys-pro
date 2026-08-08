@@ -93,7 +93,7 @@ func TestPendingDailyListDayLevel(t *testing.T) {
 		// 日 B：最新 pending → 进待确认页
 		appendDaily(t, db, 9, "2026-06-02", "pending", detailRow("出勤", "普通出勤", 8))
 
-		list, total, err := GetPendingDailyList(AttendanceDailyListQuery{PageNum: 1, PageSize: 20})
+		list, total, err := GetPendingDailyList(context.Background(), AttendanceDailyListQuery{PageNum: 1, PageSize: 20})
 		if err != nil {
 			t.Fatalf("pending list: %v", err)
 		}
@@ -158,7 +158,7 @@ func TestGetLILEventList(t *testing.T) {
 		seedLILRow("2026-06-02", "confirmed", "休假", "调休", 4)
 		seedLILRow("2026-06-03", "pending", "出勤", "补班出勤", 8) // 未确认不入列
 
-		list, total, err := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 10})
+		list, total, err := GetLILEventList(context.Background(), AttendanceDailyListQuery{PageNum: 1, PageSize: 10})
 		if err != nil {
 			t.Fatalf("lil list: %v", err)
 		}
@@ -172,11 +172,11 @@ func TestGetLILEventList(t *testing.T) {
 			t.Errorf("person/date wrong: %+v", list[0])
 		}
 
-		list2, total2, _ := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 1})
+		list2, total2, _ := GetLILEventList(context.Background(), AttendanceDailyListQuery{PageNum: 1, PageSize: 1})
 		if total2 != 2 || len(list2) != 1 {
 			t.Errorf("pagination: total=%d len=%d, want 2/1", total2, len(list2))
 		}
-		_, total3, _ := GetLILEventList(AttendanceDailyListQuery{PageNum: 1, PageSize: 10, PersonID: 999})
+		_, total3, _ := GetLILEventList(context.Background(), AttendanceDailyListQuery{PageNum: 1, PageSize: 10, PersonID: 999})
 		if total3 != 0 {
 			t.Errorf("person filter: total=%d, want 0", total3)
 		}

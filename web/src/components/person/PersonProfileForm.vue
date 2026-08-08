@@ -88,7 +88,7 @@
 
   <div class="form-footer">
     <el-button @click="$emit('cancel')">取消</el-button>
-    <el-button type="primary" :loading="saving" @click="doSave">确定</el-button>
+    <el-button v-permission="PERM.personWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
   </div>
 </template>
 
@@ -96,6 +96,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { upsertPersonProfile, getPerson } from '@/api/person'
+import { PERM } from '@/constants/permission'
 
 // 新增=编辑=查看统一表单（upsert）：person 为 null 或 {id} 缺失 → 新增；{id} → 编辑（打开即回显全部原值）
 const props = defineProps<{ person: any }>()

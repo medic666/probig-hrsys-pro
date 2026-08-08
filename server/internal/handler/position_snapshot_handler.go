@@ -11,6 +11,10 @@ import (
 
 func GetPersonCurrentPosition(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	snapshot, err := service.GetCurrentPositionSnapshot(uint(id))
 	if err != nil {
 		utils.Error(c, "暂无职务信息")
@@ -50,6 +54,10 @@ func GetPersonCurrentPosition(c *gin.Context) {
 
 func GetPersonPositionHistory(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err := service.EnsureOwnPerson(c.Request.Context(), uint(id)); err != nil {
+		utils.Error(c, err.Error())
+		return
+	}
 	history, err := service.GetPositionSnapshotHistory(uint(id))
 	if err != nil {
 		utils.Error(c, err.Error())

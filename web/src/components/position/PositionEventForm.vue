@@ -128,7 +128,7 @@
 
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSubmit">确定</el-button>
+      <el-button v-permission="PERM.positionEventWrite" type="primary" :loading="saving" @click="handleSubmit">确定</el-button>
     </div>
   </el-form>
 </template>
@@ -140,6 +140,7 @@ import NameSelect from '@/components/NameSelect.vue'
 import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import { createPositionEvent, updatePositionEvent, getPositionEvent } from '@/api/position-event'
 import { getAllCompanies } from '@/api/company'
+import { PERM } from '@/constants/permission'
 
 // 新增=编辑=查看统一表单：event 为 null 或 {id} 缺失 → 新增；{id} → 编辑（打开即回显全部原值）
 const props = defineProps<{

@@ -162,6 +162,14 @@ func DingTalkPreview(filePath string) ([]DingTalkPreviewResult, error) {
 }
 
 func DingTalkExecute(ctx context.Context, filePath, month string, mappings []DingTalkImportMapping) (created, pending, fail int, err error) {
+	// 仅自己范围：导入仅限本人
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		for _, m := range mappings {
+			if m.PersonID != pid {
+				return 0, 0, 0, errors.New("无权操作他人数据")
+			}
+		}
+	}
 	_, persons, err := ParseDingTalkExcel(filePath)
 	if err != nil {
 		return 0, 0, 0, err

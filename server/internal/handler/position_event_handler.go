@@ -26,7 +26,7 @@ func positionEventListQuery(c *gin.Context) service.PositionEventListQuery {
 
 func GetPositionEvents(c *gin.Context) {
 	q := positionEventListQuery(c)
-	list, total, err := service.GetPositionEventList(q)
+	list, total, err := service.GetPositionEventList(c.Request.Context(), q)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -36,7 +36,7 @@ func GetPositionEvents(c *gin.Context) {
 
 func GetPositionEventByID(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	event, err := service.GetPositionEvent(uint(id))
+	event, err := service.GetPositionEvent(c.Request.Context(), uint(id))
 	if err != nil {
 		utils.Error(c, "职务事件不存在")
 		return
@@ -183,7 +183,7 @@ func RestorePositionEvent(c *gin.Context) {
 
 func GetDeletedPositionEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
-	list, total, err := service.GetDeletedPositionEvents(pageReq.PageNum, pageReq.PageSize)
+	list, total, err := service.GetDeletedPositionEvents(c.Request.Context(), pageReq.PageNum, pageReq.PageSize)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -210,7 +210,7 @@ func ExportPositionEvents(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := positionEventListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
-	list, _, _ := service.GetPositionEventList(q)
+	list, _, _ := service.GetPositionEventList(c.Request.Context(), q)
 
 	var rows [][]interface{}
 	for _, e := range list {

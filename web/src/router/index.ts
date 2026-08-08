@@ -32,7 +32,7 @@ const routes: RouteRecordRaw[] = [
         path: 'system/users/create',
         name: 'UserCreate',
         component: () => import('@/views/system/UserPage.vue'),
-        meta: { title: '新增用户', permissionKey: 'user.read', backTo: '/system/users' },
+        meta: { title: '新增用户', permissionKey: 'user.write', backTo: '/system/users' },
       },
       {
         path: 'system/users/:id',
@@ -50,7 +50,7 @@ const routes: RouteRecordRaw[] = [
         path: 'system/roles/create',
         name: 'RoleCreate',
         component: () => import('@/views/system/RolePage.vue'),
-        meta: { title: '新增角色', permissionKey: 'role.read', backTo: '/system/roles' },
+        meta: { title: '新增角色', permissionKey: 'role.write', backTo: '/system/roles' },
       },
       {
         path: 'system/roles/:id',
@@ -68,7 +68,7 @@ const routes: RouteRecordRaw[] = [
         path: 'person/create',
         name: 'PersonCreate',
         component: () => import('@/views/person/PersonPage.vue'),
-        meta: { title: '新增人员', permissionKey: 'person.read', backTo: '/person' },
+        meta: { title: '新增人员', permissionKey: 'person.write', backTo: '/person' },
       },
       {
         path: 'person/:id',
@@ -86,7 +86,7 @@ const routes: RouteRecordRaw[] = [
         path: 'company/create',
         name: 'CompanyCreate',
         component: () => import('@/views/company/CompanyPage.vue'),
-        meta: { title: '新增公司', permissionKey: 'company.read', backTo: '/company' },
+        meta: { title: '新增公司', permissionKey: 'company.write', backTo: '/company' },
       },
       {
         path: 'company/:id',
@@ -104,7 +104,7 @@ const routes: RouteRecordRaw[] = [
         path: 'position-events/create',
         name: 'PositionEventCreate',
         component: () => import('@/views/position/PositionEventPage.vue'),
-        meta: { title: '新增职务事件', permissionKey: 'position_event.read', backTo: '/position-event' },
+        meta: { title: '新增职务事件', permissionKey: 'position_event.write', backTo: '/position-event' },
       },
       {
         path: 'position-events/:id',
@@ -122,7 +122,7 @@ const routes: RouteRecordRaw[] = [
         path: 'attendance-events/create',
         name: 'AttendanceDailyCreate',
         component: () => import('@/views/attendance/AttendanceDailyPage.vue'),
-        meta: { title: '录入考勤', permissionKey: 'attendance.read', backTo: '/attendance' },
+        meta: { title: '录入考勤', permissionKey: 'attendance.write', backTo: '/attendance' },
       },
       {
         path: 'attendance-events/:id',
@@ -134,13 +134,13 @@ const routes: RouteRecordRaw[] = [
         path: 'attendance-batch/create',
         name: 'AttendanceBatchCreate',
         component: () => import('@/views/attendance/AttendanceBatchPage.vue'),
-        meta: { title: '批量录入', permissionKey: 'attendance.read', backTo: '/attendance' },
+        meta: { title: '批量录入', permissionKey: 'attendance.write', backTo: '/attendance' },
       },
       {
         path: 'attendance-import',
         name: 'DingTalkImport',
         component: () => import('@/views/attendance/DingTalkImportPage.vue'),
-        meta: { title: '钉钉考勤导入', permissionKey: 'attendance.read', backTo: '/attendance' },
+        meta: { title: '钉钉考勤导入', permissionKey: 'attendance.write', backTo: '/attendance' },
       },
       {
         path: 'attendance-pending',
@@ -176,7 +176,7 @@ const routes: RouteRecordRaw[] = [
         path: 'annual-leave-events/create',
         name: 'AnnualLeaveEventCreate',
         component: () => import('@/views/annual-leave/AnnualLeaveEventPage.vue'),
-        meta: { title: '新增年假事件', permissionKey: 'annual_leave.read', backTo: '/annual-leave-events' },
+        meta: { title: '新增年假事件', permissionKey: 'annual_leave.write', backTo: '/annual-leave-events' },
       },
       {
         path: 'annual-leave-events/:id',
@@ -206,7 +206,7 @@ const routes: RouteRecordRaw[] = [
         path: 'salary-events/create',
         name: 'SalaryEventCreate',
         component: () => import('@/views/salary/SalaryEventPage.vue'),
-        meta: { title: '新增工资事件', permissionKey: 'salary.read', backTo: '/salary-events' },
+        meta: { title: '新增工资事件', permissionKey: 'salary.write', backTo: '/salary-events' },
       },
       {
         path: 'salary-events/:id',

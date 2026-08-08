@@ -13,6 +13,9 @@ import (
 )
 
 func CreatePositionEvent(ctx context.Context, event *model.PositionEvent) error {
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.PositionEvent{}).Where("person_id = ?", event.PersonID).
@@ -31,6 +34,9 @@ func UpdatePositionEvent(ctx context.Context, id uint, event *model.PositionEven
 	var existing model.PositionEvent
 	if err := dao.DB.First(&existing, id).Error; err != nil {
 		return errors.New("职务事件不存在")
+	}
+	if err := EnsureOwnPerson(ctx, existing.PersonID); err != nil {
+		return err
 	}
 
 	// 切点取新旧生效日的较早者：生效日改晚时（如 5/1→6/1），旧日期至新日期之间的
@@ -84,6 +90,9 @@ func DeletePositionEvent(ctx context.Context, id uint) error {
 	if err := dao.DB.First(&event, id).Error; err != nil {
 		return err
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
@@ -98,6 +107,9 @@ func RestorePositionEvent(ctx context.Context, id uint) error {
 	if err := dao.DB.Unscoped().First(&event, id).Error; err != nil {
 		return err
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
@@ -107,9 +119,12 @@ func RestorePositionEvent(ctx context.Context, id uint) error {
 	})
 }
 
-func GetPositionEvent(id uint) (*model.PositionEvent, error) {
+func GetPositionEvent(ctx context.Context, id uint) (*model.PositionEvent, error) {
 	var event model.PositionEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -125,8 +140,9 @@ type PositionEventListQuery struct {
 	EventType  string
 }
 
-func GetPositionEventList(q PositionEventListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.PositionEvent{})
+func GetPositionEventList(ctx context.Context, q PositionEventListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.PositionEvent{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
@@ -214,10 +230,11 @@ func collectChangedFields(e model.PositionEvent) []string {
 	return fields
 }
 
-func GetDeletedPositionEvents(pageNum, pageSize int) ([]model.PositionEvent, int64, error) {
+func GetDeletedPositionEvents(ctx context.Context, pageNum, pageSize int) ([]model.PositionEvent, int64, error) {
 	var list []model.PositionEvent
 	var total int64
-	tx := dao.DB.Unscoped().Model(&model.PositionEvent{}).Where("deleted_at IS NOT NULL")
+	tx := dao.DBFromContext(ctx).Unscoped().Model(&model.PositionEvent{}).Where("deleted_at IS NOT NULL")
+	tx = OwnFilter(ctx, tx, "person_id")
 	tx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)
@@ -226,13 +243,13 @@ func GetDeletedPositionEvents(pageNum, pageSize int) ([]model.PositionEvent, int
 
 // GetPositionEventBadges 职务事件徽章：无任何事件 gray；最新事件距今超过 2 年 orange（提示该涨薪）；
 // 否则 green。未入职（无事件）归 gray，不误报涨薪提醒。
-func GetPositionEventBadges() ([]PersonBadge, error) {
+func GetPositionEventBadges(ctx context.Context) ([]PersonBadge, error) {
 	twoYearsAgo := utils.DateOnlyFromTime(time.Now().AddDate(-2, 0, 0))
 	var rows []struct {
 		PersonID uint
 		Level    string
 	}
-	err := dao.DB.Table("persons").
+	db := dao.DBFromContext(ctx).Table("persons").
 		Select(`persons.id AS person_id,
 			CASE
 				WHEN MAX(e.effective_date) IS NULL THEN 'gray'
@@ -240,9 +257,11 @@ func GetPositionEventBadges() ([]PersonBadge, error) {
 				ELSE 'green'
 			END AS level`, twoYearsAgo).
 		Joins(`LEFT JOIN position_events e ON e.person_id = persons.id AND e.deleted_at IS NULL`).
-		Where("persons.deleted_at IS NULL").
-		Group("persons.id").
-		Scan(&rows).Error
+		Where("persons.deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("persons.id = ?", pid)
+	}
+	err := db.Group("persons.id").Scan(&rows).Error
 	if err != nil {
 		return nil, err
 	}

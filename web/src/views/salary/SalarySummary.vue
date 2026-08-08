@@ -6,9 +6,9 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
+      <el-button v-permission="PERM.salaryCalculate" type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
       <template #right>
-        <el-button size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.salaryExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
@@ -59,6 +59,7 @@ import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
 import { useExport } from '@/composables/useExport'
 import { SALARY_SUMMARY_FIELDS, fieldsToColumns } from '@/constants/fields'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef=ref()

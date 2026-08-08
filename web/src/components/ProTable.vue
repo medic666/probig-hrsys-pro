@@ -37,7 +37,7 @@
     </div>
 
     <div v-if="showActions" class="action-bar">
-      <el-button v-for="action in actions" :key="action.key" :type="action.type || 'primary'" @click="handleAction(action.key)">
+      <el-button v-for="action in actions" :key="action.key" v-permission="action.permission" :type="action.type || 'primary'" @click="handleAction(action.key)">
         <el-icon v-if="action.icon"><component :is="action.icon" /></el-icon>
         {{ action.label }}
       </el-button>
@@ -136,6 +136,8 @@ export interface ActionButton {
   label: string
   type?: 'primary' | 'success' | 'warning' | 'danger' | 'default'
   icon?: Component
+  // 按钮级权限围栏：缺省不限制（v-permission 对空 key 放行）
+  permission?: string
 }
 
 const props = withDefaults(

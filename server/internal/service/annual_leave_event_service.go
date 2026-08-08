@@ -14,6 +14,9 @@ import (
 )
 
 func CreateAnnualLeaveEvent(ctx context.Context, event *model.AnnualLeaveAccountEvent) error {
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		var maxSeq int
 		tx.Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("person_id = ?", event.PersonID).
@@ -35,6 +38,9 @@ func UpdateAnnualLeaveEvent(ctx context.Context, id uint, event *model.AnnualLea
 	}
 	if existing.SourceType == "system_period" {
 		return errors.New("系统周期事件不可编辑")
+	}
+	if err := EnsureOwnPerson(ctx, existing.PersonID); err != nil {
+		return err
 	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		updates := map[string]interface{}{
@@ -58,6 +64,9 @@ func DeleteAnnualLeaveEvent(ctx context.Context, id uint) error {
 	if event.SourceType == "system_period" {
 		return errors.New("系统周期事件不可删除")
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Delete(&event).Error; err != nil {
 			return err
@@ -74,6 +83,9 @@ func RestoreAnnualLeaveEvent(ctx context.Context, id uint) error {
 	if event.SourceType == "system_period" {
 		return errors.New("系统周期事件不可人工恢复")
 	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
+		return err
+	}
 	return utils.WithTransaction(dao.DBFromContext(ctx), func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Model(&event).Update("deleted_at", nil).Error; err != nil {
 			return err
@@ -82,9 +94,12 @@ func RestoreAnnualLeaveEvent(ctx context.Context, id uint) error {
 	})
 }
 
-func GetAnnualLeaveEvent(id uint) (*model.AnnualLeaveAccountEvent, error) {
+func GetAnnualLeaveEvent(ctx context.Context, id uint) (*model.AnnualLeaveAccountEvent, error) {
 	var event model.AnnualLeaveAccountEvent
 	if err := dao.DB.First(&event, id).Error; err != nil {
+		return nil, err
+	}
+	if err := EnsureOwnPerson(ctx, event.PersonID); err != nil {
 		return nil, err
 	}
 	return &event, nil
@@ -100,8 +115,9 @@ type AnnualLeaveListQuery struct {
 	EventType string
 }
 
-func GetAnnualLeaveEventList(q AnnualLeaveListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.AnnualLeaveAccountEvent{})
+func GetAnnualLeaveEventList(ctx context.Context, q AnnualLeaveListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.AnnualLeaveAccountEvent{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.PersonID > 0 {
 		tx = tx.Where("person_id = ?", q.PersonID)
 	}
@@ -120,7 +136,7 @@ func GetAnnualLeaveEventList(q AnnualLeaveListQuery) ([]map[string]interface{}, 
 
 	var attendanceLeaves []map[string]interface{}
 	if q.EventType == "" || q.EventType == "休假" {
-		attendanceLeaves = getAnnualLeaveAttendanceEvents(q.PersonID, q.DateStart, q.DateEnd)
+		attendanceLeaves = getAnnualLeaveAttendanceEvents(ctx, q.PersonID, q.DateStart, q.DateEnd)
 	}
 
 	ids := make([]uint, 0, len(events)+len(attendanceLeaves))
@@ -168,7 +184,7 @@ func GetAnnualLeaveEventList(q AnnualLeaveListQuery) ([]map[string]interface{}, 
 }
 
 // getAnnualLeaveAttendanceEvents 考勤事件中的「休假-年假」确认记录，映射为年假事件同构项
-func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []map[string]interface{} {
+func getAnnualLeaveAttendanceEvents(ctx context.Context, personID uint, dateStart, dateEnd string) []map[string]interface{} {
 	type attRow struct {
 		DetailID  uint
 		DailyID   uint
@@ -179,10 +195,13 @@ func getAnnualLeaveAttendanceEvents(personID uint, dateStart, dateEnd string) []
 		CreatedAt time.Time
 	}
 	var rows []attRow
-	q := dao.DB.Table("attendance_event_details").
+	q := dao.DBFromContext(ctx).Table("attendance_event_details").
 		Select("attendance_event_details.id AS detail_id, attendance_event_details.daily_id, attendance_daily.person_id, attendance_event_details.hours, attendance_daily.event_date, attendance_event_details.remark, attendance_event_details.created_at").
 		Joins("JOIN attendance_daily ON attendance_daily.id = attendance_event_details.daily_id AND attendance_daily.deleted_at IS NULL AND attendance_daily.status = 'confirmed'").
 		Where("attendance_event_details.deleted_at IS NULL AND attendance_event_details.event_type = ? AND attendance_event_details.sub_type = ?", "休假", "年假")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		q = q.Where("attendance_daily.person_id = ?", pid)
+	}
 	if personID > 0 {
 		q = q.Where("attendance_daily.person_id = ?", personID)
 	}
@@ -229,10 +248,11 @@ func annualLeaveEventToMap(e model.AnnualLeaveAccountEvent, nameMap map[uint]str
 	return item
 }
 
-func GetDeletedAnnualLeaveEvents(pageNum, pageSize int) ([]model.AnnualLeaveAccountEvent, int64, error) {
+func GetDeletedAnnualLeaveEvents(ctx context.Context, pageNum, pageSize int) ([]model.AnnualLeaveAccountEvent, int64, error) {
 	var list []model.AnnualLeaveAccountEvent
 	var total int64
-	tx := dao.DB.Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("deleted_at IS NOT NULL")
+	tx := dao.DBFromContext(ctx).Unscoped().Model(&model.AnnualLeaveAccountEvent{}).Where("deleted_at IS NOT NULL")
+	tx = OwnFilter(ctx, tx, "person_id")
 	tx.Count(&total)
 	offset := (pageNum - 1) * pageSize
 	tx.Offset(offset).Limit(pageSize).Order("deleted_at DESC").Find(&list)

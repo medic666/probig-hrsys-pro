@@ -18,6 +18,9 @@ import (
 var ErrAttendanceNotCalculated = errors.New("未完成月度考勤核算，请先进行考勤核算")
 
 func CalculateSalary(ctx context.Context, personID uint, month string, operatorID uint, operatorName string) (*model.SalarySummary, error) {
+	if err := EnsureOwnPerson(ctx, personID); err != nil {
+		return nil, err
+	}
 	var result *model.SalarySummary
 	var oldJSON, newJSON, personName string
 	var audited bool
@@ -292,6 +295,7 @@ func clearSalarySummaryInTx(tx *gorm.DB, personID uint, month string, oldJSON, p
 // CalculateSalaryBatch 批量工资核算：三态计数——
 // hasValue 有结果 / empty 空结果（考勤空→置空）/ fail 失败（需人工干预）
 func CalculateSalaryBatch(ctx context.Context, month string, personIDs []uint, operatorID uint, operatorName string) (hasValue, empty, fail int, err error) {
+	personIDs = ScopePersonIDs(ctx, personIDs)
 	for _, pid := range personIDs {
 		r, calcErr := CalculateSalary(ctx, pid, month, operatorID, operatorName)
 		if calcErr != nil {
@@ -315,8 +319,9 @@ type SalarySummaryListQuery struct {
 	Status   string
 }
 
-func GetSalarySummaries(q SalarySummaryListQuery) ([]map[string]interface{}, int64, error) {
-	tx := dao.DB.Model(&model.SalarySummary{})
+func GetSalarySummaries(ctx context.Context, q SalarySummaryListQuery) ([]map[string]interface{}, int64, error) {
+	tx := dao.DBFromContext(ctx).Model(&model.SalarySummary{})
+	tx = OwnFilter(ctx, tx, "person_id")
 	if q.Month != "" {
 		tx = tx.Where("belong_month = ?", q.Month)
 	}
@@ -417,7 +422,10 @@ func IsSalarySummaryStale(summary *model.SalarySummary) string {
 	return "calculated"
 }
 
-func GetSalaryVersions(personID uint, month string) ([]model.SalarySummaryVersion, error) {
+func GetSalaryVersions(ctx context.Context, personID uint, month string) ([]model.SalarySummaryVersion, error) {
+	if err := EnsureOwnPerson(ctx, personID); err != nil {
+		return nil, err
+	}
 	var versions []model.SalarySummaryVersion
 	err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).
 		Order("version DESC").Find(&versions).Error
@@ -434,10 +442,13 @@ func GetSalaryVersions(personID uint, month string) ([]model.SalarySummaryVersio
 	return versions, err
 }
 
-func GetSalaryVersionByID(versionID uint) (*model.SalarySummaryVersion, error) {
+func GetSalaryVersionByID(ctx context.Context, versionID uint) (*model.SalarySummaryVersion, error) {
 	var version model.SalarySummaryVersion
 	err := dao.DB.First(&version, versionID).Error
 	if err != nil {
+		return nil, err
+	}
+	if err := EnsureOwnPerson(ctx, version.PersonID); err != nil {
 		return nil, err
 	}
 	version.PersonName = PersonName(version.PersonID)
@@ -469,7 +480,10 @@ type SalaryTrace struct {
 	AnnualLeaveCarryover []model.AnnualLeaveAccountEvent    `json:"annual_leave_carryover"`
 }
 
-func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
+func GetSalaryTrace(ctx context.Context, personID uint, month string) (*SalaryTrace, error) {
+	if err := EnsureOwnPerson(ctx, personID); err != nil {
+		return nil, err
+	}
 	monthStart, _ := time.Parse("2006-01", month)
 	monthEnd := monthStart.AddDate(0, 1, -1)
 	monthStartD := utils.DateOnlyFromTime(monthStart)
@@ -522,7 +536,7 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 // 汇总过期（IsSalarySummaryStale = data_changed 语义）orange；已核算未过期 green。
 // stale 判定按人员批量聚合 4 类源（考勤核算/职务快照/工资事件/年假事件）的最后变更时间，
 // 与 IsSalarySummaryStale 语义等价（Select 原列 + Go 聚合，规避 MAX 聚合 Scan 类型坑）。
-func GetSalarySummariesBadges(month string) ([]PersonBadge, error) {
+func GetSalarySummariesBadges(ctx context.Context, month string) ([]PersonBadge, error) {
 	monthStart, err := utils.MonthStart(month)
 	if err != nil {
 		return nil, err
@@ -531,7 +545,7 @@ func GetSalarySummariesBadges(month string) ([]PersonBadge, error) {
 	monthEndD := utils.DateOnlyFromTime(monthStart.AddDate(0, 1, -1))
 
 	var summaries []model.SalarySummary
-	if err := dao.DB.Where("belong_month = ?", month).Find(&summaries).Error; err != nil {
+	if err := dao.DBFromContext(ctx).Where("belong_month = ?", month).Find(&summaries).Error; err != nil {
 		return nil, err
 	}
 	sumMap := make(map[uint]model.SalarySummary, len(summaries))
@@ -545,7 +559,11 @@ func GetSalarySummariesBadges(month string) ([]PersonBadge, error) {
 	}
 
 	var personIDs []uint
-	if err := dao.DB.Table("persons").Where("deleted_at IS NULL").Pluck("id", &personIDs).Error; err != nil {
+	db := dao.DBFromContext(ctx).Table("persons").Where("deleted_at IS NULL")
+	if pid, ok := dao.OwnPersonID(ctx); ok {
+		db = db.Where("id = ?", pid)
+	}
+	if err := db.Pluck("id", &personIDs).Error; err != nil {
 		return nil, err
 	}
 	result := make([]PersonBadge, 0, len(personIDs))

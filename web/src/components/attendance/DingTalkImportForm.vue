@@ -10,7 +10,7 @@
       <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".xlsx" :on-change="onFileChange" :on-remove="()=>importFile=null">
         <el-button type="primary">选择钉钉月度汇总文件</el-button>
       </el-upload>
-      <el-button style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
+      <el-button v-permission="PERM.attendanceWrite" style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
     </div>
 
     <div v-else-if="step === 1">
@@ -44,7 +44,7 @@
       </el-form>
       <el-alert type="info" :closable="false" :title="importSummary" style="margin-bottom:12px" />
       <el-button @click="step=1">上一步</el-button>
-      <el-button type="primary" :loading="importing" :disabled="matchedCount === 0" @click="doImport">确认导入</el-button>
+      <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="importing" :disabled="matchedCount === 0" @click="doImport">确认导入</el-button>
     </div>
 
     <div class="form-footer">
@@ -58,6 +58,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import { dingTalkPreview, dingTalkExecute } from '@/api/attendance'
+import { PERM } from '@/constants/permission'
 // 钉钉月度汇总导入三步向导：上传解析 → 人员匹配确认 → 月份与执行。
 // 支持部分导入：匹配人员留空即跳过该行；文件解析预览与幂等执行均由后端承担，页面只编排流程。
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()

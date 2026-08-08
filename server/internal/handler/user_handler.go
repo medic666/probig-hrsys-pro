@@ -158,7 +158,8 @@ func GetUserByID(c *gin.Context) {
 	}
 	utils.Success(c, gin.H{
 		"id": user.ID, "username": user.Username, "person_id": user.PersonID,
-		"person_name": personName, "is_active": user.IsActive, "is_first_login": user.IsFirstLogin,
+		"person_name": personName, "data_scope": user.DataScope,
+		"is_active": user.IsActive, "is_first_login": user.IsFirstLogin,
 		"role_ids": roleIDs,
 	})
 }

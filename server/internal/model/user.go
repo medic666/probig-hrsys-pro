@@ -11,6 +11,7 @@ type User struct {
 	Username      string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"username"`
 	Password      string         `gorm:"type:varchar(256);not null" json:"-"`
 	PersonID      *uint          `json:"person_id"`
+	DataScope     string         `gorm:"type:varchar(8);default:all" json:"data_scope"` // all=全部 / own=仅自己
 	IsActive      bool           `gorm:"default:true" json:"is_active"`
 	IsFirstLogin  bool           `gorm:"default:false" json:"is_first_login"`
 	CreatedAt     time.Time      `json:"created_at"`

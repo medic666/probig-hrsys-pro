@@ -48,6 +48,9 @@ func AuthRequired() gin.HandlerFunc {
 
 		info := dao.AuditInfo{OperatorID: user.ID, OperatorName: user.Username, IP: c.ClientIP()}
 		c.Request = c.Request.WithContext(dao.WithAuditContext(c.Request.Context(), info))
+		// 数据范围上下文：人员维度权限（own 时按关联人员过滤/校验）
+		scope := dao.ScopeInfo{UserID: user.ID, DataScope: user.DataScope, PersonID: user.PersonID}
+		c.Request = c.Request.WithContext(dao.WithScopeInfo(c.Request.Context(), scope))
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
 		c.Set("user", &user)

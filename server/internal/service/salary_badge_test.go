@@ -18,7 +18,7 @@ func TestSalaryAdvanceBalances(t *testing.T) {
 		seedSalaryEvent(db, 55, "2026-06", "工资预支", 2000)
 		seedSalaryEvent(db, 55, "2026-06", "预支还款", -1000)
 
-		balances, err := GetSalaryAdvanceBalances()
+		balances, err := GetSalaryAdvanceBalances(context.Background(), )
 		if err != nil {
 			t.Fatalf("advance balances: %v", err)
 		}
@@ -57,7 +57,7 @@ func TestSalarySummariesBadges(t *testing.T) {
 			t.Fatalf("calc attendance 57: %v", err)
 		}
 
-		badges, err := GetSalarySummariesBadges("2026-06")
+		badges, err := GetSalarySummariesBadges(context.Background(), "2026-06")
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}
@@ -71,7 +71,7 @@ func TestSalarySummariesBadges(t *testing.T) {
 		// 工资事件变动（updated_at 推进）→ orange
 		time.Sleep(5 * time.Millisecond)
 		seedSalaryEvent(db, 56, "2026-06", "预支还款", -500)
-		badges2, err := GetSalarySummariesBadges("2026-06")
+		badges2, err := GetSalarySummariesBadges(context.Background(), "2026-06")
 		if err != nil {
 			t.Fatalf("badges2: %v", err)
 		}

@@ -10,7 +10,7 @@
       >
         <template v-if="items.length > 1" #extra-actions>
           <el-button size="small" link type="primary" @click="cycle">切换</el-button>
-          <el-button size="small" link type="danger" @click="handleDelete">删除</el-button>
+          <el-button v-permission="PERM.attendanceWrite" size="small" link type="danger" @click="handleDelete">删除</el-button>
         </template>
       </AttendanceDailyBlock>
       <span v-if="items.length > 1" class="deck-badge">共 {{ items.length }} 组</span>
@@ -22,6 +22,7 @@
 import { ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import AttendanceDailyBlock from '@/components/attendance/AttendanceDailyBlock.vue'
+import { PERM } from '@/constants/permission'
 
 // 考勤日套卡：当日多组事件（同日多版本，API 按 seq 倒序，items[0] 为最新有效组）时
 // 以扑克牌堆叠效果展示，提供「切换」（滚动查看各组）与「删除」（软删除当前组）。

@@ -35,7 +35,7 @@
 
   <div v-if="!readonly" class="form-footer">
     <el-button @click="$emit('cancel')">取消</el-button>
-    <el-button type="primary" :loading="saving" @click="doSave">确定</el-button>
+    <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
   </div>
 </template>
 
@@ -45,6 +45,7 @@ import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import AttendanceDetailsEditor from '@/components/attendance/AttendanceDetailsEditor.vue'
 import { getAttendanceEvent, createAttendanceEvent, confirmAttendanceDaily } from '@/api/attendance'
+import { PERM } from '@/constants/permission'
 // 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）。
 // 状态自选（已确认/待确认）：新增随创建提交，编辑随确认接口提交。
 // readonly 只读模式：日记工时模块进入的查看入口，无编辑/确认能力。

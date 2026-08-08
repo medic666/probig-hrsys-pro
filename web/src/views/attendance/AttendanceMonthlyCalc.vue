@@ -6,9 +6,9 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
+      <el-button v-permission="PERM.attendanceCalculate" type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
       <template #right>
-        <el-button size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.attendanceExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
@@ -58,6 +58,7 @@ import { downloadBlob } from '@/utils/download'
 import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
 import { ATTENDANCE_CALC_FIELDS, fieldsToColumns } from '@/constants/fields'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef=ref()

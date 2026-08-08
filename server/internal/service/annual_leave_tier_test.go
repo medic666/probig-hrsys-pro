@@ -173,7 +173,7 @@ func TestAnnualLeaveEventBadges(t *testing.T) {
 		seedManualGrant(t, db, 81, "2020-01-01", 40)
 
 		_ = now
-		badges, err := GetAnnualLeaveEventBadges()
+		badges, err := GetAnnualLeaveEventBadges(context.Background())
 		if err != nil {
 			t.Fatalf("badges: %v", err)
 		}

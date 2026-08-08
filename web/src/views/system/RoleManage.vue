@@ -13,9 +13,9 @@ ref="tableRef"
       @action="handleAction"
     >
       <template #actions="{ row }">
-        <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-        <el-button type="warning" link size="small" @click="handleAssignPerms(row)">权限分配</el-button>
-        <el-button v-if="!row.is_default" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button v-if="!row.is_default" v-permission="PERM.roleWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+        <el-button v-if="!row.is_default" v-permission="PERM.roleWrite" type="warning" link size="small" @click="handleAssignPerms(row)">权限分配</el-button>
+        <el-button v-if="!row.is_default" v-permission="PERM.roleWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
       </template>
     </ProTable>
 
@@ -58,6 +58,7 @@ import {
   getRolePermissions,
   getPermissions,
 } from '@/api/role'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()
@@ -81,8 +82,8 @@ const searchFields = [
 ]
 
 const actions = [
-  { key: 'add', label: '新增角色', type: 'primary' as const },
-  { key: 'trash', label: '回收站', type: 'default' as const },
+  { key: 'add', label: '新增角色', type: 'primary' as const, permission: PERM.roleWrite },
+  { key: 'trash', label: '回收站', type: 'default' as const, permission: PERM.roleWrite },
 ]
 
 const trashColumns = [

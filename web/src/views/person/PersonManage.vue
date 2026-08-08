@@ -7,10 +7,10 @@
     </PageHeader>
 
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAdd">新增人员</el-button>
+      <el-button v-permission="PERM.personWrite" type="primary" size="small" @click="handleAdd">新增人员</el-button>
       <template #right>
-        <el-button size="small" @click="handleExport">导出</el-button>
-        <el-button size="small" @click="trashVisible = true">回收站</el-button>
+        <el-button v-permission="PERM.personExport" size="small" @click="handleExport">导出</el-button>
+        <el-button v-permission="PERM.personWrite" size="small" @click="trashVisible = true">回收站</el-button>
       </template>
     </PageToolbar>
 
@@ -18,8 +18,8 @@
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchPersons" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
-          <el-button type="success" link size="small" @click="handleDetail(row)">编辑</el-button>
-          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="PERM.personWrite" type="success" link size="small" @click="handleDetail(row)">编辑</el-button>
+          <el-button v-permission="PERM.personWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </ProTable>
     </template>
@@ -46,6 +46,7 @@ import { getPersons, deletePerson, restorePerson, getDeletedPersons, getPersonCa
 import { getAllCompanies } from '@/api/company'
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()

@@ -6,18 +6,18 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button type="primary" size="small" @click="handleAdd">新增公司</el-button>
+      <el-button v-permission="PERM.companyWrite" type="primary" size="small" @click="handleAdd">新增公司</el-button>
       <template #right>
-        <el-button size="small" @click="handleExport">导出</el-button>
-        <el-button size="small" @click="trashVisible = true">回收站</el-button>
+        <el-button v-permission="PERM.companyExport" size="small" @click="handleExport">导出</el-button>
+        <el-button v-permission="PERM.companyWrite" size="small" @click="trashVisible = true">回收站</el-button>
       </template>
     </PageToolbar>
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchCompanies" :search-fields="searchFields">
         <template #actions="{ row }">
           <el-button type="primary" link size="small" @click="handleDetail(row)">查看详情</el-button>
-          <el-button type="success" link size="small" @click="handleDetail(row)">编辑</el-button>
-          <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="PERM.companyWrite" type="success" link size="small" @click="handleDetail(row)">编辑</el-button>
+          <el-button v-permission="PERM.companyWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </ProTable>
     </template>
@@ -48,6 +48,7 @@ import { getCompanies, deleteCompany, restoreCompany, getDeletedCompanies, getAl
 
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()

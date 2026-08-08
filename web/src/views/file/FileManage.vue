@@ -4,7 +4,7 @@
       <template #actions="{ row }">
         <el-button type="primary" link size="small" @click="showAssociations(row)">关联({{ row.assoc_count||0 }})</el-button>
         <el-button type="success" link size="small" @click="downloadFile(row.id, row.original_name)">下载</el-button>
-        <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+        <el-button v-permission="PERM.fileWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
       </template>
     </ProTable>
 
@@ -21,7 +21,7 @@
 
     <RecycleBinDrawer v-model:visible="tv" :fetch-api="fd" :restore-api="rst" :columns="tc" @restored="onR">
       <template #footer>
-        <el-button type="danger" @click="handleCleanOrphans">清理孤儿文件(30天+)</el-button>
+        <el-button v-permission="PERM.fileWrite" type="danger" @click="handleCleanOrphans">清理孤儿文件(30天+)</el-button>
       </template>
     </RecycleBinDrawer>
   </div>
@@ -34,6 +34,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
 import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import { getFiles, deleteFile, restoreFile, getDeletedFiles, downloadFile, uploadFile, getFileAssociations, cleanOrphanFiles } from '@/api/file'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef=ref(), tv=ref(false), assocVisible=ref(false), associations=ref<any[]>([])
@@ -54,7 +55,10 @@ const searchFields=[
   ]},
   {prop:'date',label:'上传时间',type:'date-range' as const,startKey:'date_start',endKey:'date_end'},
 ]
-const actions=[{key:'upload',label:'上传文件',type:'primary' as const},{key:'trash',label:'回收站',type:'default' as const}]
+const actions=[
+  {key:'upload',label:'上传文件',type:'primary' as const, permission: PERM.fileWrite},
+  {key:'trash',label:'回收站',type:'default' as const, permission: PERM.fileWrite},
+]
 const tc=[{prop:'id',label:'ID',width:'60'},{prop:'original_name',label:'文件名'},{prop:'md5',label:'MD5',width:'120'}]
 
 async function fetchFiles(p:any){

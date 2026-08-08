@@ -11,7 +11,7 @@ import (
 // 前端直接渲染卡片右上角颜色点，不参与运算。month 缺省为当前时间的上一个月。
 
 func GetPositionEventBadges(c *gin.Context) {
-	badges, err := service.GetPositionEventBadges()
+	badges, err := service.GetPositionEventBadges(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -21,7 +21,7 @@ func GetPositionEventBadges(c *gin.Context) {
 
 func GetAttendanceEventBadges(c *gin.Context) {
 	month := c.DefaultQuery("month", service.DefaultBadgeMonth())
-	badges, err := service.GetAttendanceEventBadges(month)
+	badges, err := service.GetAttendanceEventBadges(c.Request.Context(), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -31,7 +31,7 @@ func GetAttendanceEventBadges(c *gin.Context) {
 
 func GetDailyProjectionBadges(c *gin.Context) {
 	month := c.DefaultQuery("month", service.DefaultBadgeMonth())
-	badges, err := service.GetDailyProjectionBadges(month)
+	badges, err := service.GetDailyProjectionBadges(c.Request.Context(), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -41,7 +41,7 @@ func GetDailyProjectionBadges(c *gin.Context) {
 
 func GetAttendanceMonthlyBadges(c *gin.Context) {
 	month := c.DefaultQuery("month", service.DefaultBadgeMonth())
-	badges, err := service.GetAttendanceMonthlyBadges(month)
+	badges, err := service.GetAttendanceMonthlyBadges(c.Request.Context(), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -50,7 +50,7 @@ func GetAttendanceMonthlyBadges(c *gin.Context) {
 }
 
 func GetAnnualLeaveEventBadges(c *gin.Context) {
-	badges, err := service.GetAnnualLeaveEventBadges()
+	badges, err := service.GetAnnualLeaveEventBadges(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -59,7 +59,7 @@ func GetAnnualLeaveEventBadges(c *gin.Context) {
 }
 
 func GetSalaryAdvanceBalances(c *gin.Context) {
-	balances, err := service.GetSalaryAdvanceBalances()
+	balances, err := service.GetSalaryAdvanceBalances(c.Request.Context())
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
@@ -69,7 +69,7 @@ func GetSalaryAdvanceBalances(c *gin.Context) {
 
 func GetSalarySummariesBadges(c *gin.Context) {
 	month := c.DefaultQuery("month", service.DefaultBadgeMonth())
-	badges, err := service.GetSalarySummariesBadges(month)
+	badges, err := service.GetSalarySummariesBadges(c.Request.Context(), month)
 	if err != nil {
 		utils.Error(c, err.Error())
 		return

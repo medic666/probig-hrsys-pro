@@ -14,6 +14,7 @@ import { useRouter } from 'vue-router'
 import ProTable from '@/components/ProTable.vue'
 import { getAuditLogs, exportAuditLogs } from '@/api/audit'
 import { useExport } from '@/composables/useExport'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef=ref()
@@ -41,7 +42,7 @@ const searchFields=[
   {prop:'target_type',label:'对象类型',type:'select' as const,options:Object.entries(targetTypeNames).map(([v,l])=>({label:l,value:v}))},
   {prop:'date',label:'时间范围',type:'date-range' as const,startKey:'date_start',endKey:'date_end'},
 ]
-const actions=[{key:'export',label:'导出',type:'default' as const}]
+const actions=[{key:'export',label:'导出',type:'default' as const, permission: PERM.auditExport}]
 
 async function fetchLogs(p:any){
   const d=(await getAuditLogs(p)) as any

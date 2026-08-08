@@ -7,7 +7,7 @@
     </PageHeader>
     <PageToolbar :right-visible="isList">
       <template #right>
-        <el-button size="small" @click="handleExport">导出</el-button>
+        <el-button v-permission="PERM.attendanceExport" size="small" @click="handleExport">导出</el-button>
       </template>
     </PageToolbar>
 
@@ -68,6 +68,7 @@ import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
 import { useBadges } from '@/composables/useBadges'
 import { hoursToDays } from '@/utils'
+import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()

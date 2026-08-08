@@ -12,7 +12,7 @@
     <template v-for="menu in displayMenus" :key="menu.path">
       <el-sub-menu v-if="menu.children && menu.children.length" :index="menu.path">
         <template #title>
-          <el-icon><component :is="getIcon(menu.icon)" /></el-icon>
+          <el-icon><component :is="getMenuIcon(menu.icon)" /></el-icon>
           <span>{{ menu.title }}</span>
         </template>
         <el-menu-item v-for="child in menu.children" :key="child.path" :index="child.path">
@@ -20,7 +20,7 @@
         </el-menu-item>
       </el-sub-menu>
       <el-menu-item v-else :index="menu.path">
-        <el-icon><component :is="getIcon(menu.icon)" /></el-icon>
+        <el-icon><component :is="getMenuIcon(menu.icon)" /></el-icon>
         <span>{{ menu.title }}</span>
       </el-menu-item>
     </template>
@@ -31,15 +31,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePermissionStore } from '@/stores/permission'
-import {
-  HomeFilled,
-  User,
-  OfficeBuilding,
-  Clock,
-  Money,
-  Document,
-  Setting,
-} from '@element-plus/icons-vue'
+import { getMenuIcon } from '@/constants/menuIcons'
 
 // 侧边菜单（桌面侧栏与移动抽屉共用）：数据源为权限菜单，图标统一映射。
 // manualNav=true（移动抽屉场景）时禁用 el-menu 自动路由，仅上抛选中的 index，
@@ -55,20 +47,6 @@ const route = useRoute()
 const permissionStore = usePermissionStore()
 
 const activeMenu = computed(() => route.path)
-
-const iconMap: Record<string, any> = {
-  HomeFilled,
-  User,
-  OfficeBuilding,
-  Clock,
-  Money,
-  Document,
-  Setting,
-}
-
-function getIcon(name: string) {
-  return iconMap[name] || HomeFilled
-}
 
 const displayMenus = computed(() => {
   const storeMenus = permissionStore.menus

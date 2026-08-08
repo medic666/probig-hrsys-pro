@@ -141,7 +141,7 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 			children = append(children, map[string]interface{}{"path": "/position-event", "title": "职务事件", "icon": "Document"})
 		}
 		menus = append(menus, map[string]interface{}{
-			"path": "/data", "title": "主数据管理", "icon": "OfficeBuilding", "children": children,
+			"path": "/data", "title": "基础信息", "icon": "OfficeBuilding", "children": children,
 		})
 	}
 

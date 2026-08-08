@@ -5,33 +5,46 @@
         <h2>欢迎使用企业人事与行政管理系统</h2>
         <p class="subtitle">面向中小企业的轻量生产级人事与行政管理系统</p>
         <el-divider />
-        <div class="feature-list">
-          <el-row :gutter="20">
-            <el-col v-for="item in features" :key="item.title" :xs="12" :sm="6">
-              <el-card shadow="hover" class="feature-card">
-                <el-icon :size="32" :color="item.color">
-                  <component :is="item.icon" />
-                </el-icon>
-                <h4>{{ item.title }}</h4>
-                <p>{{ item.desc }}</p>
-              </el-card>
-            </el-col>
-          </el-row>
-        </div>
+        <!-- 首页业务模块 = 菜单一级分组投影：可见性/命名/图标均由后端权限菜单驱动，
+             无权限分组不在 menus 中 → 自动不渲染 -->
+        <el-row v-if="featureGroups.length" :gutter="20">
+          <el-col v-for="g in featureGroups" :key="g.path" :xs="12" :sm="6">
+            <el-card shadow="hover" class="feature-card" @click="openGroup(g)">
+              <el-icon :size="32" class="feature-icon">
+                <component :is="getMenuIcon(g.icon)" />
+              </el-icon>
+              <h4>{{ g.title }}</h4>
+            </el-card>
+          </el-col>
+        </el-row>
+        <el-empty v-else description="暂无可用模块，请联系管理员配置权限" :image-size="80" />
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { User, OfficeBuilding, Clock, Money } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { usePermissionStore } from '@/stores/permission'
+import { getMenuIcon } from '@/constants/menuIcons'
 
-const features = [
-  { title: '人员管理', desc: '人员信息维护与查询', icon: User, color: '#409eff' },
-  { title: '公司管理', desc: '公司信息与文件管理', icon: OfficeBuilding, color: '#67c23a' },
-  { title: '考勤管理', desc: '考勤事件录入与核算', icon: Clock, color: '#e6a23c' },
-  { title: '薪资核算', desc: '工资事件管理与核算', icon: Money, color: '#f56c6c' },
-]
+// 首页业务分组白名单（前端展示策略）：新增业务分组时，后端菜单加分组 + 本白名单加一行
+const BUSINESS_GROUPS = ['/data', '/attendance-group', '/leave-group', '/salary-group']
+
+const router = useRouter()
+const permissionStore = usePermissionStore()
+
+const featureGroups = computed(() =>
+  permissionStore.menus
+    .filter((m: any) => BUSINESS_GROUPS.includes(m.path) && m.children?.length)
+    .map((m: any) => ({ path: m.path, title: m.title, icon: m.icon, firstChild: m.children[0].path })),
+)
+
+// 点击分组卡片 → 进入分组内第一个有权限的子模块
+function openGroup(g: { firstChild: string }) {
+  router.push(g.firstChild)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -63,15 +76,14 @@ const features = [
     cursor: pointer;
     margin-bottom: 12px;
 
+    .feature-icon {
+      color: $primary-color;
+    }
+
     h4 {
       margin: 12px 0 8px;
       font-size: 16px;
       color: #303133;
-    }
-
-    p {
-      font-size: 12px;
-      color: #909399;
     }
 
     @include hover-capable {

@@ -13,13 +13,14 @@ import (
 // positionEventListQuery 职务事件列表筛选解析（列表与导出共用）
 func positionEventListQuery(c *gin.Context) service.PositionEventListQuery {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	return service.PositionEventListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
-		StartDate: c.Query("start_date"),
-		EndDate:   c.Query("end_date"),
+		StartDate: dateStart,
+		EndDate:   dateEnd,
 		EventType: c.Query("event_type"),
 	}
 }
@@ -45,55 +46,55 @@ func GetPositionEventByID(c *gin.Context) {
 }
 
 type positionEventReq struct {
-	PersonID            uint     `json:"person_id"`
-	EventType           string   `json:"event_type"`
-	Remark              string   `json:"remark"`
-	EffectiveDate       string   `json:"effective_date"`
-	EntryDate           *string  `json:"entry_date"`
-	LeaveDate           *string  `json:"leave_date"`
-	AttendanceGroup     *string  `json:"attendance_group"`
-	HasAnnualLeave      *bool    `json:"has_annual_leave"`
-	HasAttendanceBonus  *bool    `json:"has_attendance_bonus"`
-	CompanyID           *uint    `json:"company_id"`
-	Department          *string  `json:"department"`
-	Position            *string  `json:"position"`
-	BaseSalary          *float64 `json:"base_salary"`
-	PerformanceSalary   *float64 `json:"performance_salary"`
-	SalaryDays          *float64 `json:"salary_days"`
-	PostAllowance       *float64 `json:"post_allowance"`
-	MealAllowance       *float64 `json:"meal_allowance"`
-	HousingAllowance    *float64 `json:"housing_allowance"`
-	TransportAllowance  *float64 `json:"transport_allowance"`
-	HighTempAllowance   *float64 `json:"high_temp_allowance"`
+	PersonID              uint     `json:"person_id"`
+	EventType             string   `json:"event_type"`
+	Remark                string   `json:"remark"`
+	EffectiveDate         string   `json:"effective_date"`
+	EntryDate             *string  `json:"entry_date"`
+	LeaveDate             *string  `json:"leave_date"`
+	AttendanceGroup       *string  `json:"attendance_group"`
+	HasAnnualLeave        *bool    `json:"has_annual_leave"`
+	HasAttendanceBonus    *bool    `json:"has_attendance_bonus"`
+	CompanyID             *uint    `json:"company_id"`
+	Department            *string  `json:"department"`
+	Position              *string  `json:"position"`
+	BaseSalary            *float64 `json:"base_salary"`
+	PerformanceSalary     *float64 `json:"performance_salary"`
+	SalaryDays            *float64 `json:"salary_days"`
+	PostAllowance         *float64 `json:"post_allowance"`
+	MealAllowance         *float64 `json:"meal_allowance"`
+	HousingAllowance      *float64 `json:"housing_allowance"`
+	TransportAllowance    *float64 `json:"transport_allowance"`
+	HighTempAllowance     *float64 `json:"high_temp_allowance"`
 	InsuranceCompensation *float64 `json:"insurance_compensation"`
-	FundCompensation    *float64 `json:"fund_compensation"`
-	SocialSecurityDeduct *float64 `json:"social_security_deduct"`
-	HousingFundDeduct   *float64 `json:"housing_fund_deduct"`
+	FundCompensation      *float64 `json:"fund_compensation"`
+	SocialSecurityDeduct  *float64 `json:"social_security_deduct"`
+	HousingFundDeduct     *float64 `json:"housing_fund_deduct"`
 }
 
 func reqToModel(req positionEventReq) model.PositionEvent {
 	e := model.PositionEvent{
-		PersonID:      req.PersonID,
-		EventType:     req.EventType,
-		Remark:        req.Remark,
-		AttendanceGroup:    req.AttendanceGroup,
-		HasAnnualLeave:     req.HasAnnualLeave,
-		HasAttendanceBonus: req.HasAttendanceBonus,
-		CompanyID:          req.CompanyID,
-		Department:         req.Department,
-		Position:           req.Position,
-		BaseSalary:         req.BaseSalary,
-		PerformanceSalary:  req.PerformanceSalary,
-		SalaryDays:         req.SalaryDays,
-		PostAllowance:      req.PostAllowance,
-		MealAllowance:      req.MealAllowance,
-		HousingAllowance:   req.HousingAllowance,
-		TransportAllowance: req.TransportAllowance,
-		HighTempAllowance:  req.HighTempAllowance,
+		PersonID:              req.PersonID,
+		EventType:             req.EventType,
+		Remark:                req.Remark,
+		AttendanceGroup:       req.AttendanceGroup,
+		HasAnnualLeave:        req.HasAnnualLeave,
+		HasAttendanceBonus:    req.HasAttendanceBonus,
+		CompanyID:             req.CompanyID,
+		Department:            req.Department,
+		Position:              req.Position,
+		BaseSalary:            req.BaseSalary,
+		PerformanceSalary:     req.PerformanceSalary,
+		SalaryDays:            req.SalaryDays,
+		PostAllowance:         req.PostAllowance,
+		MealAllowance:         req.MealAllowance,
+		HousingAllowance:      req.HousingAllowance,
+		TransportAllowance:    req.TransportAllowance,
+		HighTempAllowance:     req.HighTempAllowance,
 		InsuranceCompensation: req.InsuranceCompensation,
-		FundCompensation:    req.FundCompensation,
-		SocialSecurityDeduct: req.SocialSecurityDeduct,
-		HousingFundDeduct:  req.HousingFundDeduct,
+		FundCompensation:      req.FundCompensation,
+		SocialSecurityDeduct:  req.SocialSecurityDeduct,
+		HousingFundDeduct:     req.HousingFundDeduct,
 	}
 	if req.EffectiveDate != "" {
 		var d utils.DateOnly

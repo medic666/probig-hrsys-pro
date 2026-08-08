@@ -16,9 +16,9 @@
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" link size="small" @click="openView(row)">查看</el-button>
+          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveEventWrite" type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
           <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          <el-button v-if="row.source_type === 'attendance'" type="primary" link size="small" @click="handleEdit(row)">查看</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
       </ProTable>
@@ -40,7 +40,7 @@
         </template>
         <template #day="{ items }">
           <div class="ev-grid">
-            <AnnualLeaveEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEdit" />
+            <AnnualLeaveEventCard v-for="e in items" :key="e.id" :event="e" @click="openView" @edit="openEdit" />
           </div>
         </template>
       </TimeCardPanel>
@@ -117,12 +117,20 @@ function handleAction(k:string){
 
 
 
-// 新增=编辑=查看统一跳业务逻辑页：考勤来源 → 该日考勤整日页；manual → 年假事件页
-function handleEdit(r: any) {
+// 查看=详情页查看态（考勤来源 → 该日考勤整日页）；编辑=直达编辑态
+function openView(r: any) {
   if (r.source_type === 'attendance') {
     router.push(`/attendance-events/${r.daily_id}`)
   } else {
     router.push(`/annual-leave-events/${r.id}`)
+  }
+}
+
+function openEdit(r: any) {
+  if (r.source_type === 'attendance') {
+    router.push(`/attendance-events/${r.daily_id}?edit=1`)
+  } else {
+    router.push(`/annual-leave-events/${r.id}?edit=1`)
   }
 }
 

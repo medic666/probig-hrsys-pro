@@ -30,7 +30,7 @@
         </template>
         <template #day="{ items }">
           <div class="ev-grid">
-            <LILEventCard v-for="e in items" :key="e.id" :event="e" @edit="editDaily" />
+            <LILEventCard v-for="e in items" :key="e.id" :event="e" @click="openView" @edit="openEdit" />
           </div>
         </template>
       </TimeCardPanel>
@@ -89,10 +89,18 @@ function handleAction(k: string) {
   }
 }
 
-// 编辑=查看：调休事件即考勤日事件 → 跳该日考勤整日页
-function editDaily(item: any) {
+// 查看=该日考勤详情查看态；编辑=直达编辑态（调休事件即考勤事件）
+function openView(item: any) {
   if (item.daily_id) {
     router.push(`/attendance-events/${item.daily_id}`)
+  } else {
+    ElMessage.warning('未找到当日考勤记录')
+  }
+}
+
+function openEdit(item: any) {
+  if (item.daily_id) {
+    router.push(`/attendance-events/${item.daily_id}?edit=1`)
   } else {
     ElMessage.warning('未找到当日考勤记录')
   }

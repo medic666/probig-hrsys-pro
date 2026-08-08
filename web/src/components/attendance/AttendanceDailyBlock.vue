@@ -1,5 +1,5 @@
 <template>
-  <div class="daily-block" :class="{ 'is-edited': edited, 'is-pending': daily.status === 'pending' }">
+  <div class="daily-block" :class="{ 'is-edited': edited, 'is-pending': daily.status === 'pending' }" @click="$emit('view', daily)">
     <div class="block-header">
       <span class="person">{{ daily.person_name }}</span>
       <span class="date">{{ daily.event_date }}</span>
@@ -20,8 +20,8 @@
     </div>
     <div class="block-actions">
       <slot name="extra-actions" />
-      <el-button v-permission="PERM.attendanceEventWrite" size="small" type="primary" link @click="$emit('edit', daily)">编辑</el-button>
-      <el-button v-if="daily.status === 'pending'" v-permission="PERM.attendanceEventWrite" size="small" type="success" link @click="$emit('confirm', daily)">确认</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" size="small" type="primary" link @click.stop="$emit('edit', daily)">编辑</el-button>
+      <el-button v-if="daily.status === 'pending'" v-permission="PERM.attendanceEventWrite" size="small" type="success" link @click.stop="$emit('confirm', daily)">确认</el-button>
     </div>
   </div>
 </template>
@@ -32,6 +32,7 @@ import { PERM } from '@/constants/permission'
 
 defineProps<{ daily: any; edited?: boolean }>()
 defineEmits<{
+  (e: 'view', row: any): void
   (e: 'edit', row: any): void
   (e: 'confirm', row: any): void
 }>()
@@ -40,12 +41,13 @@ defineEmits<{
 <style lang="scss" scoped>
 @use '@/styles/variables.scss' as *;
 
-.daily-block {
+  .daily-block {
   width: 100%;
   border: 1px solid #e4e7ed;
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 
   @include hover-capable {

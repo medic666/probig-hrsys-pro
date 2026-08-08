@@ -17,7 +17,8 @@
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-permission="PERM.positionEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" link size="small" @click="openView(row)">查看</el-button>
+          <el-button v-permission="PERM.positionEventWrite" type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
           <el-button v-permission="PERM.positionEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
@@ -35,7 +36,7 @@
       >
         <template #day="{ items }">
           <div class="ev-grid">
-            <PositionEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEdit" />
+            <PositionEventCard v-for="e in items" :key="e.id" :event="e" @click="openView" @edit="openEdit" />
           </div>
         </template>
       </TimeCardPanel>
@@ -89,7 +90,7 @@ const columns = [
 const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const },
   { prop:'event_type', label:'事件类型', type:'select' as const, options: eventTypes.map(t => ({ label: t, value: t })) },
-  { prop:'date', label:'生效日期', type:'date-range' as const, startKey: 'start_date', endKey: 'end_date' },
+  { prop:'date', label:'生效日期', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
 
 const trashColumns = [
@@ -118,8 +119,13 @@ function handleAction(key: string) {
 
 
 
-function handleEdit(row: any) {
+// 查看=详情页查看态；编辑=直达编辑态
+function openView(row: any) {
   router.push(`/position-events/${row.id}`)
+}
+
+function openEdit(row: any) {
+  router.push(`/position-events/${row.id}?edit=1`)
 }
 
 async function handleDelete(row: any) {

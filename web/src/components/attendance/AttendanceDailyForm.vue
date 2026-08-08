@@ -3,37 +3,36 @@
     <el-row :gutter="16">
       <el-col :xs="24" :sm="8">
         <el-form-item label="人员" required>
-          <NameSelect v-model="form.person_id" placeholder="选择人员" :disabled="isEdit || readonly" />
+          <NameSelect v-model="form.person_id" placeholder="选择人员" :disabled="isEdit" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-form-item label="日期" required>
-          <el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" :disabled="isEdit || readonly" />
+          <el-date-picker v-model="form.event_date" type="date" value-format="YYYY-MM-DD" style="width:100%" :disabled="isEdit" />
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="8">
         <el-form-item label="状态">
-          <el-radio-group v-model="form.status" size="small" :disabled="readonly">
+          <el-radio-group v-model="form.status" size="small">
             <el-radio-button value="confirmed">已确认</el-radio-button>
             <el-radio-button value="pending">待确认</el-radio-button>
           </el-radio-group>
         </el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12">
-        <el-form-item label="打卡时间"><el-input v-model="form.punch_time" placeholder="如 08:30,18:00" :disabled="readonly" /></el-form-item>
+        <el-form-item label="打卡时间"><el-input v-model="form.punch_time" placeholder="如 08:30,18:00" /></el-form-item>
       </el-col>
       <el-col :xs="24" :sm="12">
-        <el-form-item label="备注"><el-input v-model="form.remark" :disabled="readonly" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="form.remark" /></el-form-item>
       </el-col>
     </el-row>
   </el-form>
 
-  <AttendanceDetailsEditor v-model="details" :readonly="readonly" />
-  <div v-if="!readonly && isEdit" class="hint">保存后该组将成为当日最新版本（序号递增），当日其它组将标记为待确认；待确认记录不参与投影核算。</div>
-  <div v-else-if="!readonly" class="hint">录入将新增一条考勤组；若当天已有记录，已有记录将标记为待确认（最新记录优先，同日仅最新组可确认）；待确认记录不参与投影核算。</div>
-  <div v-else class="hint">只读视图：从日记工时模块进入，仅查看当日考勤明细。</div>
+  <AttendanceDetailsEditor v-model="details" />
+  <div v-if="isEdit" class="hint">保存后该组将成为当日最新版本（序号递增），当日其它组将标记为待确认；待确认记录不参与投影核算。</div>
+  <div v-else class="hint">录入将新增一条考勤组；若当天已有记录，已有记录将标记为待确认（最新记录优先，同日仅最新组可确认）；待确认记录不参与投影核算。</div>
 
-  <div v-if="!readonly" class="form-footer">
+  <div class="form-footer">
     <el-button @click="$emit('cancel')">取消</el-button>
     <el-button v-permission="PERM.attendanceEventWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
   </div>
@@ -46,10 +45,10 @@ import NameSelect from '@/components/NameSelect.vue'
 import AttendanceDetailsEditor from '@/components/attendance/AttendanceDetailsEditor.vue'
 import { getAttendanceEvent, createAttendanceEvent, confirmAttendanceDaily } from '@/api/attendance'
 import { PERM } from '@/constants/permission'
-// 新增=编辑=查看统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）。
+// 新增=编辑统一表单：id 缺失 → 新增；{id} → 编辑（回显整日明细）。
 // 状态自选（已确认/待确认）：新增随创建提交，编辑随确认接口提交。
-// readonly 只读模式：日记工时模块进入的查看入口，无编辑/确认能力。
-const props = withDefaults(defineProps<{ id?: number | null; readonly?: boolean }>(), { id: null, readonly: false })
+// 查看态由页面（AttendanceDailyPage）以只读展示承接，本表单仅服务编辑/新增。
+const props = withDefaults(defineProps<{ id?: number | null }>(), { id: null })
 const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)

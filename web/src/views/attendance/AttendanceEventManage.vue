@@ -19,7 +19,8 @@
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-permission="PERM.attendanceEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" link size="small" @click="openView(row)">查看</el-button>
+          <el-button v-permission="PERM.attendanceEventWrite" type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
           <el-button v-permission="PERM.attendanceEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
@@ -40,6 +41,7 @@
           <AttendanceDailyDeck
             v-if="items.length > 0"
             :items="items"
+            @view="openView"
             @edit="openEdit"
             @confirm="confirmDaily"
             @delete="handleDeleteDaily"
@@ -125,9 +127,13 @@ const { run: handleExport } = useExport(exportAttendanceEvents, () => tableRef.v
 async function fetchDeleted(p: any) { return (await getDeletedAttendanceEvents(p)) as any }
 async function restore(id: number) { return restoreAttendanceEvent(id) }
 
-// 新增=编辑=查看统一跳业务逻辑页
-function openEdit(row: any) {
+// 查看=进入详情页查看态；编辑=直达详情页编辑态（?edit=1）
+function openView(row: any) {
   router.push(`/attendance-events/${row.id}`)
+}
+
+function openEdit(row: any) {
+  router.push(`/attendance-events/${row.id}?edit=1`)
 }
 
 
@@ -163,11 +169,6 @@ function handleAction(key: string) {
 }
 
 
-
-async function handleEdit(row: any) {
-  // 编辑统一为整日编辑（与卡片视图一致），跳业务逻辑页
-  openEdit(row)
-}
 
 async function handleDelete(row: any) {
   try { await ElMessageBox.confirm('确认删除？','提示',{type:'warning'}) } catch { return }

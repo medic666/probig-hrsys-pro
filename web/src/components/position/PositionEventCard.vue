@@ -1,5 +1,5 @@
 <template>
-  <div class="position-event-card">
+  <div class="position-event-card" @click="$emit('click', event)">
     <div class="pec-header">
       <span class="pec-person">{{ event.person_name }}</span>
       <el-tag size="small">{{ event.event_type }}</el-tag>
@@ -7,14 +7,19 @@
     <div class="pec-line">生效日期：{{ event.effective_date }}</div>
     <div class="pec-line" :class="{ 'pec-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
     <div class="pec-actions">
-      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+      <el-button v-permission="PERM.positionEventWrite" size="small" type="primary" link @click.stop="$emit('edit', event)">编辑</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { PERM } from '@/constants/permission'
+
 defineProps<{ event: any }>()
-defineEmits<{ (e: 'edit', event: any): void }>()
+defineEmits<{
+  (e: 'click', event: any): void
+  (e: 'edit', event: any): void
+}>()
 </script>
 
 <style lang="scss" scoped>
@@ -26,6 +31,7 @@ defineEmits<{ (e: 'edit', event: any): void }>()
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 
   @include hover-capable {

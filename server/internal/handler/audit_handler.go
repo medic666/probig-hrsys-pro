@@ -12,14 +12,15 @@ import (
 // auditLogListQuery 审计日志列表筛选解析（列表与导出共用）
 func auditLogListQuery(c *gin.Context) service.AuditLogListQuery {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	return service.AuditLogListQuery{
 		PageNum:      pageReq.PageNum,
 		PageSize:     pageReq.PageSize,
 		OperatorName: c.Query("operator_name"),
 		Action:       c.Query("action"),
 		TargetType:   c.Query("target_type"),
-		DateStart:    c.Query("date_start"),
-		DateEnd:      c.Query("date_end"),
+		DateStart:    dateStart,
+		DateEnd:      dateEnd,
 	}
 }
 

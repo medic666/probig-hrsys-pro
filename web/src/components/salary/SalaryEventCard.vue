@@ -1,5 +1,5 @@
 <template>
-  <div class="salary-event-card">
+  <div class="salary-event-card" @click="$emit('click', event)">
     <div class="sec-header">
       <span class="sec-person">{{ event.person_name }}</span>
       <el-tag size="small">{{ event.event_type }}</el-tag>
@@ -8,17 +8,21 @@
     <div class="sec-line">归属月份：{{ event.belong_month }}</div>
     <div class="sec-line" :class="{ 'sec-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
     <div class="sec-actions">
-      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+      <el-button v-permission="PERM.salaryEventWrite" size="small" type="primary" link @click.stop="$emit('edit', event)">编辑</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { formatMoney } from '@/utils'
+import { PERM } from '@/constants/permission'
 
-// 工资事件原子卡片：与其它模块原子卡片同构（编辑入口，删除走列表/回收站，卡片保持轻量）
+// 工资事件原子卡片：本体点击=查看详情；封面编辑按钮按权限渲染
 defineProps<{ event: any }>()
-defineEmits<{ (e: 'edit', event: any): void }>()
+defineEmits<{
+  (e: 'click', event: any): void
+  (e: 'edit', event: any): void
+}>()
 </script>
 
 <style lang="scss" scoped>
@@ -30,6 +34,7 @@ defineEmits<{ (e: 'edit', event: any): void }>()
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 
   @include hover-capable {

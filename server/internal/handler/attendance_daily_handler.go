@@ -2,13 +2,13 @@ package handler
 
 import (
 	"errors"
-	"time"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"probig/server/internal/config"
 	"probig/server/internal/dao"
@@ -23,13 +23,14 @@ import (
 // attendanceDailyListQuery 考勤日记录列表筛选解析（列表/待确认/导出共用）
 func attendanceDailyListQuery(c *gin.Context) service.AttendanceDailyListQuery {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	return service.AttendanceDailyListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
-		DateStart: c.Query("date_start"),
-		DateEnd:   c.Query("date_end"),
+		DateStart: dateStart,
+		DateEnd:   dateEnd,
 		Status:    c.Query("status"),
 	}
 }
@@ -242,9 +243,9 @@ func DingTalkPreview(c *gin.Context) {
 }
 
 type dingTalkExecuteReq struct {
-	Month    string                           `json:"month" binding:"required"`
-	Mappings []service.DingTalkImportMapping  `json:"mappings" binding:"required"`
-	FilePath string                           `json:"file_path" binding:"required"`
+	Month    string                          `json:"month" binding:"required"`
+	Mappings []service.DingTalkImportMapping `json:"mappings" binding:"required"`
+	FilePath string                          `json:"file_path" binding:"required"`
 }
 
 func DingTalkExecute(c *gin.Context) {
@@ -323,13 +324,14 @@ func ExportAttendanceEvents(c *gin.Context) {
 // dailyProjectionListQuery 日记工时投影列表筛选解析（列表与导出共用）
 func dailyProjectionListQuery(c *gin.Context) service.DailyProjectionListQuery {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	return service.DailyProjectionListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
-		DateStart: c.Query("date_start"),
-		DateEnd:   c.Query("date_end"),
+		DateStart: dateStart,
+		DateEnd:   dateEnd,
 	}
 }
 

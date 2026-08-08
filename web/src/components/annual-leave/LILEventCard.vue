@@ -1,5 +1,5 @@
 <template>
-  <div class="lil-card">
+  <div class="lil-card" @click="$emit('click', event)">
     <div class="lc-header">
       <span class="lc-person">{{ event.person_name }}</span>
       <el-tag size="small" :type="event.sub_type === '补班出勤' ? 'success' : 'warning'">{{ event.sub_type }}</el-tag>
@@ -8,16 +8,21 @@
     <div class="lc-line">日期：{{ event.event_date }}</div>
     <div class="lc-line" :class="{ 'lc-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
     <div class="lc-actions">
-      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" size="small" type="primary" link @click.stop="$emit('edit', event)">编辑</el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { hoursToDays } from '@/utils'
+import { PERM } from '@/constants/permission'
 
+// 调休事件卡片：本体点击=查看当日考勤详情；编辑=考勤事件编辑（调休由考勤事件派生）
 defineProps<{ event: any }>()
-defineEmits<{ (e: 'edit', event: any): void }>()
+defineEmits<{
+  (e: 'click', event: any): void
+  (e: 'edit', event: any): void
+}>()
 </script>
 
 <style lang="scss" scoped>
@@ -29,6 +34,7 @@ defineEmits<{ (e: 'edit', event: any): void }>()
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 
   @include hover-capable {

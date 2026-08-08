@@ -16,7 +16,8 @@
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-permission="PERM.salaryEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button type="primary" link size="small" @click="openView(row)">查看</el-button>
+          <el-button v-permission="PERM.salaryEventWrite" type="primary" link size="small" @click="openEdit(row)">编辑</el-button>
           <el-button v-permission="PERM.salaryEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
@@ -38,7 +39,7 @@
         </template>
         <template #period-list="{ items }">
           <div class="ev-grid">
-            <SalaryEventCard v-for="e in items" :key="e.id" :event="e" @edit="handleEdit" />
+            <SalaryEventCard v-for="e in items" :key="e.id" :event="e" @click="openView" @edit="openEdit" />
           </div>
         </template>
       </TimeCardPanel>
@@ -110,7 +111,14 @@ function handleAction(k:string){
 }
 
 
-function handleEdit(r:any){ router.push(`/salary-events/${r.id}`) }
+// 查看=详情页查看态；编辑=直达编辑态
+function openView(row: any) {
+  router.push(`/salary-events/${row.id}`)
+}
+
+function openEdit(row: any) {
+  router.push(`/salary-events/${row.id}?edit=1`)
+}
 async function handleDelete(r:any){try{await ElMessageBox.confirm('确认?','提示',{type:'warning'})}catch{return};try{await deleteSalaryEvent(r.id);ElMessage.success('已删除');tableRef.value?.refresh();timePanelRef.value?.reload()}catch{ /* */ }}
 function onR(){tableRef.value?.refresh()}
 </script>

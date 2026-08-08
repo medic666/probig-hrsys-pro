@@ -67,14 +67,15 @@ func GetPersonLILHistory(c *gin.Context) {
 
 func GetLILEvents(c *gin.Context) {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	// 明细级查询：先过滤（仅已确认组的补班/调休）后分页，避免列表缺失
 	list, total, err := service.GetLILEventList(c.Request.Context(), service.AttendanceDailyListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
-		DateStart: c.Query("date_start"),
-		DateEnd:   c.Query("date_end"),
+		DateStart: dateStart,
+		DateEnd:   dateEnd,
 	})
 	if err != nil {
 		utils.Error(c, err.Error())

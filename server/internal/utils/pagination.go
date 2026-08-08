@@ -44,6 +44,12 @@ func BindPage(c *gin.Context) PageRequest {
 	}
 }
 
+// BindDateRange 解析统一的日期范围筛选参数（date_start/date_end，全系统约定）。
+// 与 BindPage 同构：参数名单点定义，各模块列表/导出共用，杜绝命名漂移。
+func BindDateRange(c *gin.Context) (start, end string) {
+	return c.Query("date_start"), c.Query("date_end")
+}
+
 func NewPageResult(list interface{}, total int64, req PageRequest) *PageResult {
 	return &PageResult{
 		List:     list,

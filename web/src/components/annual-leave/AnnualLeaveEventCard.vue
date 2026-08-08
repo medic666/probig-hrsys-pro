@@ -1,5 +1,5 @@
 <template>
-  <div class="annual-leave-card">
+  <div class="annual-leave-card" @click="$emit('click', event)">
     <div class="alc-header">
       <span class="alc-person">{{ event.person_name }}</span>
       <el-tag size="small">{{ typeText }}</el-tag>
@@ -9,7 +9,7 @@
     <div class="alc-line">生效日期：{{ event.effective_date }}</div>
     <div class="alc-line" :class="{ 'alc-empty': !event.remark }">{{ event.remark ? '备注：' + event.remark : '暂无备注' }}</div>
     <div class="alc-actions">
-      <el-button size="small" type="primary" link @click="$emit('edit', event)">编辑</el-button>
+      <el-button v-permission="PERM.annualLeaveEventWrite" size="small" type="primary" link @click.stop="$emit('edit', event)">编辑</el-button>
     </div>
   </div>
 </template>
@@ -18,9 +18,13 @@
 import { computed } from 'vue'
 import { hoursToDays } from '@/utils'
 import { annualLeaveTypeText } from '@/constants/annual-leave'
+import { PERM } from '@/constants/permission'
 
 const props = defineProps<{ event: any }>()
-defineEmits<{ (e: 'edit', event: any): void }>()
+defineEmits<{
+  (e: 'click', event: any): void
+  (e: 'edit', event: any): void
+}>()
 
 const typeText = computed(() => annualLeaveTypeText(props.event.event_type))
 </script>
@@ -34,6 +38,7 @@ const typeText = computed(() => annualLeaveTypeText(props.event.event_type))
   border-radius: 6px;
   background: #fff;
   padding: 10px 12px;
+  cursor: pointer;
   transition: box-shadow 0.2s;
 
   @include hover-capable {

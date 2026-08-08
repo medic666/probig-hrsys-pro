@@ -14,13 +14,14 @@ import (
 // annualLeaveListQuery 年假事件列表筛选解析（列表与导出共用）
 func annualLeaveListQuery(c *gin.Context) service.AnnualLeaveListQuery {
 	pageReq := utils.BindPage(c)
+	dateStart, dateEnd := utils.BindDateRange(c)
 	personID, _ := strconv.ParseUint(c.Query("person_id"), 10, 64)
 	return service.AnnualLeaveListQuery{
 		PageNum:   pageReq.PageNum,
 		PageSize:  pageReq.PageSize,
 		PersonID:  uint(personID),
-		DateStart: c.Query("date_start"),
-		DateEnd:   c.Query("date_end"),
+		DateStart: dateStart,
+		DateEnd:   dateEnd,
 		EventType: c.Query("event_type"),
 	}
 }

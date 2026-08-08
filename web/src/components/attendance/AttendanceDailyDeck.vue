@@ -5,12 +5,13 @@
         :key="current"
         :daily="items[current]"
         :edited="edited"
+        @view="emit('view', items[current])"
         @edit="emit('edit', items[current])"
         @confirm="emit('confirm', items[current])"
       >
         <template v-if="items.length > 1" #extra-actions>
-          <el-button size="small" link type="primary" @click="cycle">切换</el-button>
-          <el-button v-permission="PERM.attendanceEventWrite" size="small" link type="danger" @click="handleDelete">删除</el-button>
+          <el-button size="small" link type="primary" @click.stop="cycle">切换</el-button>
+          <el-button v-permission="PERM.attendanceEventWrite" size="small" link type="danger" @click.stop="handleDelete">删除</el-button>
         </template>
       </AttendanceDailyBlock>
       <span v-if="items.length > 1" class="deck-badge">共 {{ items.length }} 组</span>
@@ -36,6 +37,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
+  (e: 'view', item: any): void
   (e: 'edit', item: any): void
   (e: 'confirm', item: any): void
   (e: 'delete', item: any): void

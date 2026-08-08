@@ -382,46 +382,38 @@ func buildSalarySummaryRows(list []model.SalarySummary) []map[string]interface{}
 	return result
 }
 
+// salarySummaryStaleSources 月度工资汇总过期数据源（行级/批量徽章共用同一份定义）：
+// 核算/快照 last_calc_at + 工资事件/年假事件/考勤日事件的 updated_at 与 deleted_at
+// （L0 事件软删除时间纳入检测：事件删除致派生层清空时由事件表 deleted_at 兜底）
+func salarySummaryStaleSources(start, end utils.DateOnly, month string) []StaleSource {
+	return []StaleSource{
+		{Model: &model.AttendanceCalculationMonthly{}, Column: "last_calc_at",
+			Where: "belong_month = ?", Args: []interface{}{month}},
+		{Model: &model.PositionSnapshot{}, Column: "last_calc_at",
+			Where: "effective_start_date <= ? AND effective_end_date >= ?", Args: []interface{}{end, start}},
+		{Model: &model.AttendanceDaily{}, Column: "updated_at", Unscoped: true,
+			Where: "event_date >= ? AND event_date <= ?", Args: []interface{}{start, end}},
+		{Model: &model.AttendanceDaily{}, Column: "deleted_at", Unscoped: true, Nullable: true,
+			Where: "event_date >= ? AND event_date <= ?", Args: []interface{}{start, end}},
+		{Model: &model.SalaryEvent{}, Column: "updated_at", Unscoped: true,
+			Where: "belong_month = ?", Args: []interface{}{month}},
+		{Model: &model.SalaryEvent{}, Column: "deleted_at", Unscoped: true, Nullable: true,
+			Where: "belong_month = ?", Args: []interface{}{month}},
+		{Model: &model.AnnualLeaveAccountEvent{}, Column: "updated_at", Unscoped: true,
+			Where: "effective_date >= ? AND effective_date <= ?", Args: []interface{}{start, end}},
+		{Model: &model.AnnualLeaveAccountEvent{}, Column: "deleted_at", Unscoped: true, Nullable: true,
+			Where: "effective_date >= ? AND effective_date <= ?", Args: []interface{}{start, end}},
+	}
+}
+
 func IsSalarySummaryStale(summary *model.SalarySummary) string {
 	monthStart, _ := utils.MonthStart(summary.BelongMonth)
 	monthEnd, _ := utils.MonthEnd(summary.BelongMonth)
-	monthStartD := utils.DateOnlyFromTime(monthStart)
-	monthEndD := utils.DateOnlyFromTime(monthEnd)
-
-	var calcTimes []*time.Time
-	dao.DB.Model(&model.AttendanceCalculationMonthly{}).
-		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
-		Pluck("last_calc_at", &calcTimes)
-
-	var snapTimes []*time.Time
-	dao.DB.Model(&model.PositionSnapshot{}).
-		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
-			summary.PersonID, monthEndD, monthStartD).
-		Pluck("last_calc_at", &snapTimes)
-
-	// 工资事件：行级 max(updated_at, deleted_at) 再聚合取最大（软删除时间纳入检测）
-	var evUpds, evDels []*time.Time
-	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
-		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
-		Pluck("updated_at", &evUpds)
-	dao.DB.Model(&model.SalaryEvent{}).Unscoped().
-		Where("person_id = ? AND belong_month = ?", summary.PersonID, summary.BelongMonth).
-		Pluck("deleted_at", &evDels)
-
-	var alUpds, alDels []*time.Time
-	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
-		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
-			summary.PersonID, monthStartD, monthEndD).
-		Pluck("updated_at", &alUpds)
-	dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
-		Where("person_id = ? AND effective_date >= ? AND effective_date <= ?",
-			summary.PersonID, monthStartD, monthEndD).
-		Pluck("deleted_at", &alDels)
-
-	if IsStaleAfter(summary.LastCalcAt, calcTimes, snapTimes, evUpds, evDels, alUpds, alDels) {
+	changed, err := RowDataChanged(summary.LastCalcAt, summary.PersonID,
+		salarySummaryStaleSources(utils.DateOnlyFromTime(monthStart), utils.DateOnlyFromTime(monthEnd), summary.BelongMonth))
+	if err != nil || changed {
 		return "data_changed"
 	}
-
 	return "calculated"
 }
 
@@ -547,65 +539,10 @@ func GetSalarySummariesBadges(month string) ([]PersonBadge, error) {
 		sumMap[s.PersonID] = s
 	}
 
-	type timeRow struct {
-		PersonID uint
-		At       time.Time
-	}
-	latest := make(map[uint]time.Time)
-	collect := func(rows []timeRow) {
-		for _, r := range rows {
-			if r.At.After(latest[r.PersonID]) {
-				latest[r.PersonID] = r.At
-			}
-		}
-	}
-	// 1. 考勤核算（belong_month 匹配）
-	var calcRows []timeRow
-	if err := dao.DB.Model(&model.AttendanceCalculationMonthly{}).
-		Select("person_id, last_calc_at AS at").Where("belong_month = ?", month).
-		Scan(&calcRows).Error; err != nil {
+	latest, err := PersonLatestTimes(salarySummaryStaleSources(monthStartD, monthEndD, month))
+	if err != nil {
 		return nil, err
 	}
-	collect(calcRows)
-	// 2. 职务快照（覆盖当月）
-	var snapRows []timeRow
-	if err := dao.DB.Model(&model.PositionSnapshot{}).
-		Select("person_id, last_calc_at AS at").
-		Where("effective_start_date <= ? AND effective_end_date >= ?", monthEndD, monthStartD).
-		Scan(&snapRows).Error; err != nil {
-		return nil, err
-	}
-	collect(snapRows)
-	// 3. 工资事件（软删除时间纳入 stale 检测）
-	var evRows []timeRow
-	if err := dao.DB.Model(&model.SalaryEvent{}).Unscoped().
-		Select("person_id, updated_at AS at").Where("belong_month = ?", month).
-		Scan(&evRows).Error; err != nil {
-		return nil, err
-	}
-	collect(evRows)
-	var evDelRows []timeRow
-	if err := dao.DB.Model(&model.SalaryEvent{}).Unscoped().
-		Select("person_id, deleted_at AS at").Where("belong_month = ? AND deleted_at IS NOT NULL", month).
-		Scan(&evDelRows).Error; err != nil {
-		return nil, err
-	}
-	collect(evDelRows)
-	// 4. 年假事件（结转影响当月工资）
-	var alRows []timeRow
-	if err := dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
-		Select("person_id, updated_at AS at").Where("effective_date >= ? AND effective_date <= ?", monthStartD, monthEndD).
-		Scan(&alRows).Error; err != nil {
-		return nil, err
-	}
-	collect(alRows)
-	var alDelRows []timeRow
-	if err := dao.DB.Model(&model.AnnualLeaveAccountEvent{}).Unscoped().
-		Select("person_id, deleted_at AS at").Where("effective_date >= ? AND effective_date <= ? AND deleted_at IS NOT NULL", monthStartD, monthEndD).
-		Scan(&alDelRows).Error; err != nil {
-		return nil, err
-	}
-	collect(alDelRows)
 
 	var personIDs []uint
 	if err := dao.DB.Table("persons").Where("deleted_at IS NULL").Pluck("id", &personIDs).Error; err != nil {

@@ -70,12 +70,18 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			segEnd := s.EffectiveEndDate.Time()
 
 			calcStart := monthStart
-			if segStart.After(calcStart) { calcStart = segStart }
+			if segStart.After(calcStart) {
+				calcStart = segStart
+			}
 			calcEnd := monthEnd
-			if segEnd.Before(calcEnd) { calcEnd = segEnd }
+			if segEnd.Before(calcEnd) {
+				calcEnd = segEnd
+			}
 
 			segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
-			if segDays <= 0 { continue }
+			if segDays <= 0 {
+				continue
+			}
 			if !s.IsActive || !s.HasAttendanceBonus {
 				hasAttendanceBonus = false
 			}
@@ -86,13 +92,21 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			segEnd := s.EffectiveEndDate.Time()
 
 			calcStart := monthStart
-			if segStart.After(calcStart) { calcStart = segStart }
+			if segStart.After(calcStart) {
+				calcStart = segStart
+			}
 			calcEnd := monthEnd
-			if segEnd.Before(calcEnd) { calcEnd = segEnd }
+			if segEnd.Before(calcEnd) {
+				calcEnd = segEnd
+			}
 
 			segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
-			if segDays <= 0 { continue }
-			if !s.IsActive { continue }
+			if segDays <= 0 {
+				continue
+			}
+			if !s.IsActive {
+				continue
+			}
 
 			totalDays += segDays
 			weightedBase = utils.DecimalAdd(weightedBase, utils.DecimalMul(s.BaseSalary, segDays))
@@ -166,21 +180,21 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 		}
 
 		calc := model.AttendanceCalculationMonthly{
-			PersonID:                   personID,
-			BelongMonth:                month,
-			SalaryDays:                 avgSalaryDays,
-			WeightedBaseSalary:         utils.RoundTwoDecimal(weightedBase),
-			WeightedMealAllowance:      utils.RoundTwoDecimal(weightedMeal),
-			TotalWorkHours:             totalWorkHours,
-			TotalOvertimeWorkdayHours:  overtimeWorkday,
-			TotalOvertimeHolidayHours:  overtimeHoliday,
-			AttendanceSalary:           attendanceSalary,
-			OvertimeWorkdaySalary:      overtimeWorkdaySalary,
-			OvertimeHolidaySalary:      overtimeHolidaySalary,
-			HasPersonalLeaveMonth:      hasPersonalLeave,
-			TotalViolationCount:        totalViolations,
-			AttendanceBonus:            attendanceBonus,
-			LastCalcAt: time.Now(),
+			PersonID:                  personID,
+			BelongMonth:               month,
+			SalaryDays:                avgSalaryDays,
+			WeightedBaseSalary:        utils.RoundTwoDecimal(weightedBase),
+			WeightedMealAllowance:     utils.RoundTwoDecimal(weightedMeal),
+			TotalWorkHours:            totalWorkHours,
+			TotalOvertimeWorkdayHours: overtimeWorkday,
+			TotalOvertimeHolidayHours: overtimeHoliday,
+			AttendanceSalary:          attendanceSalary,
+			OvertimeWorkdaySalary:     overtimeWorkdaySalary,
+			OvertimeHolidaySalary:     overtimeHolidaySalary,
+			HasPersonalLeaveMonth:     hasPersonalLeave,
+			TotalViolationCount:       totalViolations,
+			AttendanceBonus:           attendanceBonus,
+			LastCalcAt:                time.Now(),
 		}
 
 		// ⑥ 有值：物理删旧记录 + 新建（幂等覆盖，历史由审计快照留存）
@@ -198,7 +212,8 @@ func CalculateMonthlyAttendance(ctx context.Context, personID uint, month string
 			return err
 		}
 
-		b, _ := json.Marshal(calc); newJSON = string(b)
+		b, _ := json.Marshal(calc)
+		newJSON = string(b)
 		tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
 		audited = true
 		result = &calc
@@ -321,25 +336,28 @@ func buildMonthlyRows(list []model.AttendanceCalculationMonthly) []map[string]in
 	return result
 }
 
+// attendanceMonthlyStaleSources 月度考勤核算过期数据源（行级/批量徽章共用同一份定义）：
+// 日记工时投影/职务快照 last_calc_at + 考勤日事件 updated_at 与 deleted_at——
+// 事件删除致投影清空时，投影时间信号消失，由事件表 deleted_at 兜底（与工资汇总 L0 事件源同构）
+func attendanceMonthlyStaleSources(start, end utils.DateOnly) []StaleSource {
+	return []StaleSource{
+		{Model: &model.AttendanceDailyProjection{}, Column: "last_calc_at",
+			Where: "work_date >= ? AND work_date <= ?", Args: []interface{}{start, end}},
+		{Model: &model.PositionSnapshot{}, Column: "last_calc_at",
+			Where: "effective_start_date <= ? AND effective_end_date >= ?", Args: []interface{}{end, start}},
+		{Model: &model.AttendanceDaily{}, Column: "updated_at", Unscoped: true,
+			Where: "event_date >= ? AND event_date <= ?", Args: []interface{}{start, end}},
+		{Model: &model.AttendanceDaily{}, Column: "deleted_at", Unscoped: true, Nullable: true,
+			Where: "event_date >= ? AND event_date <= ?", Args: []interface{}{start, end}},
+	}
+}
+
 func IsAttendanceMonthlyStale(calc *model.AttendanceCalculationMonthly) string {
 	monthStart, _ := utils.MonthStart(calc.BelongMonth)
 	monthEnd, _ := utils.MonthEnd(calc.BelongMonth)
-	monthStartD := utils.DateOnlyFromTime(monthStart)
-	monthEndD := utils.DateOnlyFromTime(monthEnd)
-
-	var dailyTimes []*time.Time
-	dao.DB.Model(&model.AttendanceDailyProjection{}).
-		Where("person_id = ? AND work_date >= ? AND work_date <= ?",
-			calc.PersonID, monthStartD, monthEndD).
-		Pluck("last_calc_at", &dailyTimes)
-
-	var snapTimes []*time.Time
-	dao.DB.Model(&model.PositionSnapshot{}).
-		Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
-			calc.PersonID, monthEndD, monthStartD).
-		Pluck("last_calc_at", &snapTimes)
-
-	if IsStaleAfter(calc.LastCalcAt, dailyTimes, snapTimes) {
+	changed, err := RowDataChanged(calc.LastCalcAt, calc.PersonID,
+		attendanceMonthlyStaleSources(utils.DateOnlyFromTime(monthStart), utils.DateOnlyFromTime(monthEnd)))
+	if err != nil || changed {
 		return "data_changed"
 	}
 	return "calculated"
@@ -363,7 +381,7 @@ func CalculateMonthlyBatch(ctx context.Context, month string, personIDs []uint) 
 
 // GetAttendanceMonthlyBadges 月度考勤核算徽章（指定月份）：无核算记录 gray；
 // 核算过期（投影/快照 last_calc_at 晚于核算时间）orange；已核算未过期 green。
-// stale 判定与 IsAttendanceMonthlyStale 语义等价，但按人员批量聚合派生层最后计算时间，
+// stale 判定与 IsAttendanceMonthlyStale 共用同一份源定义，批量聚合派生层最后计算时间，
 // 消除逐人循环查询（N+1）。
 func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 	monthStart, err := utils.MonthStart(month)
@@ -382,36 +400,9 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 		calcMap[c.PersonID] = c
 	}
 
-	type calcTimeRow struct {
-		PersonID   uint
-		LastCalcAt time.Time
-	}
-	// 批量拉取当月投影 / 覆盖当月的职务快照最后计算时间（一次查询 + Go 聚合，消除 N+1）
-	projLatest := make(map[uint]time.Time)
-	var projRows []calcTimeRow
-	if err := dao.DB.Model(&model.AttendanceDailyProjection{}).
-		Select("person_id, last_calc_at").
-		Where("work_date >= ? AND work_date <= ?", monthStartD, monthEndD).
-		Scan(&projRows).Error; err != nil {
+	latest, err := PersonLatestTimes(attendanceMonthlyStaleSources(monthStartD, monthEndD))
+	if err != nil {
 		return nil, err
-	}
-	for _, r := range projRows {
-		if r.LastCalcAt.After(projLatest[r.PersonID]) {
-			projLatest[r.PersonID] = r.LastCalcAt
-		}
-	}
-	snapLatest := make(map[uint]time.Time)
-	var snapRows []calcTimeRow
-	if err := dao.DB.Model(&model.PositionSnapshot{}).
-		Select("person_id, last_calc_at").
-		Where("effective_start_date <= ? AND effective_end_date >= ?", monthEndD, monthStartD).
-		Scan(&snapRows).Error; err != nil {
-		return nil, err
-	}
-	for _, r := range snapRows {
-		if r.LastCalcAt.After(snapLatest[r.PersonID]) {
-			snapLatest[r.PersonID] = r.LastCalcAt
-		}
 	}
 
 	var personIDs []uint
@@ -426,11 +417,7 @@ func GetAttendanceMonthlyBadges(month string) ([]PersonBadge, error) {
 			continue
 		}
 		level := "green"
-		latest := projLatest[pid]
-		if t, ok := snapLatest[pid]; ok && t.After(latest) {
-			latest = t
-		}
-		if latest.After(calc.LastCalcAt) {
+		if latest[pid].After(calc.LastCalcAt) {
 			level = "orange"
 		}
 		result = append(result, PersonBadge{PersonID: pid, Level: level})

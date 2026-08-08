@@ -3,7 +3,7 @@
     <el-tabs v-model="activeTab">
       <el-tab-pane label="月度核算" name="calc">
         <div v-loading="loading" class="detail-wrap">
-          <AttendanceCalcDescriptions :calc="row" :show-status="true" :status="row?.status" empty-text="当月无核算记录" />
+          <AttendanceCalcDescriptions :calc="row" :show-status="true" :status="row?.status" :show-calc-at="true" empty-text="当月无核算记录" />
         </div>
       </el-tab-pane>
       <el-tab-pane label="全链路追溯" name="trace">

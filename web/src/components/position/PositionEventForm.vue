@@ -1,7 +1,8 @@
 <template>
   <el-form :model="eventForm" label-width="110px">
     <el-form-item label="人员" required>
-      <NameSelect v-model="eventForm.person_id" placeholder="选择人员" :disabled="isEdit" />
+      <PersonDomainSelect v-if="!isEdit" v-model="eventForm.person_ids" />
+      <NameSelect v-else v-model="eventForm.person_id" :disabled="isEdit" />
     </el-form-item>
     <el-form-item label="事件类型" required>
       <el-select v-model="eventForm.event_type" style="width:100%" :disabled="isEdit">
@@ -136,6 +137,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
+import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import { createPositionEvent, updatePositionEvent, getPositionEvent } from '@/api/position-event'
 import { getAllCompanies } from '@/api/company'
 
@@ -156,6 +158,7 @@ const eventTypes = ['入职', '调薪调岗', '离职']
 const isEdit = computed(() => props.event?.id != null)
 
 const emptyForm = () => ({
+  person_ids: [] as number[],
   person_id: null,
   event_type: '',
   entry_date: '',
@@ -284,10 +287,10 @@ function addAdjustItem() {
 }
 
 async function handleSubmit() {
-  if (!eventForm.person_id) { ElMessage.warning('请选择人员'); return }
+  if (isEdit.value ? !eventForm.person_id : !eventForm.person_ids.length) { ElMessage.warning('请选择人员'); return }
   if (!eventForm.event_type) { ElMessage.warning('请选择事件类型'); return }
 
-  const data: any = { person_id: eventForm.person_id, event_type: eventForm.event_type, remark: eventForm.remark || '' }
+  const data: any = { event_type: eventForm.event_type, remark: eventForm.remark || '' }
 
   if (eventForm.event_type === '入职') {
     if (!eventForm.entry_date) { ElMessage.warning('请选择入职日期'); return }
@@ -319,11 +322,22 @@ async function handleSubmit() {
   saving.value = true
   try {
     if (isEdit.value) {
-      await updatePositionEvent(props.event.id, data)
+      await updatePositionEvent(props.event.id, { ...data, person_id: eventForm.person_id })
+      ElMessage.success('更新成功')
     } else {
-      await createPositionEvent(data)
+      // 多选创建：逐人创建，失败计数继续（与批量录入策略一致）
+      let success = 0
+      let fail = 0
+      for (const pid of eventForm.person_ids) {
+        try {
+          await createPositionEvent({ ...data, person_id: pid })
+          success++
+        } catch {
+          fail++
+        }
+      }
+      ElMessage.success(`创建成功 ${success} 人，失败 ${fail} 人`)
     }
-    ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
     emit('saved')
   } catch {
     /* handled */

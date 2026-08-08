@@ -58,6 +58,7 @@ import { formatDateTime } from '@/utils'
 import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
 import { useExport } from '@/composables/useExport'
+import { SALARY_SUMMARY_FIELDS, fieldsToColumns } from '@/constants/fields'
 
 const router = useRouter()
 const tableRef=ref()
@@ -67,13 +68,11 @@ const timePanelRef=ref()
 // 徽章映射：personId → 颜色点（上月无核算 gray / 汇总过期 orange / 正常 green）
 const { dotMap, loadDots } = useBadges()
 
-const columns=[
-  {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
-  {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'performance_salary',label:'绩效工资',width:'100'},
-  {prop:'attendance_bonus',label:'全勤奖',width:'80'},{prop:'final_salary',label:'实发工资',width:'110'},
-  {prop:'status',label:'状态',width:'110',slot:'status'},
-  {prop:'last_calc_at',label:'核算时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
-]
+// 列表字段 = 统一字段表（与明细/版本/对比/追溯/导出同源）+ 状态/核算时间
+const columns = fieldsToColumns(SALARY_SUMMARY_FIELDS, [
+  { prop: 'status', label: '状态', width: 110, slot: 'status' },
+  { prop: 'last_calc_at', label: '核算时间', width: 160, formatter: (r: any) => formatDateTime(r.last_calc_at) },
+])
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const},
   {prop:'months',label:'月份',type:'months' as const},

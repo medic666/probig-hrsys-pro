@@ -3,7 +3,6 @@ package handler
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	"probig/server/internal/service"
 	"probig/server/internal/utils"
@@ -80,6 +79,30 @@ func monthlyExportFilters(q service.MonthlyListQuery) []string {
 	return parts
 }
 
+// attendanceCalcExportFields 月度考勤核算导出字段表（与列表/详情/追溯统一口径）
+var attendanceCalcExportFields = []exportField{
+	{"belong_month", "月份", nil},
+	{"person_name", "人员", nil},
+	{"salary_days", "计薪天数", nil},
+	{"total_work_hours", "记出勤", hoursToDaysFmt},
+	{"weighted_base_salary", "加权基本工资", nil},
+	{"attendance_salary", "出勤工资", nil},
+	{"total_overtime_workday_hours", "工作日加班", hoursToDaysFmt},
+	{"overtime_workday_salary", "工作日加班工资", nil},
+	{"total_overtime_holiday_hours", "节假日加班", hoursToDaysFmt},
+	{"overtime_holiday_salary", "节假日加班工资", nil},
+	{"has_personal_leave_month", "有事假", exportBoolFmt},
+	{"total_violation_count", "违纪次数", nil},
+	{"attendance_bonus", "全勤奖", nil},
+	{"status", "状态", exportStatusFmt},
+	{"last_calc_at", "核算时间", exportTimeFmt},
+}
+
+// hoursToDaysFmt 工时转天（按配置的每日标准工时，与前端 hoursToDays 口径一致）
+func hoursToDaysFmt(v interface{}) interface{} {
+	return service.HoursToDays(v.(float64))
+}
+
 func ExportAttendanceMonthly(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := monthlyListQuery(c)
@@ -90,19 +113,6 @@ func ExportAttendanceMonthly(c *gin.Context) {
 		return
 	}
 
-	var rows [][]interface{}
-	for _, s := range list {
-		rows = append(rows, []interface{}{
-			s["belong_month"], s["person_name"], s["salary_days"], s["weighted_base_salary"],
-			s["total_work_hours"], s["total_overtime_workday_hours"], s["total_overtime_holiday_hours"],
-			s["attendance_salary"], s["overtime_workday_salary"], s["overtime_holiday_salary"],
-			s["attendance_bonus"], s["total_violation_count"], exportBool(s["has_personal_leave_month"].(bool)),
-			s["last_calc_at"].(time.Time).Format("2006-01-02 15:04:05"),
-			map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[s["status"].(string)],
-		})
-	}
-	writeExcel(c, "月度考勤核算",
-		[]string{"月份", "人员", "计薪天数", "加权基本工资", "记出勤工时", "工作日加班工时", "节假日加班工时",
-			"出勤工资", "工作日加班工资", "节假日加班工资", "全勤奖", "违纪次数", "有事假", "核算时间", "状态"}, rows,
-		monthlyExportFilters(q)...)
+	rows, headers := buildExportRows(list, attendanceCalcExportFields)
+	writeExcel(c, "月度考勤核算", headers, rows, monthlyExportFilters(q)...)
 }

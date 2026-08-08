@@ -34,231 +34,232 @@ func CalculateSalary(ctx context.Context, personID uint, month string, operatorI
 			return clearSalarySummaryInTx(tx, personID, month, &oldJSON, &personName, &audited)
 		}
 
-	var snapshots []model.PositionSnapshot
-	tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
-		personID, monthEndD, monthStartD).Find(&snapshots)
+		var snapshots []model.PositionSnapshot
+		tx.Where("person_id = ? AND effective_start_date <= ? AND effective_end_date >= ?",
+			personID, monthEndD, monthStartD).Find(&snapshots)
 
-	if len(snapshots) == 0 {
-		return fmt.Errorf("当月无在职记录")
-	}
-
-	var activeDays float64
-	var wPerfBase, wPost, wMeal, wHousing, wTransport, wHighTemp, wInsComp, wFundComp, wSSDeduct, wHFDeduct float64
-
-	for _, s := range snapshots {
-		segStart := s.EffectiveStartDate.Time()
-		segEnd := s.EffectiveEndDate.Time()
-		calcStart := monthStart
-		if segStart.After(calcStart) {
-			calcStart = segStart
+		if len(snapshots) == 0 {
+			return fmt.Errorf("当月无在职记录")
 		}
-		calcEnd := monthEnd
-		if segEnd.Before(calcEnd) {
-			calcEnd = segEnd
-		}
-		segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
-		if segDays <= 0 {
-			continue
-		}
-		if !s.IsActive {
-			continue
-		}
-		activeDays += segDays
-		wPerfBase = utils.DecimalAdd(wPerfBase, utils.DecimalMul(s.PerformanceSalary, segDays))
-		wPost = utils.DecimalAdd(wPost, utils.DecimalMul(s.PostAllowance, segDays))
-		wMeal = utils.DecimalAdd(wMeal, utils.DecimalMul(s.MealAllowance, segDays))
-		wHousing = utils.DecimalAdd(wHousing, utils.DecimalMul(s.HousingAllowance, segDays))
-		wTransport = utils.DecimalAdd(wTransport, utils.DecimalMul(s.TransportAllowance, segDays))
-		wHighTemp = utils.DecimalAdd(wHighTemp, utils.DecimalMul(s.HighTempAllowance, segDays))
-		wInsComp = utils.DecimalAdd(wInsComp, utils.DecimalMul(s.InsuranceCompensation, segDays))
-		wFundComp = utils.DecimalAdd(wFundComp, utils.DecimalMul(s.FundCompensation, segDays))
-		wSSDeduct = utils.DecimalAdd(wSSDeduct, utils.DecimalMul(s.SocialSecurityDeduct, segDays))
-		wHFDeduct = utils.DecimalAdd(wHFDeduct, utils.DecimalMul(s.HousingFundDeduct, segDays))
-	}
 
-	if activeDays == 0 {
-		return fmt.Errorf("当月无在职记录")
-	}
+		var activeDays float64
+		var wPerfBase, wPost, wMeal, wHousing, wTransport, wHighTemp, wInsComp, wFundComp, wSSDeduct, wHFDeduct float64
 
-	if calc.SalaryDays == 0 {
-		return fmt.Errorf("计薪天数为0")
-	}
-
-	salaryDays := calc.SalaryDays
-	totalCalendarDays := monthEnd.Sub(monthStart).Hours()/24 + 1
-	isFullMonth := activeDays == totalCalendarDays
-	attendanceDays := calc.TotalWorkHours / getWorkHoursPerDay()
-
-	// 非全月（入职/离职月）：补贴与绩效统一按实际出勤比例折算
-	// 全月在职：wXxx/activeDays 直取定额；入职/离职月：(wXxx/activeDays) × (attendanceDays/salaryDays)
-	subsidyRatio := 1.0
-	if !isFullMonth {
-		subsidyRatio = attendanceDays / salaryDays
-	}
-
-	post := utils.RoundTwoDecimal(wPost / activeDays * subsidyRatio)
-	meal := utils.RoundTwoDecimal(wMeal / activeDays * subsidyRatio)
-	housing := utils.RoundTwoDecimal(wHousing / activeDays * subsidyRatio)
-	transport := utils.RoundTwoDecimal(wTransport / activeDays * subsidyRatio)
-	highTemp := utils.RoundTwoDecimal(wHighTemp / activeDays * subsidyRatio)
-	if !isHighTempMonth(month) {
-		highTemp = 0
-	}
-	insComp := utils.RoundTwoDecimal(wInsComp / activeDays * subsidyRatio)
-	fundComp := utils.RoundTwoDecimal(wFundComp / activeDays * subsidyRatio)
-	ssDeduct := utils.RoundTwoDecimal(wSSDeduct / activeDays)
-	hfDeduct := utils.RoundTwoDecimal(wHFDeduct / activeDays)
-
-	var perfCoeff float64 = 1
-	var salesCommission, rewardPunishment, borrowingRepayment, taxDeduct float64
-	var salaryEvents []model.SalaryEvent
-	tx.Where("person_id = ? AND belong_month = ?", personID, month).Order("seq DESC").Find(&salaryEvents)
-
-	maxCoeffSeq := 0
-	for _, e := range salaryEvents {
-		switch e.EventType {
-		case "绩效系数":
-			if e.Seq > maxCoeffSeq {
-				perfCoeff = e.Amount
-				maxCoeffSeq = e.Seq
+		for _, s := range snapshots {
+			segStart := s.EffectiveStartDate.Time()
+			segEnd := s.EffectiveEndDate.Time()
+			calcStart := monthStart
+			if segStart.After(calcStart) {
+				calcStart = segStart
 			}
-		case "提成":
-			salesCommission = utils.DecimalAdd(salesCommission, e.Amount)
-		case "奖惩":
-			rewardPunishment = utils.DecimalAdd(rewardPunishment, e.Amount)
-		case "预支还款":
-			borrowingRepayment = utils.DecimalAdd(borrowingRepayment, e.Amount)
-		case "个税扣除":
-			taxDeduct = utils.DecimalAdd(taxDeduct, e.Amount)
+			calcEnd := monthEnd
+			if segEnd.Before(calcEnd) {
+				calcEnd = segEnd
+			}
+			segDays := calcEnd.Sub(calcStart).Hours()/24 + 1
+			if segDays <= 0 {
+				continue
+			}
+			if !s.IsActive {
+				continue
+			}
+			activeDays += segDays
+			wPerfBase = utils.DecimalAdd(wPerfBase, utils.DecimalMul(s.PerformanceSalary, segDays))
+			wPost = utils.DecimalAdd(wPost, utils.DecimalMul(s.PostAllowance, segDays))
+			wMeal = utils.DecimalAdd(wMeal, utils.DecimalMul(s.MealAllowance, segDays))
+			wHousing = utils.DecimalAdd(wHousing, utils.DecimalMul(s.HousingAllowance, segDays))
+			wTransport = utils.DecimalAdd(wTransport, utils.DecimalMul(s.TransportAllowance, segDays))
+			wHighTemp = utils.DecimalAdd(wHighTemp, utils.DecimalMul(s.HighTempAllowance, segDays))
+			wInsComp = utils.DecimalAdd(wInsComp, utils.DecimalMul(s.InsuranceCompensation, segDays))
+			wFundComp = utils.DecimalAdd(wFundComp, utils.DecimalMul(s.FundCompensation, segDays))
+			wSSDeduct = utils.DecimalAdd(wSSDeduct, utils.DecimalMul(s.SocialSecurityDeduct, segDays))
+			wHFDeduct = utils.DecimalAdd(wHFDeduct, utils.DecimalMul(s.HousingFundDeduct, segDays))
 		}
-	}
 
-	perfSalary := utils.RoundTwoDecimal(wPerfBase / activeDays * subsidyRatio * perfCoeff)
-
-	var carryoverDeductHours float64
-	tx.Model(&model.AnnualLeaveAccountEvent{}).
-		Where("person_id = ? AND event_type = ? AND effective_date >= ? AND effective_date <= ?",
-			personID, "carryover_deduct", monthStartD, monthEndD).
-		Select("COALESCE(SUM(hours), 0)").Scan(&carryoverDeductHours)
-
-	workHoursPerDay := getWorkHoursPerDay()
-	holidayRatio := getOvertimeHolidayRatio()
-	carryoverSalary := 0.0
-	if calc.SalaryDays > 0 {
-		carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / calc.SalaryDays / workHoursPerDay * holidayRatio)
-	}
-
-	salesCommission = utils.RoundTwoDecimal(salesCommission)
-	rewardPunishment = utils.RoundTwoDecimal(rewardPunishment)
-	borrowingRepayment = utils.RoundTwoDecimal(borrowingRepayment)
-	taxDeduct = utils.RoundTwoDecimal(taxDeduct)
-
-	finalSalary := utils.RoundTwoDecimal(
-		calc.AttendanceSalary + calc.OvertimeWorkdaySalary + calc.OvertimeHolidaySalary +
-			carryoverSalary + calc.AttendanceBonus + perfSalary +
-			post + meal + housing + transport + highTemp + insComp + fundComp +
-			salesCommission + rewardPunishment + borrowingRepayment -
-			ssDeduct - hfDeduct - taxDeduct,
-	)
-
-	summary := model.SalarySummary{
-		PersonID:                      personID,
-		BelongMonth:                   month,
-		SalaryDays:                    calc.SalaryDays,
-		WeightedBaseSalary:            calc.WeightedBaseSalary,
-		TotalWorkHours:                calc.TotalWorkHours,
-		TotalOvertimeWorkdayHours:     calc.TotalOvertimeWorkdayHours,
-		TotalOvertimeHolidayHours:     calc.TotalOvertimeHolidayHours,
-		AttendanceSalary:              calc.AttendanceSalary,
-		OvertimeWorkdaySalary:         calc.OvertimeWorkdaySalary,
-		OvertimeHolidaySalary:         calc.OvertimeHolidaySalary,
-		AnnualLeaveCarryoverDeduct:    carryoverDeductHours,
-		AnnualLeaveCarryoverSalary:    carryoverSalary,
-		AttendanceBonus:               calc.AttendanceBonus,
-		PerformanceSalary:             perfSalary,
-		PostAllowance:                 post,
-		MealAllowance:                 meal,
-		HousingAllowance:              housing,
-		TransportAllowance:            transport,
-		HighTempAllowance:             highTemp,
-		InsuranceCompensation:         insComp,
-		FundCompensation:              fundComp,
-		SalesCommission:               salesCommission,
-		RewardPunishment:              rewardPunishment,
-		BorrowingRepayment:            borrowingRepayment,
-		SocialSecurityDeduct:          ssDeduct,
-		HousingFundDeduct:             hfDeduct,
-		TaxDeduct:                     taxDeduct,
-		FinalSalary:                   finalSalary,
-		LastCalcAt: time.Now(),
-	}
-
-	var maxVersion int
-	tx.Model(&model.SalarySummaryVersion{}).
-		Where("person_id = ? AND belong_month = ?", personID, month).
-		Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
-
-	batchNo := "SAL-" + month + "-" + strconv.FormatInt(time.Now().Unix(), 10)
-
-	version := model.SalarySummaryVersion{
-		PersonID:                      personID,
-		BelongMonth:                   month,
-		Version:                       maxVersion + 1,
-		CalcBatchNo:                   batchNo,
-		OperatorID:                    operatorID,
-		OperatorName:                  operatorName,
-		SalaryDays:                    calc.SalaryDays,
-		WeightedBaseSalary:            calc.WeightedBaseSalary,
-		TotalWorkHours:                calc.TotalWorkHours,
-		TotalOvertimeWorkdayHours:     calc.TotalOvertimeWorkdayHours,
-		TotalOvertimeHolidayHours:     calc.TotalOvertimeHolidayHours,
-		AttendanceSalary:              calc.AttendanceSalary,
-		OvertimeWorkdaySalary:         calc.OvertimeWorkdaySalary,
-		OvertimeHolidaySalary:         calc.OvertimeHolidaySalary,
-		AnnualLeaveCarryoverDeduct:    carryoverDeductHours,
-		AnnualLeaveCarryoverSalary:    carryoverSalary,
-		AttendanceBonus:               calc.AttendanceBonus,
-		PerformanceSalary:             perfSalary,
-		PostAllowance:                 post,
-		MealAllowance:                 meal,
-		HousingAllowance:              housing,
-		TransportAllowance:            transport,
-		HighTempAllowance:             highTemp,
-		InsuranceCompensation:         insComp,
-		FundCompensation:              fundComp,
-		SalesCommission:               salesCommission,
-		RewardPunishment:              rewardPunishment,
-		BorrowingRepayment:            borrowingRepayment,
-		SocialSecurityDeduct:          ssDeduct,
-		HousingFundDeduct:             hfDeduct,
-		TaxDeduct:                     taxDeduct,
-		FinalSalary:                   finalSalary,
-	}
-	if err := tx.Create(&version).Error; err != nil {
-		return err
-	}
-
-	// 核算前旧汇总快照（审计 before）
-	oldJSON = ""
-	var oldSummary model.SalarySummary
-	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldSummary).Error; err == nil {
-		if b, err := json.Marshal(oldSummary); err == nil {
-			oldJSON = string(b)
+		if activeDays == 0 {
+			return fmt.Errorf("当月无在职记录")
 		}
-	}
 
-	if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.SalarySummary{}).Error; err != nil {
-		return err
-	}
-	if err := tx.Create(&summary).Error; err != nil {
-		return err
-	}
+		if calc.SalaryDays == 0 {
+			return fmt.Errorf("计薪天数为0")
+		}
 
-	b, _ := json.Marshal(summary); newJSON = string(b)
-	tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
-	audited = true
-	result = &summary
-	return nil
+		salaryDays := calc.SalaryDays
+		totalCalendarDays := monthEnd.Sub(monthStart).Hours()/24 + 1
+		isFullMonth := activeDays == totalCalendarDays
+		attendanceDays := calc.TotalWorkHours / getWorkHoursPerDay()
+
+		// 非全月（入职/离职月）：补贴与绩效统一按实际出勤比例折算
+		// 全月在职：wXxx/activeDays 直取定额；入职/离职月：(wXxx/activeDays) × (attendanceDays/salaryDays)
+		subsidyRatio := 1.0
+		if !isFullMonth {
+			subsidyRatio = attendanceDays / salaryDays
+		}
+
+		post := utils.RoundTwoDecimal(wPost / activeDays * subsidyRatio)
+		meal := utils.RoundTwoDecimal(wMeal / activeDays * subsidyRatio)
+		housing := utils.RoundTwoDecimal(wHousing / activeDays * subsidyRatio)
+		transport := utils.RoundTwoDecimal(wTransport / activeDays * subsidyRatio)
+		highTemp := utils.RoundTwoDecimal(wHighTemp / activeDays * subsidyRatio)
+		if !isHighTempMonth(month) {
+			highTemp = 0
+		}
+		insComp := utils.RoundTwoDecimal(wInsComp / activeDays * subsidyRatio)
+		fundComp := utils.RoundTwoDecimal(wFundComp / activeDays * subsidyRatio)
+		ssDeduct := utils.RoundTwoDecimal(wSSDeduct / activeDays)
+		hfDeduct := utils.RoundTwoDecimal(wHFDeduct / activeDays)
+
+		var perfCoeff float64 = 1
+		var salesCommission, rewardPunishment, borrowingRepayment, taxDeduct float64
+		var salaryEvents []model.SalaryEvent
+		tx.Where("person_id = ? AND belong_month = ?", personID, month).Order("seq DESC").Find(&salaryEvents)
+
+		maxCoeffSeq := 0
+		for _, e := range salaryEvents {
+			switch e.EventType {
+			case "绩效系数":
+				if e.Seq > maxCoeffSeq {
+					perfCoeff = e.Amount
+					maxCoeffSeq = e.Seq
+				}
+			case "提成":
+				salesCommission = utils.DecimalAdd(salesCommission, e.Amount)
+			case "奖惩":
+				rewardPunishment = utils.DecimalAdd(rewardPunishment, e.Amount)
+			case "预支还款":
+				borrowingRepayment = utils.DecimalAdd(borrowingRepayment, e.Amount)
+			case "个税扣除":
+				taxDeduct = utils.DecimalAdd(taxDeduct, e.Amount)
+			}
+		}
+
+		perfSalary := utils.RoundTwoDecimal(wPerfBase / activeDays * subsidyRatio * perfCoeff)
+
+		var carryoverDeductHours float64
+		tx.Model(&model.AnnualLeaveAccountEvent{}).
+			Where("person_id = ? AND event_type = ? AND effective_date >= ? AND effective_date <= ?",
+				personID, "carryover_deduct", monthStartD, monthEndD).
+			Select("COALESCE(SUM(hours), 0)").Scan(&carryoverDeductHours)
+
+		workHoursPerDay := getWorkHoursPerDay()
+		holidayRatio := getOvertimeHolidayRatio()
+		carryoverSalary := 0.0
+		if calc.SalaryDays > 0 {
+			carryoverSalary = utils.RoundTwoDecimal(carryoverDeductHours * (calc.WeightedBaseSalary + calc.WeightedMealAllowance) / calc.SalaryDays / workHoursPerDay * holidayRatio)
+		}
+
+		salesCommission = utils.RoundTwoDecimal(salesCommission)
+		rewardPunishment = utils.RoundTwoDecimal(rewardPunishment)
+		borrowingRepayment = utils.RoundTwoDecimal(borrowingRepayment)
+		taxDeduct = utils.RoundTwoDecimal(taxDeduct)
+
+		finalSalary := utils.RoundTwoDecimal(
+			calc.AttendanceSalary + calc.OvertimeWorkdaySalary + calc.OvertimeHolidaySalary +
+				carryoverSalary + calc.AttendanceBonus + perfSalary +
+				post + meal + housing + transport + highTemp + insComp + fundComp +
+				salesCommission + rewardPunishment + borrowingRepayment -
+				ssDeduct - hfDeduct - taxDeduct,
+		)
+
+		summary := model.SalarySummary{
+			PersonID:                   personID,
+			BelongMonth:                month,
+			SalaryDays:                 calc.SalaryDays,
+			WeightedBaseSalary:         calc.WeightedBaseSalary,
+			TotalWorkHours:             calc.TotalWorkHours,
+			TotalOvertimeWorkdayHours:  calc.TotalOvertimeWorkdayHours,
+			TotalOvertimeHolidayHours:  calc.TotalOvertimeHolidayHours,
+			AttendanceSalary:           calc.AttendanceSalary,
+			OvertimeWorkdaySalary:      calc.OvertimeWorkdaySalary,
+			OvertimeHolidaySalary:      calc.OvertimeHolidaySalary,
+			AnnualLeaveCarryoverDeduct: carryoverDeductHours,
+			AnnualLeaveCarryoverSalary: carryoverSalary,
+			AttendanceBonus:            calc.AttendanceBonus,
+			PerformanceSalary:          perfSalary,
+			PostAllowance:              post,
+			MealAllowance:              meal,
+			HousingAllowance:           housing,
+			TransportAllowance:         transport,
+			HighTempAllowance:          highTemp,
+			InsuranceCompensation:      insComp,
+			FundCompensation:           fundComp,
+			SalesCommission:            salesCommission,
+			RewardPunishment:           rewardPunishment,
+			BorrowingRepayment:         borrowingRepayment,
+			SocialSecurityDeduct:       ssDeduct,
+			HousingFundDeduct:          hfDeduct,
+			TaxDeduct:                  taxDeduct,
+			FinalSalary:                finalSalary,
+			LastCalcAt:                 time.Now(),
+		}
+
+		var maxVersion int
+		tx.Model(&model.SalarySummaryVersion{}).
+			Where("person_id = ? AND belong_month = ?", personID, month).
+			Select("COALESCE(MAX(version), 0)").Scan(&maxVersion)
+
+		batchNo := "SAL-" + month + "-" + strconv.FormatInt(time.Now().Unix(), 10)
+
+		version := model.SalarySummaryVersion{
+			PersonID:                   personID,
+			BelongMonth:                month,
+			Version:                    maxVersion + 1,
+			CalcBatchNo:                batchNo,
+			OperatorID:                 operatorID,
+			OperatorName:               operatorName,
+			SalaryDays:                 calc.SalaryDays,
+			WeightedBaseSalary:         calc.WeightedBaseSalary,
+			TotalWorkHours:             calc.TotalWorkHours,
+			TotalOvertimeWorkdayHours:  calc.TotalOvertimeWorkdayHours,
+			TotalOvertimeHolidayHours:  calc.TotalOvertimeHolidayHours,
+			AttendanceSalary:           calc.AttendanceSalary,
+			OvertimeWorkdaySalary:      calc.OvertimeWorkdaySalary,
+			OvertimeHolidaySalary:      calc.OvertimeHolidaySalary,
+			AnnualLeaveCarryoverDeduct: carryoverDeductHours,
+			AnnualLeaveCarryoverSalary: carryoverSalary,
+			AttendanceBonus:            calc.AttendanceBonus,
+			PerformanceSalary:          perfSalary,
+			PostAllowance:              post,
+			MealAllowance:              meal,
+			HousingAllowance:           housing,
+			TransportAllowance:         transport,
+			HighTempAllowance:          highTemp,
+			InsuranceCompensation:      insComp,
+			FundCompensation:           fundComp,
+			SalesCommission:            salesCommission,
+			RewardPunishment:           rewardPunishment,
+			BorrowingRepayment:         borrowingRepayment,
+			SocialSecurityDeduct:       ssDeduct,
+			HousingFundDeduct:          hfDeduct,
+			TaxDeduct:                  taxDeduct,
+			FinalSalary:                finalSalary,
+		}
+		if err := tx.Create(&version).Error; err != nil {
+			return err
+		}
+
+		// 核算前旧汇总快照（审计 before）
+		oldJSON = ""
+		var oldSummary model.SalarySummary
+		if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).First(&oldSummary).Error; err == nil {
+			if b, err := json.Marshal(oldSummary); err == nil {
+				oldJSON = string(b)
+			}
+		}
+
+		if err := tx.Where("person_id = ? AND belong_month = ?", personID, month).Delete(&model.SalarySummary{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&summary).Error; err != nil {
+			return err
+		}
+
+		b, _ := json.Marshal(summary)
+		newJSON = string(b)
+		tx.Table("persons").Select("name").Where("id = ?", personID).Scan(&personName)
+		audited = true
+		result = &summary
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -428,6 +429,16 @@ func GetSalaryVersions(personID uint, month string) ([]model.SalarySummaryVersio
 	var versions []model.SalarySummaryVersion
 	err := dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).
 		Order("version DESC").Find(&versions).Error
+	if err != nil {
+		return nil, err
+	}
+	// person_name 富化：版本展开展示契约统一（同人同月，单次查询填充）
+	if len(versions) > 0 {
+		name := PersonName(personID)
+		for i := range versions {
+			versions[i].PersonName = name
+		}
+	}
 	return versions, err
 }
 
@@ -437,6 +448,7 @@ func GetSalaryVersionByID(versionID uint) (*model.SalarySummaryVersion, error) {
 	if err != nil {
 		return nil, err
 	}
+	version.PersonName = PersonName(version.PersonID)
 	return &version, nil
 }
 
@@ -456,13 +468,13 @@ func isHighTempMonth(month string) bool {
 }
 
 type SalaryTrace struct {
-	Summary            model.SalarySummary               `json:"summary"`
-	AttendanceCalc     model.AttendanceCalculationMonthly `json:"attendance_calc"`
-	DailyProjections   []model.AttendanceDailyProjection  `json:"daily_projections"`
-	AttendanceDailies   []model.AttendanceDaily              `json:"attendance_dailies"`
-	PositionSnapshots  []model.PositionSnapshot           `json:"position_snapshots"`
-	SalaryEvents       []model.SalaryEvent                `json:"salary_events"`
-	AnnualLeaveCarryover []model.AnnualLeaveAccountEvent  `json:"annual_leave_carryover"`
+	Summary              model.SalarySummary                `json:"summary"`
+	AttendanceCalc       model.AttendanceCalculationMonthly `json:"attendance_calc"`
+	DailyProjections     []model.AttendanceDailyProjection  `json:"daily_projections"`
+	AttendanceDailies    []model.AttendanceDaily            `json:"attendance_dailies"`
+	PositionSnapshots    []model.PositionSnapshot           `json:"position_snapshots"`
+	SalaryEvents         []model.SalaryEvent                `json:"salary_events"`
+	AnnualLeaveCarryover []model.AnnualLeaveAccountEvent    `json:"annual_leave_carryover"`
 }
 
 func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
@@ -478,6 +490,11 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 
 	var calc model.AttendanceCalculationMonthly
 	dao.DB.Where("person_id = ? AND belong_month = ?", personID, month).First(&calc)
+
+	// person_name 富化：展示契约统一，追溯数据自足（一次查询两处复用）
+	name := PersonName(personID)
+	summary.PersonName = name
+	calc.PersonName = name
 
 	var dailyProjections []model.AttendanceDailyProjection
 	dao.DB.Where("person_id = ? AND work_date >= ? AND work_date <= ?",
@@ -502,7 +519,7 @@ func GetSalaryTrace(personID uint, month string) (*SalaryTrace, error) {
 		Summary:              summary,
 		AttendanceCalc:       calc,
 		DailyProjections:     dailyProjections,
-		AttendanceDailies:     attendanceDailies,
+		AttendanceDailies:    attendanceDailies,
 		PositionSnapshots:    snapshots,
 		SalaryEvents:         salaryEvents,
 		AnnualLeaveCarryover: alCarryover,

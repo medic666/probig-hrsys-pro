@@ -103,29 +103,42 @@ func salarySummaryExportFilters(q service.SalarySummaryListQuery) []string {
 	return parts
 }
 
+// salarySummaryExportFields 月度工资汇总导出字段表（与列表/明细/版本/对比/追溯统一口径）
+var salarySummaryExportFields = []exportField{
+	{"belong_month", "月份", nil},
+	{"person_name", "人员", nil},
+	{"attendance_salary", "出勤工资", nil},
+	{"overtime_workday_salary", "工作日加班工资", nil},
+	{"overtime_holiday_salary", "节假日加班工资", nil},
+	{"annual_leave_carryover_salary", "年假结转工资", nil},
+	{"attendance_bonus", "全勤奖", nil},
+	{"performance_salary", "绩效工资", nil},
+	{"post_allowance", "职位津贴", nil},
+	{"meal_allowance", "餐补", nil},
+	{"housing_allowance", "房补", nil},
+	{"transport_allowance", "交通补贴", nil},
+	{"high_temp_allowance", "高温补贴", nil},
+	{"insurance_compensation", "保险补偿", nil},
+	{"fund_compensation", "公积金补偿", nil},
+	{"sales_commission", "提成", nil},
+	{"reward_punishment", "奖惩", nil},
+	{"borrowing_repayment", "预支还款", nil},
+	{"social_security_deduct", "社保代扣", nil},
+	{"housing_fund_deduct", "公积金代扣", nil},
+	{"tax_deduct", "个税代扣", nil},
+	{"final_salary", "实发工资", nil},
+	{"status", "状态", exportStatusFmt},
+	{"last_calc_at", "核算时间", exportTimeStrFmt},
+}
+
 func ExportSalarySummaries(c *gin.Context) {
 	// 导出严格关联列表视图的当前筛选
 	q := salarySummaryListQuery(c)
 	q.PageNum, q.PageSize = 1, 10000
 	list, _, _ := service.GetSalarySummaries(q)
 
-	var rows [][]interface{}
-	for _, s := range list {
-		rows = append(rows, []interface{}{
-			s["belong_month"], s["person_name"],
-			s["attendance_salary"], s["overtime_workday_salary"], s["overtime_holiday_salary"],
-			s["annual_leave_carryover_salary"], s["attendance_bonus"], s["performance_salary"],
-			s["post_allowance"], s["meal_allowance"], s["housing_allowance"], s["transport_allowance"],
-			s["high_temp_allowance"], s["insurance_compensation"], s["fund_compensation"],
-			s["sales_commission"], s["reward_punishment"], s["borrowing_repayment"],
-			s["social_security_deduct"], s["housing_fund_deduct"], s["tax_deduct"], s["final_salary"],
-		})
-	}
-	writeExcel(c, "月度工资汇总",
-		[]string{"月份", "人员", "出勤工资", "工作日加班工资", "节假日加班工资", "年假结转工资", "全勤奖",
-			"绩效工资", "职位津贴", "餐补", "房补", "交通补贴", "高温补贴", "保险补偿", "公积金补偿",
-			"提成", "奖惩", "预支还款", "社保代扣", "公积金代扣", "个税代扣", "实发工资"}, rows,
-		salarySummaryExportFilters(q)...)
+	rows, headers := buildExportRows(list, salarySummaryExportFields)
+	writeExcel(c, "月度工资汇总", headers, rows, salarySummaryExportFilters(q)...)
 }
 
 func GetSalaryTrace(c *gin.Context) {

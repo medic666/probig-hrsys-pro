@@ -22,11 +22,11 @@ func RebuildDailyProjection(tx *gorm.DB, personID uint, workDate utils.DateOnly)
 	}
 
 	proj := model.AttendanceDailyProjection{
-		PersonID: personID,
-		WorkDate: workDate,
-		Status:   daily.Status,
-		PunchTime: daily.PunchTime,
-		Remark:   daily.Remark,
+		PersonID:   personID,
+		WorkDate:   workDate,
+		Status:     daily.Status,
+		PunchTime:  daily.PunchTime,
+		Remark:     daily.Remark,
 		LastCalcAt: time.Now(),
 	}
 
@@ -164,4 +164,9 @@ func getWorkHoursPerDay() float64 {
 	v := GetConfigValueOrDefault("attendance.work_hours_per_day", "8")
 	f, _ := strconv.ParseFloat(v, 64)
 	return f
+}
+
+// HoursToDays 工时转天数（按配置的每日标准工时，保留两位小数，与前端 hoursToDays 口径一致）
+func HoursToDays(hours float64) float64 {
+	return utils.RoundTwoDecimal(hours / getWorkHoursPerDay())
 }

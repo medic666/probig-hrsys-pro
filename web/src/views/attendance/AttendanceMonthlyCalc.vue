@@ -57,6 +57,7 @@ import { downloadBlob } from '@/utils/download'
 
 import { usePageView } from '@/composables/usePageView'
 import { useBadges } from '@/composables/useBadges'
+import { ATTENDANCE_CALC_FIELDS, fieldsToColumns } from '@/constants/fields'
 
 const router = useRouter()
 const tableRef=ref()
@@ -66,13 +67,11 @@ const timePanelRef=ref()
 // 徽章映射：personId → 颜色点（上月核算为空 gray / 核算过期 orange / 已核算 green）
 const { dotMap, loadDots } = useBadges()
 
-const columns=[
-  {prop:'person_name',label:'人员',width:'80'},{prop:'belong_month',label:'月份',width:'90'},
-  {prop:'attendance_salary',label:'出勤工资',width:'100'},{prop:'overtime_workday_salary',label:'工作日加班工资',width:'120'},
-  {prop:'overtime_holiday_salary',label:'节假日加班工资',width:'120'},  {prop:'attendance_bonus',label:'全勤奖',width:'80'},
-  {prop:'status',label:'状态',width:'110',slot:'status'},
-  {prop:'last_calc_at',label:'核算时间',width:'160',formatter:(r:any)=>formatDateTime(r.last_calc_at)},
-]
+// 列表字段 = 统一字段表（与详情/追溯/导出同源）+ 状态/核算时间
+const columns = fieldsToColumns(ATTENDANCE_CALC_FIELDS, [
+  { prop: 'status', label: '状态', width: 110, slot: 'status' },
+  { prop: 'last_calc_at', label: '核算时间', width: 160, formatter: (r: any) => formatDateTime(r.last_calc_at) },
+])
 const searchFields=[
   {prop:'person_id',label:'人员',type:'person-select' as const},
   {prop:'months',label:'月份',type:'months' as const},

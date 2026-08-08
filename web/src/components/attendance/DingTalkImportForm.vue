@@ -25,7 +25,7 @@
         </el-table-column>
         <el-table-column label="匹配人员">
           <template #default="{ row }">
-            <NameSelect v-model="row.person_id" placeholder="选择人员" />
+            <NameSelect v-model="row.person_id" :value-label="row.matched_name" placeholder="选择人员" />
             <span v-if="!row.person_id" class="skip-hint">留空=跳过</span>
           </template>
         </el-table-column>

@@ -68,3 +68,62 @@ func exportBool(v bool) string {
 	}
 	return "否"
 }
+
+// exportField 导出字段定义：key 取值、label 表头、fmt 取值后格式化钩子（nil 直出）。
+// 字段表即导出列的唯一事实源，与列表/详情/追溯展示口径保持一致。
+type exportField struct {
+	key, label string
+	fmt        func(v interface{}) interface{}
+}
+
+// buildExportRows 按字段表生成导出行与表头（字段顺序即导出列顺序）
+func buildExportRows(list []map[string]interface{}, fields []exportField) ([][]interface{}, []string) {
+	rows := make([][]interface{}, 0, len(list))
+	headers := make([]string, len(fields))
+	for i, f := range fields {
+		headers[i] = f.label
+	}
+	for _, s := range list {
+		row := make([]interface{}, 0, len(fields))
+		for _, f := range fields {
+			v := s[f.key]
+			if f.fmt != nil {
+				v = f.fmt(v)
+			}
+			row = append(row, v)
+		}
+		rows = append(rows, row)
+	}
+	return rows, headers
+}
+
+// exportTimeFmt time.Time → "2006-01-02 15:04:05"（非 time.Time 原样返回）
+func exportTimeFmt(v interface{}) interface{} {
+	t, ok := v.(time.Time)
+	if !ok {
+		return v
+	}
+	return t.Format("2006-01-02 15:04:05")
+}
+
+// exportTimeStrFmt RFC3339 字符串 → "2006-01-02 15:04:05"（解析失败原样返回）
+func exportTimeStrFmt(v interface{}) interface{} {
+	s, ok := v.(string)
+	if !ok || s == "" {
+		return s
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t.Format("2006-01-02 15:04:05")
+	}
+	return s
+}
+
+// exportStatusFmt 核算/汇总状态映射（calculated/data_changed → 已核算/数据已变动）
+func exportStatusFmt(v interface{}) interface{} {
+	return map[string]string{"calculated": "已核算", "data_changed": "数据已变动"}[fmt.Sprint(v)]
+}
+
+// exportBoolFmt exportBool 的字段表钩子包装
+func exportBoolFmt(v interface{}) interface{} {
+	return exportBool(v.(bool))
+}

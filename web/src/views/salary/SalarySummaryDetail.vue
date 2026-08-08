@@ -4,37 +4,14 @@
       <!-- 工资明细 -->
       <el-tab-pane label="工资明细" name="summary">
         <div v-loading="loading" class="detail-wrap">
-          <AppDescriptions v-if="summaryRow" :column="2" border size="small">
-            <el-descriptions-item label="状态">
-              <StatusTag :status="summaryRow.status || 'not_calculated'" />
-            </el-descriptions-item>
-            <el-descriptions-item label="加权基本工资">{{ summaryRow.weighted_base_salary }}</el-descriptions-item>
-            <el-descriptions-item label="计薪天数">{{ summaryRow.salary_days }}</el-descriptions-item>
-            <el-descriptions-item label="出勤天数">{{ hoursToDays(summaryRow.total_work_hours || 0).toFixed(2) }}</el-descriptions-item>
-            <el-descriptions-item label="出勤工资">{{ summaryRow.attendance_salary }}</el-descriptions-item>
-            <el-descriptions-item label="工作日加班工资">{{ summaryRow.overtime_workday_salary }}</el-descriptions-item>
-            <el-descriptions-item label="节假日加班工资">{{ summaryRow.overtime_holiday_salary }}</el-descriptions-item>
-            <el-descriptions-item label="年假结转工资">{{ summaryRow.annual_leave_carryover_salary }}</el-descriptions-item>
-            <el-descriptions-item label="全勤奖">{{ summaryRow.attendance_bonus }}</el-descriptions-item>
-            <el-descriptions-item label="绩效工资">{{ summaryRow.performance_salary }}</el-descriptions-item>
-            <el-descriptions-item label="职位津贴">{{ summaryRow.post_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="餐补">{{ summaryRow.meal_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="房补">{{ summaryRow.housing_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="交通补贴">{{ summaryRow.transport_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="高温补贴">{{ summaryRow.high_temp_allowance }}</el-descriptions-item>
-            <el-descriptions-item label="保险补偿">{{ summaryRow.insurance_compensation }}</el-descriptions-item>
-            <el-descriptions-item label="公积金补偿">{{ summaryRow.fund_compensation }}</el-descriptions-item>
-            <el-descriptions-item label="提成">{{ summaryRow.sales_commission }}</el-descriptions-item>
-            <el-descriptions-item label="奖惩">{{ summaryRow.reward_punishment }}</el-descriptions-item>
-            <el-descriptions-item label="预支还款">{{ summaryRow.borrowing_repayment }}</el-descriptions-item>
-            <el-descriptions-item label="社保代扣">{{ summaryRow.social_security_deduct }}</el-descriptions-item>
-            <el-descriptions-item label="公积金代扣">{{ summaryRow.housing_fund_deduct }}</el-descriptions-item>
-            <el-descriptions-item label="个税代扣">{{ summaryRow.tax_deduct }}</el-descriptions-item>
-            <el-descriptions-item label="核算时间">{{ formatDateTime(summaryRow.last_calc_at) }}</el-descriptions-item>
-            <el-descriptions-item label="实发工资" :span="2">
-              <strong style="color:#e6a23c;font-size:16px">{{ summaryRow.final_salary }}</strong>
-            </el-descriptions-item>
-          </AppDescriptions>
+          <FieldDescriptions v-if="summaryRow" :fields="SALARY_SUMMARY_FIELDS" :data="summaryRow" :column="2">
+            <template #prefix>
+              <el-descriptions-item label="状态">
+                <StatusTag :status="summaryRow.status || 'not_calculated'" />
+              </el-descriptions-item>
+              <el-descriptions-item label="核算时间">{{ formatDateTime(summaryRow.last_calc_at) }}</el-descriptions-item>
+            </template>
+          </FieldDescriptions>
           <el-empty v-else-if="!loading" description="当月未核算工资，请先在工资汇总页执行核算" :image-size="60" />
         </div>
       </el-tab-pane>
@@ -44,30 +21,7 @@
         <el-table v-loading="versionsLoading" :data="versions" border size="small">
           <el-table-column type="expand">
             <template #default="{ row }">
-              <AppDescriptions :column="3" border size="small" class="expand-desc">
-                <el-descriptions-item label="计薪天数">{{ row.salary_days }}</el-descriptions-item>
-                <el-descriptions-item label="加权基本工资">{{ row.weighted_base_salary }}</el-descriptions-item>
-                <el-descriptions-item label="出勤工资">{{ row.attendance_salary }}</el-descriptions-item>
-                <el-descriptions-item label="工作日加班工资">{{ row.overtime_workday_salary }}</el-descriptions-item>
-                <el-descriptions-item label="节假日加班工资">{{ row.overtime_holiday_salary }}</el-descriptions-item>
-                <el-descriptions-item label="年假结转工资">{{ row.annual_leave_carryover_salary }}</el-descriptions-item>
-                <el-descriptions-item label="全勤奖">{{ row.attendance_bonus }}</el-descriptions-item>
-                <el-descriptions-item label="绩效工资">{{ row.performance_salary }}</el-descriptions-item>
-                <el-descriptions-item label="职位津贴">{{ row.post_allowance }}</el-descriptions-item>
-                <el-descriptions-item label="餐补">{{ row.meal_allowance }}</el-descriptions-item>
-                <el-descriptions-item label="房补">{{ row.housing_allowance }}</el-descriptions-item>
-                <el-descriptions-item label="交通补贴">{{ row.transport_allowance }}</el-descriptions-item>
-                <el-descriptions-item label="高温补贴">{{ row.high_temp_allowance }}</el-descriptions-item>
-                <el-descriptions-item label="保险补偿">{{ row.insurance_compensation }}</el-descriptions-item>
-                <el-descriptions-item label="公积金补偿">{{ row.fund_compensation }}</el-descriptions-item>
-                <el-descriptions-item label="提成">{{ row.sales_commission }}</el-descriptions-item>
-                <el-descriptions-item label="奖惩">{{ row.reward_punishment }}</el-descriptions-item>
-                <el-descriptions-item label="预支还款">{{ row.borrowing_repayment }}</el-descriptions-item>
-                <el-descriptions-item label="社保代扣">{{ row.social_security_deduct }}</el-descriptions-item>
-                <el-descriptions-item label="公积金代扣">{{ row.housing_fund_deduct }}</el-descriptions-item>
-                <el-descriptions-item label="个税代扣">{{ row.tax_deduct }}</el-descriptions-item>
-                <el-descriptions-item label="实发工资"><strong style="color:#e6a23c">{{ row.final_salary }}</strong></el-descriptions-item>
-              </AppDescriptions>
+              <FieldDescriptions :fields="SALARY_SUMMARY_FIELDS" :data="row" :column="3" class="expand-desc" />
             </template>
           </el-table-column>
           <el-table-column prop="version" label="版本" width="70" />
@@ -116,31 +70,7 @@
         <div v-if="!traceData" v-loading="traceLoading" class="detail-wrap" />
         <el-tabs v-else v-model="traceTab">
           <el-tab-pane label="工资汇总" name="summary">
-            <AppDescriptions :column="2" border size="small">
-              <el-descriptions-item label="加权基本工资">{{ traceData.summary.weighted_base_salary }}</el-descriptions-item>
-              <el-descriptions-item label="计薪天数">{{ traceData.summary.salary_days }}</el-descriptions-item>
-              <el-descriptions-item label="出勤天数">{{ hoursToDays(traceData.summary.total_work_hours || 0).toFixed(2) }}</el-descriptions-item>
-              <el-descriptions-item label="出勤工资">{{ traceData.summary.attendance_salary }}</el-descriptions-item>
-              <el-descriptions-item label="工作日加班工资">{{ traceData.summary.overtime_workday_salary }}</el-descriptions-item>
-              <el-descriptions-item label="节假日加班工资">{{ traceData.summary.overtime_holiday_salary }}</el-descriptions-item>
-              <el-descriptions-item label="年假结转工资">{{ traceData.summary.annual_leave_carryover_salary }}</el-descriptions-item>
-              <el-descriptions-item label="全勤奖">{{ traceData.summary.attendance_bonus }}</el-descriptions-item>
-              <el-descriptions-item label="绩效工资">{{ traceData.summary.performance_salary }}</el-descriptions-item>
-              <el-descriptions-item label="职位津贴">{{ traceData.summary.post_allowance }}</el-descriptions-item>
-              <el-descriptions-item label="餐补">{{ traceData.summary.meal_allowance }}</el-descriptions-item>
-              <el-descriptions-item label="房补">{{ traceData.summary.housing_allowance }}</el-descriptions-item>
-              <el-descriptions-item label="交通补贴">{{ traceData.summary.transport_allowance }}</el-descriptions-item>
-              <el-descriptions-item label="高温补贴">{{ traceData.summary.high_temp_allowance }}</el-descriptions-item>
-              <el-descriptions-item label="保险补偿">{{ traceData.summary.insurance_compensation }}</el-descriptions-item>
-              <el-descriptions-item label="公积金补偿">{{ traceData.summary.fund_compensation }}</el-descriptions-item>
-              <el-descriptions-item label="提成">{{ traceData.summary.sales_commission }}</el-descriptions-item>
-              <el-descriptions-item label="奖惩">{{ traceData.summary.reward_punishment }}</el-descriptions-item>
-              <el-descriptions-item label="预支还款">{{ traceData.summary.borrowing_repayment }}</el-descriptions-item>
-              <el-descriptions-item label="社保代扣">{{ traceData.summary.social_security_deduct }}</el-descriptions-item>
-              <el-descriptions-item label="公积金代扣">{{ traceData.summary.housing_fund_deduct }}</el-descriptions-item>
-              <el-descriptions-item label="个税代扣">{{ traceData.summary.tax_deduct }}</el-descriptions-item>
-              <el-descriptions-item label="实发工资" :span="2"><strong style="color:#e6a23c">{{ traceData.summary.final_salary }}</strong></el-descriptions-item>
-            </AppDescriptions>
+            <FieldDescriptions :fields="SALARY_SUMMARY_FIELDS" :data="traceData.summary" :column="2" />
           </el-tab-pane>
 
           <el-tab-pane label="考勤核算" name="calc">
@@ -180,6 +110,7 @@
               <el-table-column prop="base_salary" label="基本工资" width="100" />
               <el-table-column prop="performance_salary" label="绩效基数" width="100" />
               <el-table-column prop="meal_allowance" label="餐补" width="80" />
+              <el-table-column prop="housing_allowance" label="房补" width="80" />
               <el-table-column prop="post_allowance" label="职位津贴" width="90" />
             </el-table>
           </el-tab-pane>
@@ -209,9 +140,10 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import BusinessPage from '@/components/BusinessPage.vue'
-import AppDescriptions from '@/components/AppDescriptions.vue'
+import FieldDescriptions from '@/components/FieldDescriptions.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import AttendanceCalcDescriptions from '@/components/attendance/AttendanceCalcDescriptions.vue'
+import { SALARY_SUMMARY_FIELDS } from '@/constants/fields'
 import { getSalarySummaries, getSalaryVersions, getSalaryTrace } from '@/api/salary'
 import { formatDateTime, hoursToDays } from '@/utils'
 
@@ -234,34 +166,8 @@ const traceData = ref<any>(null)
 const traceLoading = ref(false)
 const traceTab = ref('summary')
 
-const compareFields = [
-  { key: 'salary_days', label: '计薪天数' },
-  { key: 'weighted_base_salary', label: '加权基本工资' },
-  { key: 'total_work_hours', label: '累计记出勤工时' },
-  { key: 'total_overtime_workday_hours', label: '工作日加班工时' },
-  { key: 'total_overtime_holiday_hours', label: '节假日加班工时' },
-  { key: 'attendance_salary', label: '出勤工资' },
-  { key: 'overtime_workday_salary', label: '工作日加班工资' },
-  { key: 'overtime_holiday_salary', label: '节假日加班工资' },
-  { key: 'annual_leave_carryover_deduct', label: '年假结转时长' },
-  { key: 'annual_leave_carryover_salary', label: '年假结转工资' },
-  { key: 'attendance_bonus', label: '全勤奖' },
-  { key: 'performance_salary', label: '绩效工资' },
-  { key: 'post_allowance', label: '职位津贴' },
-  { key: 'meal_allowance', label: '餐补' },
-  { key: 'housing_allowance', label: '房补' },
-  { key: 'transport_allowance', label: '交通补贴' },
-  { key: 'high_temp_allowance', label: '高温补贴' },
-  { key: 'insurance_compensation', label: '保险补偿' },
-  { key: 'fund_compensation', label: '公积金补偿' },
-  { key: 'sales_commission', label: '提成' },
-  { key: 'reward_punishment', label: '奖惩' },
-  { key: 'borrowing_repayment', label: '预支还款' },
-  { key: 'social_security_deduct', label: '社保代扣' },
-  { key: 'housing_fund_deduct', label: '公积金代扣' },
-  { key: 'tax_deduct', label: '个税代扣' },
-  { key: 'final_salary', label: '实发工资' },
-]
+// 版本对比字段 = 统一字段表去掉月份/人员（版本间两者恒同，无对比意义）
+const compareFields = SALARY_SUMMARY_FIELDS.filter((f) => f.key !== 'belong_month' && f.key !== 'person_name')
 
 function dailyEventsOf(proj: any) {
   const daily = (traceData.value?.attendance_dailies || []).find((d: any) => d.event_date === proj.work_date)

@@ -218,7 +218,7 @@ function monthsOptions(field: SearchField): string[] {
   const d = new Date()
   d.setDate(1)
   for (let i = 0; i < n; i++) {
-    res.unshift(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    res.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
     d.setMonth(d.getMonth() - 1)
   }
   return res

@@ -1,11 +1,10 @@
 import request from '@/utils/request'
 
+// 公司模块业务端点（需 company.read/write/export 权限）。
+// 结构授权点调用（公司选项）见 api/reference.ts。
+
 export function getCompanies(params: any) {
   return request.get('/companies', { params })
-}
-
-export function getAllCompanies() {
-  return request.get('/companies/all')
 }
 
 export function getCompany(id: number) {

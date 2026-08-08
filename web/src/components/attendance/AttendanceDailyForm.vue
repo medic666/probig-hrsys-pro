@@ -35,7 +35,7 @@
 
   <div v-if="!readonly" class="form-footer">
     <el-button @click="$emit('cancel')">取消</el-button>
-    <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
+    <el-button v-permission="PERM.attendanceEventWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
   </div>
 </template>
 

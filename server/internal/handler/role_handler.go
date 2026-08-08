@@ -131,6 +131,7 @@ func GetDeletedRoles(c *gin.Context) {
 
 type assignPermsReq struct {
 	PermissionIDs []uint `json:"permission_ids" binding:"required"`
+	DataScope     string `json:"data_scope"`
 }
 
 func AssignRolePermissions(c *gin.Context) {
@@ -146,7 +147,7 @@ func AssignRolePermissions(c *gin.Context) {
 		return
 	}
 
-	if err := service.AssignRolePermissions(c.Request.Context(), uint(id), req.PermissionIDs); err != nil {
+	if err := service.AssignRolePermissions(c.Request.Context(), uint(id), req.PermissionIDs, req.DataScope); err != nil {
 		utils.Error(c, err.Error())
 		return
 	}

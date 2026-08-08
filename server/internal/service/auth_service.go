@@ -128,12 +128,7 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 
 	var menus []map[string]interface{}
 
-	if has("home") {
-		menus = append(menus, map[string]interface{}{
-			"path": "/home", "title": "首页", "icon": "HomeFilled",
-		})
-	}
-
+	// 主数据管理
 	if has("person.read") || has("company.read") || has("position_event.read") {
 		children := []map[string]interface{}{}
 		if has("person.read") {
@@ -150,11 +145,16 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		})
 	}
 
-	if has("attendance.read") {
+	// 考勤管理
+	if has("attendance_event.read") || has("attendance_daily.read") || has("attendance_monthly.read") {
 		children := []map[string]interface{}{}
-		if has("attendance.read") {
+		if has("attendance_event.read") {
 			children = append(children, map[string]interface{}{"path": "/attendance", "title": "考勤事件", "icon": "Clock"})
+		}
+		if has("attendance_daily.read") {
 			children = append(children, map[string]interface{}{"path": "/attendance-daily", "title": "日记工时", "icon": "Clock"})
+		}
+		if has("attendance_monthly.read") {
 			children = append(children, map[string]interface{}{"path": "/attendance-monthly", "title": "月度考勤核算", "icon": "Clock"})
 		}
 		menus = append(menus, map[string]interface{}{
@@ -162,11 +162,16 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		})
 	}
 
-	if has("annual_leave.read") {
+	// 假期管理
+	if has("annual_leave_event.read") || has("leave_in_lieu.read") || has("annual_leave_carryover.read") {
 		children := []map[string]interface{}{}
-		if has("annual_leave.read") {
+		if has("annual_leave_event.read") {
 			children = append(children, map[string]interface{}{"path": "/annual-leave-events", "title": "年假事件", "icon": "Clock"})
+		}
+		if has("leave_in_lieu.read") {
 			children = append(children, map[string]interface{}{"path": "/lil-events", "title": "调休事件", "icon": "Clock"})
+		}
+		if has("annual_leave_carryover.read") {
 			children = append(children, map[string]interface{}{"path": "/annual-leave-carryover", "title": "年假配发结转", "icon": "Clock"})
 		}
 		menus = append(menus, map[string]interface{}{
@@ -174,10 +179,13 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		})
 	}
 
-	if has("salary.read") {
+	// 薪资管理
+	if has("salary_event.read") || has("salary_summary.read") {
 		children := []map[string]interface{}{}
-		if has("salary.read") {
+		if has("salary_event.read") {
 			children = append(children, map[string]interface{}{"path": "/salary-events", "title": "工资事件", "icon": "Money"})
+		}
+		if has("salary_summary.read") {
 			children = append(children, map[string]interface{}{"path": "/salary-summaries", "title": "月度工资汇总", "icon": "Money"})
 		}
 		menus = append(menus, map[string]interface{}{
@@ -185,6 +193,7 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 		})
 	}
 
+	// 系统管理
 	if has("user.read") || has("role.read") || has("system_config.read") {
 		children := []map[string]interface{}{}
 		if has("user.read") {
@@ -213,8 +222,8 @@ func buildMenuTree(permKeys []string) []map[string]interface{} {
 }
 
 func SeedDefaultAdmin(db *gorm.DB) error {
-	// 模块 × 动作定义由 model.ModuleActions 单一事实源提供（与迁移共用）
-	modules := model.ModuleActions
+	// 权限行已由 SyncPermissionRows 保证存在（启动链路先于本函数执行）；
+	// 本函数职责 = 确保默认角色存在 + admin 用户存在 + admin 全量挂接权限
 
 	var adminRole model.Role
 	result := db.Where("name = ? AND is_default = ?", "超级管理员", true).First(&adminRole)
@@ -229,30 +238,17 @@ func SeedDefaultAdmin(db *gorm.DB) error {
 		}
 	}
 
-	var permCount int64
-	db.Model(&model.Permission{}).Count(&permCount)
-	if permCount == 0 {
-		for _, mod := range modules {
-			for _, action := range mod.Actions {
-				p := model.Permission{
-					Module: mod.Module,
-					Action: action,
-					Name:   mod.Name + model.PermissionActionNames[action],
-				}
-				db.Create(&p)
-
-				rp := model.RolePermission{RoleID: adminRole.ID, PermissionID: p.ID}
-				db.Create(&rp)
-			}
-		}
-	} else {
-		var allPerms []model.Permission
-		db.Find(&allPerms)
-		for _, p := range allPerms {
-			var count int64
-			db.Model(&model.RolePermission{}).Where("role_id = ? AND permission_id = ?", adminRole.ID, p.ID).Count(&count)
-			if count == 0 {
-				db.Create(&model.RolePermission{RoleID: adminRole.ID, PermissionID: p.ID})
+	// 超级管理员默认包含全部权限：对现存权限行逐条幂等补挂
+	var allPerms []model.Permission
+	if err := db.Find(&allPerms).Error; err != nil {
+		return err
+	}
+	for _, p := range allPerms {
+		var count int64
+		db.Model(&model.RolePermission{}).Where("role_id = ? AND permission_id = ?", adminRole.ID, p.ID).Count(&count)
+		if count == 0 {
+			if err := db.Create(&model.RolePermission{RoleID: adminRole.ID, PermissionID: p.ID}).Error; err != nil {
+				return err
 			}
 		}
 	}

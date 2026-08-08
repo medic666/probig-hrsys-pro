@@ -6,18 +6,18 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button v-permission="PERM.salaryWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
+      <el-button v-permission="PERM.salaryEventWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
       <template #right>
-        <el-button v-permission="PERM.salaryWrite" size="small" @click="handleAction('trash')">回收站</el-button>
-        <el-button v-permission="PERM.salaryExport" size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.salaryEventWrite" size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button v-permission="PERM.salaryEventExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-permission="PERM.salaryWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button v-permission="PERM.salaryWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="PERM.salaryEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button v-permission="PERM.salaryEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
       </ProTable>

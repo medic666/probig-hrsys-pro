@@ -17,17 +17,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { hoursToDays } from '@/utils'
+import { annualLeaveTypeText } from '@/constants/annual-leave'
 
 const props = defineProps<{ event: any }>()
 defineEmits<{ (e: 'edit', event: any): void }>()
 
-const typeMap: Record<string, string> = {
-  grant: '配发',
-  adjust: '人工调整',
-  carryover_deduct: '结转扣除',
-  休假: '休假',
-}
-const typeText = computed(() => typeMap[props.event.event_type] || props.event.event_type || '-')
+const typeText = computed(() => annualLeaveTypeText(props.event.event_type))
 </script>
 
 <style lang="scss" scoped>

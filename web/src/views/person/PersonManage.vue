@@ -42,8 +42,8 @@ import RecycleBinDrawer from '@/components/RecycleBinDrawer.vue'
 import PersonCardGrid from '@/components/cards/PersonCardGrid.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
-import { getPersons, deletePerson, restorePerson, getDeletedPersons, getPersonCards, exportPersons } from '@/api/person'
-import { getAllCompanies } from '@/api/company'
+import { getPersons, deletePerson, restorePerson, getDeletedPersons, exportPersons } from '@/api/person'
+import { getPersonCards, getCompanyOptions } from '@/api/reference'
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
 import { PERM } from '@/constants/permission'
@@ -84,7 +84,7 @@ const trashColumns = [
 ]
 
 onMounted(async () => {
-  const companies = (await getAllCompanies()) as { id: number; name: string }[]
+  const companies = (await getCompanyOptions()) as { id: number; name: string }[]
   companyOptions.value = companies.map((c) => ({ label: c.name, value: c.id }))
 })
 

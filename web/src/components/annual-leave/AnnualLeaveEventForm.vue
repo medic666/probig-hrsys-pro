@@ -5,7 +5,7 @@
     </el-form-item>
     <el-form-item label="类型" required>
       <el-select v-model="form.event_type" style="width:100%">
-        <el-option v-for="t in types" :key="t" :label="t" :value="t" />
+        <el-option v-for="t in types" :key="t.value" :label="t.label" :value="t.value" />
       </el-select>
     </el-form-item>
     <el-form-item label="时长(小时)" required>
@@ -19,7 +19,7 @@
     </el-form-item>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button v-permission="PERM.annualLeaveWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
+      <el-button v-permission="PERM.annualLeaveEventWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
     </div>
   </el-form>
 </template>
@@ -36,7 +36,12 @@ const emit = defineEmits<{ (e: 'saved'): void; (e: 'cancel'): void }>()
 
 const isEdit = computed(() => props.id != null)
 const saving = ref(false)
-const types = ['grant', 'carryover_deduct', 'adjust']
+// 类型下拉：label 中文、value 保持英文存储值
+const types = [
+  { label: '配发', value: 'grant' },
+  { label: '人工调整', value: 'adjust' },
+  { label: '结转扣除', value: 'carryover_deduct' },
+]
 const form = reactive({ person_id: null as any, event_type: 'grant', hours: 8, effective_date: '', remark: '' })
 
 onMounted(async () => {

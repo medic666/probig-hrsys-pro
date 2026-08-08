@@ -1,6 +1,6 @@
 <template>
   <div class="page-container"><div class="page-header"><h2>年假配发结转</h2></div>
-    <el-button v-permission="PERM.annualLeaveCalculate" type="primary" style="margin-bottom:12px" @click="cv=true">批量结转</el-button>
+    <el-button v-permission="PERM.annualLeaveCarryoverCalculate" type="primary" style="margin-bottom:12px" @click="cv=true">批量结转</el-button>
     <BatchActionDrawer v-model:visible="cv" title="批量结转" :submit-fn="(d: any) => executeCarryover(d.month)" :show-person="false" @done="loadBatches" />
 
     <el-table v-loading="bl" :data="batches" border>
@@ -12,7 +12,7 @@
       <el-table-column label="操作" width="140">
         <template #default="{row}">
           <el-button type="primary" link size="small" @click="showEvents(row)">详情</el-button>
-          <el-button v-if="row.status===2" v-permission="PERM.annualLeaveCalculate" type="danger" link size="small" @click="cancel(row)">反结账</el-button>
+          <el-button v-if="row.status===2" v-permission="PERM.annualLeaveCarryoverCalculate" type="danger" link size="small" @click="cancel(row)">反结账</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -21,7 +21,7 @@
       <el-table :data="batchEvents" border size="small">
         <el-table-column prop="person_name" label="人员" />
         <el-table-column prop="event_type" label="类型" width="120">
-          <template #default="{row}">{{ {grant:'配发',carryover_deduct:'抵扣'}[row.event_type]||row.event_type }}</template>
+          <template #default="{row}">{{ annualLeaveTypeText(row.event_type) }}</template>
         </el-table-column>
         <el-table-column label="时长(天)" width="100">
           <template #default="{ row: r }">{{ hoursToDays(r.hours).toFixed(2) }}</template>
@@ -39,6 +39,7 @@ import { executeCarryover, cancelCarryover, getCarryoverBatches } from '@/api/an
 import BatchActionDrawer from '@/components/BatchActionDrawer.vue'
 import request from '@/utils/request'
 import { hoursToDays } from '@/utils'
+import { annualLeaveTypeText } from '@/constants/annual-leave'
 import { PERM } from '@/constants/permission'
 
 const cv=ref(false); const batches=ref<any[]>([]); const bl=ref(false)

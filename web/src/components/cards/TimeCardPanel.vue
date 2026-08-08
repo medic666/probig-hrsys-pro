@@ -54,7 +54,7 @@ import PersonCard from '@/components/cards/PersonCard.vue'
 import PeriodCard from '@/components/cards/PeriodCard.vue'
 import PersonScopeSwitch from '@/components/cards/PersonScopeSwitch.vue'
 import PageBackButton from '@/components/PageBackButton.vue'
-import { getPersonCards } from '@/api/person'
+import { getPersonCards } from '@/api/reference'
 import { usePeriodStats, type PeriodAggregate } from '@/composables/usePeriodStats'
 import { filterPersons, type PersonScope } from '@/utils/personScope'
 

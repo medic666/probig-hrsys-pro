@@ -2,7 +2,7 @@
   <div class="page-container"><div class="page-header"><h2>待确认考勤事件</h2></div>
     <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchPending" :search-fields="searchFields" :auto-load="true">
       <template #actions="{ row }">
-        <el-button v-permission="PERM.attendanceWrite" type="primary" link size="small" @click="editConfirm(row)">编辑确认</el-button>
+        <el-button v-permission="PERM.attendanceEventWrite" type="primary" link size="small" @click="editConfirm(row)">编辑确认</el-button>
       </template>
     </ProTable>
   </div>

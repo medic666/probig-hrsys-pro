@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { searchPersonOptions } from '@/api/person'
+import { searchPersonOptions } from '@/api/reference'
 
 const props = withDefaults(
   defineProps<{

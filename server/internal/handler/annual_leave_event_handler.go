@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"probig/server/internal/model"
@@ -121,6 +122,20 @@ func GetDeletedAnnualLeaveEvents(c *gin.Context) {
 	successPage(c, filtered, int64(len(filtered)), pageReq.PageNum, pageReq.PageSize)
 }
 
+// annualLeaveTypeNames 年假事件类型中文名（与前端展示映射一致；存储值保持英文）
+var annualLeaveTypeNames = map[string]string{
+	"grant":            "配发",
+	"adjust":           "人工调整",
+	"carryover_deduct": "结转扣除",
+}
+
+func annualLeaveTypeName(v interface{}) interface{} {
+	if n, ok := annualLeaveTypeNames[fmt.Sprint(v)]; ok {
+		return n
+	}
+	return v
+}
+
 // annualLeaveExportFilters 年假事件导出文件名筛选摘要
 func annualLeaveExportFilters(q service.AnnualLeaveListQuery) []string {
 	var parts []string
@@ -128,7 +143,7 @@ func annualLeaveExportFilters(q service.AnnualLeaveListQuery) []string {
 		parts = append(parts, "人员="+service.PersonName(q.PersonID))
 	}
 	if q.EventType != "" {
-		parts = append(parts, "类型="+map[string]string{"grant": "配发", "adjust": "人工调整", "carryover_deduct": "结转扣除"}[q.EventType])
+		parts = append(parts, "类型="+fmt.Sprint(annualLeaveTypeName(q.EventType)))
 	}
 	if p := dateRangePiece("日期", q.DateStart, q.DateEnd); p != "" {
 		parts = append(parts, p)
@@ -145,7 +160,7 @@ func ExportAnnualLeaveEvents(c *gin.Context) {
 	var rows [][]interface{}
 	for _, e := range list {
 		rows = append(rows, []interface{}{
-			e["person_name"], e["event_type"], e["source_type"], e["hours"], e["effective_date"], e["remark"],
+			e["person_name"], annualLeaveTypeName(e["event_type"]), e["source_type"], e["hours"], e["effective_date"], e["remark"],
 		})
 	}
 	writeExcel(c, "年假事件",

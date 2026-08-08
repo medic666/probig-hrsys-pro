@@ -10,7 +10,7 @@
       >
         <template v-if="items.length > 1" #extra-actions>
           <el-button size="small" link type="primary" @click="cycle">切换</el-button>
-          <el-button v-permission="PERM.attendanceWrite" size="small" link type="danger" @click="handleDelete">删除</el-button>
+          <el-button v-permission="PERM.attendanceEventWrite" size="small" link type="danger" @click="handleDelete">删除</el-button>
         </template>
       </AttendanceDailyBlock>
       <span v-if="items.length > 1" class="deck-badge">共 {{ items.length }} 组</span>

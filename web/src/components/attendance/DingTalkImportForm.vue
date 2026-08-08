@@ -10,7 +10,7 @@
       <el-upload ref="uploadRef" :auto-upload="false" :limit="1" accept=".xlsx" :on-change="onFileChange" :on-remove="()=>importFile=null">
         <el-button type="primary">选择钉钉月度汇总文件</el-button>
       </el-upload>
-      <el-button v-permission="PERM.attendanceWrite" style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" style="margin-top:12px" type="primary" :loading="previewing" :disabled="!importFile" @click="doPreview">解析预览</el-button>
     </div>
 
     <div v-else-if="step === 1">
@@ -44,7 +44,7 @@
       </el-form>
       <el-alert type="info" :closable="false" :title="importSummary" style="margin-bottom:12px" />
       <el-button @click="step=1">上一步</el-button>
-      <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="importing" :disabled="matchedCount === 0" @click="doImport">确认导入</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="primary" :loading="importing" :disabled="matchedCount === 0" @click="doImport">确认导入</el-button>
     </div>
 
     <div class="form-footer">

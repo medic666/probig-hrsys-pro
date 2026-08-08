@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { getAllPersons, type PersonOption } from '@/api/person'
+import { getPersonOptions, type PersonOption } from '@/api/reference'
 
 // 多域人员多选组件：在全体人员/公司/考勤组/在职状态域内筛选后多选人员。
 // - 域值选定后可一键「全选该域人员」（并集合并，已全选时再点取消该域全部）；
@@ -57,7 +57,7 @@ const props = withDefaults(
     fetchApi?: (keyword?: string) => Promise<PersonOption[]>
     placeholder?: string
   }>(),
-  { fetchApi: getAllPersons, placeholder: '' },
+  { fetchApi: getPersonOptions, placeholder: '' },
 )
 
 const emit = defineEmits<{ (e: 'update:modelValue', v: number[]): void }>()

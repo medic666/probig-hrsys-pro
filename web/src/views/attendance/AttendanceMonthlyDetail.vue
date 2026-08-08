@@ -6,7 +6,7 @@
           <AttendanceCalcDescriptions :calc="row" :show-status="true" :status="row?.status" :show-calc-at="true" empty-text="当月无核算记录" />
         </div>
       </el-tab-pane>
-      <el-tab-pane label="全链路追溯" name="trace">
+      <el-tab-pane v-if="permissionStore.hasPermission(PERM.attendanceEventRead) && permissionStore.hasPermission(PERM.attendanceDailyRead)" label="全链路追溯" name="trace">
         <div v-if="!traceData" v-loading="traceLoading" class="detail-wrap" />
         <el-tabs v-else v-model="traceTab">
           <el-tab-pane label="考勤核算" name="calc">
@@ -45,8 +45,11 @@ import BusinessPage from '@/components/BusinessPage.vue'
 import AttendanceCalcDescriptions from '@/components/attendance/AttendanceCalcDescriptions.vue'
 import { getMonthlyList, getDailyProjections, getAttendanceEvents } from '@/api/attendance'
 import { hoursToDays } from '@/utils'
+import { PERM } from '@/constants/permission'
+import { usePermissionStore } from '@/stores/permission'
 
 const route = useRoute()
+const permissionStore = usePermissionStore()
 const personId = Number(route.params.personId)
 const month = String(route.params.month)
 const personName = String(route.query.name || '')

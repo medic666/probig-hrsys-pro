@@ -129,20 +129,69 @@ func TestScopeCarryoverDenied(t *testing.T) {
 	})
 }
 
-// TestScopeCreateUserValidation 数据范围为「仅自己」时必须关联人员
-func TestScopeCreateUserValidation(t *testing.T) {
+// TestScopeOwnWithoutPerson 仅自己角色但用户未关联人员 → 查询空过滤、写操作拒绝
+func TestScopeOwnWithoutPerson(t *testing.T) {
 	withSalaryDB(t, func(db *gorm.DB) {
-		db.AutoMigrate(&model.User{})
-		if _, err := CreateUser(context.Background(), CreateUserReq{
-			Username: "u1", Password: "x", DataScope: dao.DataScopeOwn,
-		}); err == nil {
-			t.Error("own scope without person should be rejected")
+		db.AutoMigrate(&model.Person{})
+		seedPerson(t, db, 90, "张三")
+		seedPerson(t, db, 91, "李四")
+		seedSalaryEvent(db, 91, "2026-06", "提成", 200)
+
+		// own 范围但未关联人员（PersonID nil）
+		ctx := context.Background()
+		info := dao.ScopeInfo{UserID: 2, DataScope: dao.DataScopeOwn}
+		ctx = dao.WithScopeInfo(ctx, info)
+
+		// 列表：空过滤（防漏成全量）
+		_, total, err := GetSalaryEventList(ctx, SalaryEventListQuery{PageNum: 1, PageSize: 10})
+		if err != nil || total != 0 {
+			t.Fatalf("own without person should see nothing, total=%d err=%v", total, err)
 		}
-		pid := uint(90)
-		if _, err := CreateUser(context.Background(), CreateUserReq{
-			Username: "u2", Password: "x", DataScope: dao.DataScopeOwn, PersonID: &pid,
-		}); err != nil {
-			t.Errorf("own scope with person should pass, got %v", err)
+
+		// 写操作：拒绝
+		var ev model.SalaryEvent
+		db.Where("person_id = ?", 91).First(&ev)
+		if err := DeleteSalaryEvent(ctx, ev.ID); err == nil {
+			t.Error("write without person should be denied")
+		}
+
+		// 批量核算：无可操作对象
+		if _, _, _, err := CalculateMonthlyBatch(ctx, "2026-06", []uint{91}); err == nil {
+			// 无 person 时 ScopePersonIDs 返回空 → 无核算；结果三态均为 0 属正常
+			t.Log("batch calc with empty scope OK (no-op)")
+		}
+	})
+}
+
+// TestGetUserEffectiveScope 有效数据范围 = 角色范围并集（最宽优先）
+func TestGetUserEffectiveScope(t *testing.T) {
+	withSalaryDB(t, func(db *gorm.DB) {
+		db.AutoMigrate(&model.Role{}, &model.UserRole{})
+		ownRole := model.Role{Name: "own-role", DataScope: dao.DataScopeOwn}
+		allRole := model.Role{Name: "all-role", DataScope: dao.DataScopeAll}
+		if err := db.Create(&ownRole).Error; err != nil {
+			t.Fatalf("seed own role: %v", err)
+		}
+		if err := db.Create(&allRole).Error; err != nil {
+			t.Fatalf("seed all role: %v", err)
+		}
+
+		// 仅 own 角色 → own
+		db.Create(&model.UserRole{UserID: 3, RoleID: ownRole.ID})
+		if got := GetUserEffectiveScope(3); got != dao.DataScopeOwn {
+			t.Errorf("only own role: got %s, want own", got)
+		}
+
+		// own + all 角色 → all（并集最宽优先）
+		db.Create(&model.UserRole{UserID: 4, RoleID: ownRole.ID})
+		db.Create(&model.UserRole{UserID: 4, RoleID: allRole.ID})
+		if got := GetUserEffectiveScope(4); got != dao.DataScopeAll {
+			t.Errorf("own+all roles: got %s, want all", got)
+		}
+
+		// 无角色 → all
+		if got := GetUserEffectiveScope(5); got != dao.DataScopeAll {
+			t.Errorf("no roles: got %s, want all", got)
 		}
 	})
 }

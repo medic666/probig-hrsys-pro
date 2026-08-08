@@ -31,7 +31,7 @@ func AuthLogin(c *gin.Context) {
 
 	utils.Success(c, gin.H{
 		"token":          token,
-		"user":           gin.H{"id": user.ID, "username": user.Username, "name": user.Username, "data_scope": user.DataScope},
+		"user":           gin.H{"id": user.ID, "username": user.Username, "name": user.Username},
 		"is_first_login": user.IsFirstLogin,
 		"permissions":    perms,
 		"menus":          menus,
@@ -79,7 +79,7 @@ func AuthMe(c *gin.Context) {
 	perms, menus, _ := service.GetUserPermissions(userID)
 
 	utils.Success(c, gin.H{
-		"user":           gin.H{"id": user.ID, "username": user.Username, "name": user.Username, "data_scope": user.DataScope},
+		"user":           gin.H{"id": user.ID, "username": user.Username, "name": user.Username},
 		"is_first_login": user.IsFirstLogin,
 		"permissions":    perms,
 		"menus":          menus,

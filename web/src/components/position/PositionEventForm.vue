@@ -139,7 +139,7 @@ import { ElMessage } from 'element-plus'
 import NameSelect from '@/components/NameSelect.vue'
 import PersonDomainSelect from '@/components/PersonDomainSelect.vue'
 import { createPositionEvent, updatePositionEvent, getPositionEvent } from '@/api/position-event'
-import { getAllCompanies } from '@/api/company'
+import { getCompanyOptions } from '@/api/reference'
 import { PERM } from '@/constants/permission'
 
 // 新增=编辑=查看统一表单：event 为 null 或 {id} 缺失 → 新增；{id} → 编辑（打开即回显全部原值）
@@ -253,7 +253,7 @@ const fieldMeta = computed(() => {
 })
 
 onMounted(async () => {
-  companyList.value = (await getAllCompanies()) as { id: number; name: string }[] || []
+  companyList.value = (await getCompanyOptions()) as { id: number; name: string }[] || []
   if (isEdit.value) {
     try {
       // 编辑=查看：取完整事件记录回显全部原值（列表行不含薪资字段）

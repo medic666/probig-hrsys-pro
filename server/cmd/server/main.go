@@ -123,6 +123,10 @@ func initSystem(db *gorm.DB) error {
 
 	dao.RegisterAuditHooks(db)
 
+	if err := service.SyncPermissionRows(db); err != nil {
+		return fmt.Errorf("同步权限定义失败: %w", err)
+	}
+
 	if err := service.SeedDefaultAdmin(db); err != nil {
 		return fmt.Errorf("初始化默认管理员失败: %w", err)
 	}

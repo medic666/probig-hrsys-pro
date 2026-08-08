@@ -25,7 +25,7 @@
   <div class="hint">批量录入 = 同一组事件明细 × 所选人员 × 时间段内每一天，每天新增一条考勤组；当天已有记录将标记为待确认（最新记录优先）。</div>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button v-permission="PERM.attendanceWrite" type="primary" :loading="saving" @click="doSubmit">确定</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="primary" :loading="saving" @click="doSubmit">确定</el-button>
     </div>
 </template>
 

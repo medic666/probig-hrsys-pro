@@ -6,9 +6,9 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button v-permission="PERM.attendanceCalculate" type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
+      <el-button v-permission="PERM.attendanceMonthlyCalculate" type="primary" size="small" @click="handleAction('calc')">批量核算</el-button>
       <template #right>
-        <el-button v-permission="PERM.attendanceExport" size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.attendanceEventExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 

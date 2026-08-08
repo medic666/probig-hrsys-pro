@@ -7,20 +7,20 @@
     </PageHeader>
 
     <PageToolbar :right-visible="isList">
-      <el-button v-permission="PERM.attendanceWrite" type="primary" size="small" @click="handleAction('add')">录入考勤</el-button>
-      <el-button v-permission="PERM.attendanceWrite" type="success" size="small" @click="handleAction('batch')">批量录入</el-button>
-      <el-button v-permission="PERM.attendanceWrite" type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="primary" size="small" @click="handleAction('add')">录入考勤</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="success" size="small" @click="handleAction('batch')">批量录入</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="warning" size="small" @click="handleAction('import')">钉钉导入</el-button>
       <template #right>
-        <el-button v-permission="PERM.attendanceWrite" size="small" @click="handleAction('trash')">回收站</el-button>
-        <el-button v-permission="PERM.attendanceExport" size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.attendanceEventWrite" size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button v-permission="PERM.attendanceEventExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-permission="PERM.attendanceWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button v-permission="PERM.attendanceWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-permission="PERM.attendanceEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button v-permission="PERM.attendanceEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
       </ProTable>

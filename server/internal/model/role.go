@@ -11,6 +11,7 @@ type Role struct {
 	Name      string         `gorm:"type:varchar(64);uniqueIndex;not null" json:"name"`
 	Remark    string         `gorm:"type:varchar(256)" json:"remark"`
 	IsDefault bool           `gorm:"default:false" json:"is_default"`
+	DataScope string         `gorm:"type:varchar(32);default:all" json:"data_scope"` // 角色数据范围：all=全部 / own=仅自己
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`

@@ -32,8 +32,11 @@ export function getDeletedRoles(params: any) {
   return request.get('/roles/trash', { params })
 }
 
-export function assignRolePermissions(id: number, permission_ids: number[]) {
-  return request.post(`/roles/${id}/assign-permissions`, { permission_ids })
+export function assignRolePermissions(id: number, permission_ids: number[], data_scope?: string) {
+  return request.post(`/roles/${id}/assign-permissions`, {
+    permission_ids,
+    ...(data_scope ? { data_scope } : {}),
+  })
 }
 
 export function getRolePermissions(id: number) {

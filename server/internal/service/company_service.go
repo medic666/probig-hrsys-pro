@@ -126,9 +126,18 @@ func GetDeletedCompanies(pageNum, pageSize int) ([]model.Company, int64, error) 
 	return list, total, nil
 }
 
-func GetAllCompanies() ([]model.Company, error) {
-	var list []model.Company
-	if err := dao.DB.Order("name").Find(&list).Error; err != nil {
+// CompanyOption 公司选项（结构授权点契约：仅暴露参考级字段 id/name）
+type CompanyOption struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetAllCompanyOptions 公司选项（结构授权点数据源）：仅返回 {id, name}，
+// 不暴露信用代码/银行等业务信息——安全边界：结构授权点只提供参考级字段。
+// 用 Model 保留软删除自动过滤。
+func GetAllCompanyOptions() ([]CompanyOption, error) {
+	var list []CompanyOption
+	if err := dao.DB.Model(&model.Company{}).Order("name").Scan(&list).Error; err != nil {
 		return nil, err
 	}
 	return list, nil

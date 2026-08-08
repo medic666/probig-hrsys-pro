@@ -11,18 +11,16 @@ import (
 )
 
 type CreateUserReq struct {
-	Username  string `json:"username"`
-	Password  string `json:"password"`
-	PersonID  *uint  `json:"person_id"`
-	DataScope string `json:"data_scope"`
-	IsActive  *bool  `json:"is_active"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	PersonID *uint  `json:"person_id"`
+	IsActive *bool  `json:"is_active"`
 }
 
 type UpdateUserReq struct {
-	Username  *string `json:"username"`
-	PersonID  *uint   `json:"person_id"`
-	DataScope *string `json:"data_scope"`
-	IsActive  *bool   `json:"is_active"`
+	Username *string `json:"username"`
+	PersonID *uint   `json:"person_id"`
+	IsActive *bool   `json:"is_active"`
 }
 
 func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[string]interface{}, int64, error) {
@@ -55,7 +53,6 @@ func GetUserList(pageNum, pageSize int, username string, isActive *bool) ([]map[
 			"id":         user.ID,
 			"username":   user.Username,
 			"person_id":  user.PersonID,
-			"data_scope": user.DataScope,
 			"is_active":  user.IsActive,
 			"created_at": user.CreatedAt,
 		}
@@ -89,18 +86,6 @@ func CreateUser(ctx context.Context, req CreateUserReq) (*model.User, error) {
 		return nil, errors.New("用户名已存在")
 	}
 
-	// 数据范围：own（仅自己）必须关联人员
-	dataScope := dao.DataScopeAll
-	if req.DataScope != "" {
-		dataScope = req.DataScope
-	}
-	if dataScope != dao.DataScopeAll && dataScope != dao.DataScopeOwn {
-		return nil, errors.New("数据范围不合法")
-	}
-	if dataScope == dao.DataScopeOwn && req.PersonID == nil {
-		return nil, errors.New("数据范围为「仅自己」时必须关联人员")
-	}
-
 	hash, err := utils.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
@@ -115,7 +100,6 @@ func CreateUser(ctx context.Context, req CreateUserReq) (*model.User, error) {
 		Username:     req.Username,
 		Password:     hash,
 		PersonID:     req.PersonID,
-		DataScope:    dataScope,
 		IsActive:     active,
 		IsFirstLogin: true,
 	}
@@ -147,22 +131,6 @@ func UpdateUser(ctx context.Context, id uint, req UpdateUserReq) error {
 	}
 	if req.PersonID != nil {
 		updates["person_id"] = req.PersonID
-	}
-	if req.DataScope != nil {
-		if *req.DataScope != dao.DataScopeAll && *req.DataScope != dao.DataScopeOwn {
-			return errors.New("数据范围不合法")
-		}
-		// 改为仅自己时必须已关联人员
-		if *req.DataScope == dao.DataScopeOwn {
-			personID := user.PersonID
-			if req.PersonID != nil {
-				personID = req.PersonID
-			}
-			if personID == nil {
-				return errors.New("数据范围为「仅自己」时必须关联人员")
-			}
-		}
-		updates["data_scope"] = *req.DataScope
 	}
 	if req.IsActive != nil {
 		updates["is_active"] = *req.IsActive

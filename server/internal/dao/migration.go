@@ -2,6 +2,7 @@ package dao
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"probig/server/internal/model"
@@ -35,6 +36,8 @@ var migrations = []Migration{
 	{ID: "20260805_02_attendance_daily_seq", Name: "考勤日记录支持同日多版本(seq)", Func: migrateAttendanceDailySeq},
 	{ID: "20260808_01_permission_actions", Name: "权限动作收敛：删除 delete、新增 calculate、清理无端点动作", Func: migratePermissionActions},
 	{ID: "20260808_02_user_data_scope", Name: "用户数据范围(data_scope)：all=全部 / own=仅自己", Func: migrateUserDataScope},
+	{ID: "20260808_03_permission_modules", Name: "权限模块叶子化：与菜单同构，旧模块权限语义映射迁移", Func: migratePermissionModules},
+	{ID: "20260808_04_role_data_scope", Name: "数据范围迁移至角色级：roles.data_scope，移除 users.data_scope", Func: migrateRoleDataScope},
 }
 
 // RunMigrations 数据库结构迁移：加载已应用集合，按序跳过已应用、执行未应用的迁移并记录。
@@ -167,6 +170,121 @@ func migratePermissionActions(db *gorm.DB) error {
 
 	// ④ 唯一索引兜底
 	return db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_permissions_module_action ON permissions(module, action)").Error
+}
+
+// legacyModuleMap 旧模块 → 新叶子模块映射（迁移语义保留）：
+// 旧模块权限被映射拆分为多个新模块权限，home 无对应（直接清理）
+var legacyModuleMap = map[string][]struct{ Module, Action string }{
+	"attendance": {
+		{"attendance_event", "read"}, {"attendance_daily", "read"}, {"attendance_monthly", "read"},
+		{"attendance_event", "write"}, {"attendance_event", "delete"},
+		{"attendance_event", "export"}, {"attendance_daily", "export"}, {"attendance_monthly", "export"},
+		{"attendance_monthly", "calculate"},
+	},
+	"annual_leave": {
+		{"annual_leave_event", "read"}, {"leave_in_lieu", "read"}, {"annual_leave_carryover", "read"},
+		{"annual_leave_event", "write"}, {"annual_leave_event", "delete"},
+		{"annual_leave_event", "export"}, {"annual_leave_carryover", "calculate"},
+	},
+	"salary": {
+		{"salary_event", "read"}, {"salary_summary", "read"},
+		{"salary_event", "write"}, {"salary_event", "delete"},
+		{"salary_event", "export"}, {"salary_summary", "export"}, {"salary_summary", "calculate"},
+	},
+}
+
+// migratePermissionModules 权限模块叶子化（与菜单同构）：
+// ① 按新 ModuleActions 创建缺失的新模块权限（calculate 等）；
+// ② 旧模块权限（attendance/annual_leave/salary/home）按 legacyModuleMap 映射，
+//
+//	对每个已授权角色补插对应新权限（role+perm 去重）；
+//
+// ③ 删除旧模块权限行及其 role_permissions 关联；admin 角色由启动 seed 全量同步。
+// 幂等：按 (module, action) 判定，可重复执行。
+func migratePermissionModules(db *gorm.DB) error {
+	// ① 先建新模块权限（② 映射依赖其存在）
+	for _, mod := range model.ModuleActions {
+		for _, action := range mod.Actions {
+			var count int64
+			if err := db.Model(&model.Permission{}).Where("module = ? AND action = ?", mod.Module, action).Count(&count).Error; err != nil {
+				return err
+			}
+			if count == 0 {
+				if err := db.Create(&model.Permission{
+					Module: mod.Module, Action: action,
+					Name: mod.Name + model.PermissionActionNames[action],
+				}).Error; err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// ② 旧模块权限语义映射
+	for oldModule, mappings := range legacyModuleMap {
+		var oldPerms []model.Permission
+		if err := db.Where("module = ?", oldModule).Find(&oldPerms).Error; err != nil {
+			return err
+		}
+		for _, old := range oldPerms {
+			var roleIDs []uint
+			if err := db.Table("role_permissions").Where("permission_id = ?", old.ID).Pluck("role_id", &roleIDs).Error; err != nil {
+				return err
+			}
+			for _, m := range mappings {
+				if m.Action != old.Action {
+					continue // 仅同动作映射（write/delete 同属编辑，delete 已在 01 迁移清理）
+				}
+				var newPerm model.Permission
+				if err := db.Where("module = ? AND action = ?", m.Module, m.Action).First(&newPerm).Error; err != nil {
+					continue // 新权限尚未创建，① 步骤已兜底
+				}
+				for _, rid := range roleIDs {
+					var cnt int64
+					db.Model(&model.RolePermission{}).
+						Where("role_id = ? AND permission_id = ?", rid, newPerm.ID).Count(&cnt)
+					if cnt == 0 {
+						if err := db.Create(&model.RolePermission{RoleID: rid, PermissionID: newPerm.ID}).Error; err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// ③ 删除旧模块权限（含 home）及其关联
+	var oldPerms []model.Permission
+	if err := db.Where("module IN ?", []string{"attendance", "annual_leave", "salary", "home"}).Find(&oldPerms).Error; err != nil {
+		return err
+	}
+	for _, p := range oldPerms {
+		if err := db.Where("permission_id = ?", p.ID).Delete(&model.RolePermission{}).Error; err != nil {
+			return err
+		}
+	}
+	if err := db.Where("module IN ?", []string{"attendance", "annual_leave", "salary", "home"}).Delete(&model.Permission{}).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// migrateRoleDataScope 数据范围迁移至角色级：
+// roles 加 data_scope（回填 all）；移除 users.data_scope 列（SQLite 3.35+ DROP COLUMN，
+// 已不存在时幂等忽略）。
+func migrateRoleDataScope(db *gorm.DB) error {
+	if err := db.AutoMigrate(&model.Role{}, &model.User{}); err != nil {
+		return err
+	}
+	if err := db.Exec("UPDATE roles SET data_scope = 'all' WHERE data_scope = '' OR data_scope IS NULL").Error; err != nil {
+		return err
+	}
+	if err := db.Exec("ALTER TABLE users DROP COLUMN data_scope").Error; err != nil {
+		if !strings.Contains(err.Error(), "no such column") {
+			return err
+		}
+	}
+	return nil
 }
 
 // migrateUserDataScope 用户数据范围列：新增 data_scope（默认 all），存量回填。

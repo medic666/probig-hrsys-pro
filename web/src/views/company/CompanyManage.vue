@@ -44,10 +44,11 @@ import CardGrid from '@/components/cards/CardGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import PageToolbar from '@/components/PageToolbar.vue'
-import { getCompanies, deleteCompany, restoreCompany, getDeletedCompanies, getAllCompanies, exportCompanies } from '@/api/company'
+import { getCompanies, deleteCompany, restoreCompany, getDeletedCompanies, exportCompanies } from '@/api/company'
 
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
+import { getCompanyOptions } from '@/api/reference'
 import { PERM } from '@/constants/permission'
 
 const router = useRouter()
@@ -71,7 +72,7 @@ const searchFields = [
 ]
 
 async function fetchCompanyOptions(k?: string) {
-  const list = (await getAllCompanies()) as { id: number; name: string }[] || []
+  const list = (await getCompanyOptions()) as { id: number; name: string }[] || []
   return k ? list.filter(c => c.name.includes(k)) : list
 }
 

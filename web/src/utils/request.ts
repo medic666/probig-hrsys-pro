@@ -1,7 +1,6 @@
 import axios, { type AxiosInstance } from 'axios'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
-import router from '@/router'
 
 const instance: AxiosInstance = axios.create({
   baseURL: '/api',
@@ -52,7 +51,8 @@ instance.interceptors.response.use(
       if (status === 401) {
         const userStore = useUserStore()
         userStore.clearUser()
-        router.push('/login')
+        // 动态导入打破与路由模块的静态循环依赖（仅 401 跳转时触发）
+        import('@/router').then(({ default: router }) => router.push('/login'))
         ElMessage.error('登录已过期，请重新登录')
       } else if (status === 403) {
         ElMessage.error('无操作权限')

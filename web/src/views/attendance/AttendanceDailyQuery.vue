@@ -7,7 +7,7 @@
     </PageHeader>
     <PageToolbar :right-visible="isList">
       <template #right>
-        <el-button v-permission="PERM.attendanceExport" size="small" @click="handleExport">导出</el-button>
+        <el-button v-permission="PERM.attendanceEventExport" size="small" @click="handleExport">导出</el-button>
       </template>
     </PageToolbar>
 

@@ -7,7 +7,7 @@
     </PageHeader>
 
     <PageToolbar>
-      <el-button v-permission="PERM.attendanceWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
+      <el-button v-permission="PERM.attendanceEventWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">

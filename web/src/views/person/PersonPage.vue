@@ -53,7 +53,7 @@
             </el-table>
           </el-tab-pane>
 
-          <el-tab-pane label="职务信息" name="position">
+          <el-tab-pane v-if="permissionStore.hasPermission(PERM.positionEventRead)" label="职务信息" name="position">
             <div v-if="positionLoading" v-loading="positionLoading" style="min-height:100px" />
             <template v-else>
               <h4>当前职务</h4>
@@ -96,11 +96,11 @@
             </template>
           </el-tab-pane>
 
-          <el-tab-pane label="假期余额" name="leave-balance">
+          <el-tab-pane v-if="permissionStore.hasPermission(PERM.annualLeaveEventRead)" label="假期余额" name="leave-balance">
             <LeaveBalanceDetail :person-id="personId" />
           </el-tab-pane>
 
-          <el-tab-pane label="附件" name="files">
+          <el-tab-pane v-if="permissionStore.hasPermission(PERM.fileRead)" label="附件" name="files">
             <FileAttachPanel target-type="person" :target-id="personId" />
           </el-tab-pane>
         </el-tabs>
@@ -122,9 +122,11 @@ import { getPerson } from '@/api/person'
 import { getCurrentPosition } from '@/api/position-snapshot'
 import { getPositionEvents, deletePositionEvent } from '@/api/position-event'
 import { PERM } from '@/constants/permission'
+import { usePermissionStore } from '@/stores/permission'
 import { useBusinessPage } from '@/composables/useBusinessPage'
 
 const router = useRouter()
+const permissionStore = usePermissionStore()
 const { id: personId, isCreate, goBack } = useBusinessPage()
 
 const genderMap: Record<number, string> = { 1: '男', 2: '女' }

@@ -6,18 +6,18 @@
       </template>
     </PageHeader>
     <PageToolbar :right-visible="isList">
-      <el-button v-permission="PERM.annualLeaveWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
+      <el-button v-permission="PERM.annualLeaveEventWrite" type="primary" size="small" @click="handleAction('add')">新增</el-button>
       <template #right>
-        <el-button v-permission="PERM.annualLeaveWrite" size="small" @click="handleAction('trash')">回收站</el-button>
-        <el-button v-permission="PERM.annualLeaveExport" size="small" @click="handleAction('export')">导出</el-button>
+        <el-button v-permission="PERM.annualLeaveEventWrite" size="small" @click="handleAction('trash')">回收站</el-button>
+        <el-button v-permission="PERM.annualLeaveEventExport" size="small" @click="handleAction('export')">导出</el-button>
       </template>
     </PageToolbar>
 
     <template v-if="viewMode === 'list'">
       <ProTable ref="tableRef" :url-driven="true" :columns="columns" :fetch-api="fetchEvents" :search-fields="searchFields">
         <template #actions="{ row }">
-          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
+          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveEventWrite" type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
+          <el-button v-if="row.source_type === 'manual'" v-permission="PERM.annualLeaveEventWrite" type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           <el-button v-if="row.source_type === 'attendance'" type="primary" link size="small" @click="handleEdit(row)">查看</el-button>
           <el-button v-permission="PERM.fileRead" type="warning" link size="small" @click="attachFileId=row.id;attachVisible=true">附件</el-button>
         </template>
@@ -66,6 +66,7 @@ import PageToolbar from '@/components/PageToolbar.vue'
 import ViewModeSwitch from '@/components/ViewModeSwitch.vue'
 import { getAnnualLeaveEvents, getAnnualLeaveEventBadges, deleteAnnualLeaveEvent, restoreAnnualLeaveEvent, getDeletedAnnualLeaveEvents, exportAnnualLeaveEvents } from '@/api/annual-leave'
 import { hoursToDays } from '@/utils'
+import { annualLeaveTypeText } from '@/constants/annual-leave'
 
 import { usePageView } from '@/composables/usePageView'
 import { useExport } from '@/composables/useExport'
@@ -84,7 +85,7 @@ const { dotMap, balanceMap, loadDots, loadBalances } = useBadges()
 
 const columns = [
   { prop:'person_name', label:'人员', width:'80' },
-  { prop:'event_type', label:'类型', width:'130' },
+  { prop:'event_type', label:'类型', width:'130', formatter:(r:any)=>annualLeaveTypeText(r.event_type) },
   { prop:'hours', label:'变动时长(天)', width:'100', formatter:(r:any)=>hoursToDays(r.hours).toFixed(2) },
   { prop:'source_type', label:'来源', width:'110', formatter:(r:any)=>({manual:'人工录入',system_period:'系统周期',attendance:'考勤休假'}[r.source_type]||r.source_type) },
   { prop:'effective_date', label:'生效日期', width:'110' },
@@ -94,7 +95,7 @@ const searchFields = [
   { prop:'person_id', label:'人员', type:'person-select' as const },
   { prop:'date', label:'时间范围', type:'date-range' as const, startKey: 'date_start', endKey: 'date_end' },
 ]
-const tc = [{ prop:'event_type', label:'类型' },{ prop:'effective_date', label:'生效日期' }]
+const tc = [{ prop:'event_type', label:'类型', formatter:(r:any)=>annualLeaveTypeText(r.event_type) },{ prop:'effective_date', label:'生效日期' }]
 
 async function fetchEvents(p:any){ return (await getAnnualLeaveEvents(p)) as any }
 const { run: handleExport } = useExport(exportAnnualLeaveEvents, () => tableRef.value?.getSearchParams() || {})

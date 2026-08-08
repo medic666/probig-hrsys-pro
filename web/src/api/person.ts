@@ -1,35 +1,10 @@
 import request from '@/utils/request'
 
-// PersonOption 人员选项：基础信息 + 当前快照段域字段（公司/考勤组/在职状态），
-// 供人员选择组件（全体/公司/考勤组/在职状态多域筛选）与 NameSelect 共用
-export interface PersonOption {
-  id: number
-  name: string
-  company_id?: number
-  company_name?: string
-  attendance_group?: string
-  is_active?: boolean
-  entry_date?: string | null
-  leave_date?: string | null
-}
+// 人员模块业务端点（需 person.read/write/export 权限）。
+// 结构授权点调用（人员选项/卡片）见 api/reference.ts。
 
 export function getPersons(params: any) {
   return request.get('/persons', { params })
-}
-
-export function getAllPersons(): Promise<PersonOption[]> {
-  return request.get('/persons/all') as Promise<PersonOption[]>
-}
-
-// searchPersonOptions 人员名称模糊搜索：姓名选择组件（NameSelect/ProTable person-select）统一默认数据源
-export async function searchPersonOptions(keyword?: string): Promise<PersonOption[]> {
-  const list = (await getAllPersons()) || []
-  if (!keyword) return list
-  return list.filter((p) => p.name.includes(keyword))
-}
-
-export function getPersonCards() {
-  return request.get('/persons/cards')
 }
 
 export function getPerson(id: number) {

@@ -19,14 +19,38 @@ ref="tableRef"
       </template>
     </ProTable>
 
-    <el-dialog v-model="permDialogVisible" title="权限分配" width="500px">
-      <el-tree
-        ref="treeRef"
-        :data="permTree"
-        show-checkbox
-        node-key="id"
-        default-expand-all
-      />
+    <el-dialog v-model="permDialogVisible" title="权限分配" width="640px">
+      <el-form label-width="80px">
+        <el-form-item label="数据范围">
+          <el-radio-group v-model="permDataScope" size="small">
+            <el-radio-button value="all">全部</el-radio-button>
+            <el-radio-button value="own">仅自己</el-radio-button>
+          </el-radio-group>
+          <span class="scope-hint">「仅自己」时用户只能交互本人关联人员的数据</span>
+        </el-form-item>
+      </el-form>
+      <el-table :data="permModules" border size="small" max-height="420">
+        <el-table-column prop="name" label="模块" min-width="140" />
+        <el-table-column v-for="a in permActionColumns" :key="a.action" :label="a.label" width="70" align="center">
+          <template #default="{ row }">
+            <el-checkbox
+              v-if="permOf(row, a.action)"
+              :model-value="isPermChecked(permOf(row, a.action)!.id)"
+              @change="(v: any) => togglePerm(permOf(row, a.action)!.id, !!v)"
+            />
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="全选" width="70" align="center">
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="isModuleAllChecked(row)"
+              :indeterminate="isModulePartialChecked(row)"
+              @change="(v: any) => toggleModule(row, !!v)"
+            />
+          </template>
+        </el-table-column>
+      </el-table>
       <template #footer>
         <el-button @click="permDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="permSaving" @click="savePerms">确定</el-button>
@@ -44,7 +68,7 @@ ref="tableRef"
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable.vue'
@@ -62,16 +86,54 @@ import { PERM } from '@/constants/permission'
 
 const router = useRouter()
 const tableRef = ref()
-const treeRef = ref()
 const trashVisible = ref(false)
 const permDialogVisible = ref(false)
 const permSaving = ref(false)
-const permTree = ref<any[]>([])
+const permModules = ref<any[]>([])
+const permDataScope = ref('all')
 const currentRoleID = ref(0)
+const checkedPermIDs = ref<Set<number>>(new Set())
+
+// 动作列固定顺序（与后端 PermissionActionNames 对齐：查看/编辑/核算/导出）
+const permActionColumns = [
+  { action: 'read', label: '查看' },
+  { action: 'write', label: '编辑' },
+  { action: 'calculate', label: '核算' },
+  { action: 'export', label: '导出' },
+]
+
+function permOf(module: any, action: string) {
+  return module.actions.find((p: any) => p.key.endsWith('.' + action))
+}
+function isPermChecked(id: number) {
+  return checkedPermIDs.value.has(id)
+}
+function togglePerm(id: number, checked: boolean) {
+  const next = new Set(checkedPermIDs.value)
+  if (checked) next.add(id)
+  else next.delete(id)
+  checkedPermIDs.value = next
+}
+function isModuleAllChecked(module: any) {
+  return module.actions.every((p: any) => checkedPermIDs.value.has(p.id))
+}
+function isModulePartialChecked(module: any) {
+  const checked = module.actions.filter((p: any) => checkedPermIDs.value.has(p.id)).length
+  return checked > 0 && checked < module.actions.length
+}
+function toggleModule(module: any, checked: boolean) {
+  const next = new Set(checkedPermIDs.value)
+  for (const p of module.actions) {
+    if (checked) next.add(p.id)
+    else next.delete(p.id)
+  }
+  checkedPermIDs.value = next
+}
 
 const columns = [
   { prop: 'id', label: 'ID', width: '70' },
   { prop: 'name', label: '角色名称', width: '180' },
+  { prop: 'data_scope', label: '数据范围', width: '100', formatter: (row: any) => (row.data_scope === 'own' ? '仅自己' : '全部') },
   { prop: 'remark', label: '备注' },
   { prop: 'is_default', label: '默认', width: '80', formatter: (row: any) => (row.is_default ? '是' : '否') },
   { prop: 'created_at', label: '创建时间', width: '160', formatter: (row: any) => new Date(row.created_at).toLocaleString('zh-CN') },
@@ -114,28 +176,21 @@ function handleEdit(row: any) {
 
 async function handleAssignPerms(row: any) {
   currentRoleID.value = row.id
+  permDataScope.value = row.data_scope === 'own' ? 'own' : 'all'
   permDialogVisible.value = true
   try {
     const perms = (await getPermissions()) as any
     const ids = (await getRolePermissions(row.id)) as number[]
-
-    const tree: any[] = []
-    for (const [module, actions] of Object.entries(perms)) {
-      const children = (actions as any[]).map((p: any) => ({ id: p.id, label: p.name }))
-      tree.push({ id: 'm_' + module, label: module, children })
-    }
-
-    permTree.value = tree
-    await nextTick()
-    treeRef.value?.setCheckedKeys(ids)
+    permModules.value = perms || []
+    checkedPermIDs.value = new Set(ids)
   } catch { permDialogVisible.value = false }
 }
 
 async function savePerms() {
-    const checked = (treeRef.value?.getCheckedKeys(true) || []) as number[]
+  const checked = Array.from(checkedPermIDs.value)
   permSaving.value = true
   try {
-    await assignRolePermissions(currentRoleID.value, checked)
+    await assignRolePermissions(currentRoleID.value, checked, permDataScope.value)
     ElMessage.success('权限分配成功')
     permDialogVisible.value = false
     tableRef.value?.refresh()
@@ -170,5 +225,10 @@ function onTrashRestored() {
 .page-header {
   margin-bottom: 16px;
   h2 { font-size: 18px; font-weight: 600; color: #303133; }
+}
+.scope-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

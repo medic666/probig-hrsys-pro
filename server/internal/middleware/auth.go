@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"strings"
+	"sync"
 
 	"probig/server/internal/dao"
 	"probig/server/internal/model"
@@ -10,6 +11,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// 权限键注册表：RequirePermission 构造时登记，供一致性测试断言
+// （路由使用的权限键必须全部定义于 model.ModuleActions）
+var registeredPermKeys sync.Map
+
+// RegisteredPermissionKeys 返回全部已登记权限键（一致性测试用）
+func RegisteredPermissionKeys() []string {
+	var keys []string
+	registeredPermKeys.Range(func(k, _ any) bool {
+		keys = append(keys, k.(string))
+		return true
+	})
+	return keys
+}
 
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -48,8 +63,8 @@ func AuthRequired() gin.HandlerFunc {
 
 		info := dao.AuditInfo{OperatorID: user.ID, OperatorName: user.Username, IP: c.ClientIP()}
 		c.Request = c.Request.WithContext(dao.WithAuditContext(c.Request.Context(), info))
-		// 数据范围上下文：人员维度权限（own 时按关联人员过滤/校验）
-		scope := dao.ScopeInfo{UserID: user.ID, DataScope: user.DataScope, PersonID: user.PersonID}
+		// 数据范围上下文：由角色范围并集派生（用户级不再配置）
+		scope := dao.ScopeInfo{UserID: user.ID, DataScope: service.GetUserEffectiveScope(user.ID), PersonID: user.PersonID}
 		c.Request = c.Request.WithContext(dao.WithScopeInfo(c.Request.Context(), scope))
 		c.Set("userID", user.ID)
 		c.Set("username", user.Username)
@@ -65,7 +80,15 @@ func AuthRequired() gin.HandlerFunc {
 	}
 }
 
+// StructureOnly 结构授权点：跨模块「人员×时间」主轴底座数据（人员选项/卡片、公司选项等），
+// 仅需认证即可访问，不参与模块×动作授权（与 RequirePermission 并列构成端点授权二元分类）。
+// 业务端点必须使用 RequirePermission；结构授权点清单见 model.ReferenceEndpoints。
+func StructureOnly() gin.HandlerFunc {
+	return AuthRequired()
+}
+
 func RequirePermission(permKey string) gin.HandlerFunc {
+	registeredPermKeys.Store(permKey, true)
 	return func(c *gin.Context) {
 		userID, exists := c.Get("userID")
 		if !exists {

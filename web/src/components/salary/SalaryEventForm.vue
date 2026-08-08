@@ -20,7 +20,7 @@
     </el-form-item>
     <div class="form-footer">
       <el-button @click="$emit('cancel')">取消</el-button>
-      <el-button v-permission="PERM.salaryWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
+      <el-button v-permission="PERM.salaryEventWrite" type="primary" :loading="saving" @click="doSave">确定</el-button>
     </div>
   </el-form>
 </template>

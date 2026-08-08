@@ -102,13 +102,23 @@ func GetDeletedRoleList(pageNum, pageSize int) ([]model.Role, int64, error) {
 	return roles, total, nil
 }
 
-func AssignRolePermissions(ctx context.Context, roleID uint, permIDs []uint) error {
+// AssignRolePermissions 角色权限分配：默认角色拒绝；dataScope 非空时同步保存角色数据范围
+// （数据范围与权限在角色上统一配置）
+func AssignRolePermissions(ctx context.Context, roleID uint, permIDs []uint, dataScope string) error {
 	var role model.Role
 	if err := dao.DB.First(&role, roleID).Error; err != nil {
 		return errors.New("角色不存在")
 	}
 	if role.IsDefault {
 		return errors.New("默认角色不可修改权限")
+	}
+	if dataScope != "" {
+		if dataScope != dao.DataScopeAll && dataScope != dao.DataScopeOwn {
+			return errors.New("数据范围不合法")
+		}
+		if err := dao.DBFromContext(ctx).Model(&role).Update("data_scope", dataScope).Error; err != nil {
+			return err
+		}
 	}
 
 	dao.DBFromContext(ctx).Where("role_id = ?", roleID).Delete(&model.RolePermission{})

@@ -139,14 +139,10 @@ func ExportCompanies(c *gin.Context) {
 }
 
 func GetAllCompaniesList(c *gin.Context) {
-	list, err := service.GetAllCompanies()
+	list, err := service.GetAllCompanyOptions()
 	if err != nil {
 		utils.Error(c, err.Error())
 		return
 	}
-	var opts []gin.H
-	for _, co := range list {
-		opts = append(opts, gin.H{"id": co.ID, "name": co.Name})
-	}
-	utils.Success(c, opts)
+	utils.Success(c, list)
 }

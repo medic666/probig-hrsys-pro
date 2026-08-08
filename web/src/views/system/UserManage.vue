@@ -76,7 +76,6 @@ const columns = [
   { prop: 'id', label: 'ID', width: '70' },
   { prop: 'username', label: '用户名', width: '150' },
   { prop: 'person_name', label: '关联人员', width: '120' },
-  { prop: 'data_scope', label: '数据范围', width: '90', formatter: (row: any) => (row.data_scope === 'own' ? '仅自己' : '全部') },
   { prop: 'roles', label: '角色', formatter: (row: any) => (row.roles || []).join(', ') },
   { prop: 'is_active', label: '状态', width: '80', formatter: (row: any) => (row.is_active ? '启用' : '禁用') },
   { prop: 'created_at', label: '创建时间', width: '160', formatter: (row: any) => new Date(row.created_at).toLocaleString('zh-CN') },
